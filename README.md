@@ -90,4 +90,4 @@ src/
 
 - **Aesthetic**: Black & white minimal
 - **Navigation**: Hamburger menu (top-left) with full-screen modules
-- **Mobile-first**: Optimized for thumb reach, 44px touch targets
+- **Mobile-first**: Optimized for thumb reach, 44px touch targets# Villcan-
