@@ -1,0 +1,9 @@
+id,name,price,is_active
+barba,Barba,30000,true
+combo_cbc,"Combo c,b,c",70000,true
+corte_clasico,Corte clasico,40000,true
+corte_clásico_y_barba,Corte clásico y barba,60000,true
+corte_nino,Corte niño,35000,true
+corte_y_barba,Corte y barba,60000,true
+corte_y_ceja,Corte y ceja,55000,true
+degradado,Degradado,45000,true

@@ -1,0 +1,12 @@
+id,name,price,is_active
+8b3eb052-313c-5bd1-a6bb-4106ed0592af,Barba,30000,true
+d331d713-4c91-5292-85ae-67045468c884,"Combo c,b,c",70000,true
+6f412445-130a-5474-b4ce-f30526a95c2c,Corte clasico,40000,true
+31a98e0e-831d-5029-9d8f-4c851e3634a2,Corte niño,35000,true
+b4af6236-368c-5f96-a685-e8faf26e5144,Degradado,45000,true
+0c847f60-a5de-5e29-9a53-45bf494f63cc,combo_cbc,70000,true
+910784b4-4669-5b74-bbb2-997a4d659b45,corte_clasico,40000,true
+a2e7daba-53c1-5fc2-abfe-913f95a60e01,corte_clásico_y_barba,70000,true
+4410801d-a633-524a-8dfa-0df5e44049d6,corte_nino,35000,true
+cb0e9128-f2f4-5d0f-9d6e-8c902c59fc83,corte_y_barba,75000,true
+b60dfcdf-535c-5708-82ae-cca74449a66b,corte_y_ceja,55000,true

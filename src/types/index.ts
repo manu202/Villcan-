@@ -1,0 +1,78 @@
+// Database types for Villcan - matches Supabase schema
+
+export type UserRole = 'admin' | 'barber';
+
+export type PaymentMethod = 'efectivo' | 'transferencia' | 'pos';
+
+export type MovementType = 'servicio' | 'gasto' | 'apertura' | 'cierre';
+
+export interface Profile {
+  id: string;
+  email: string;
+  full_name: string;
+  role: UserRole;
+  created_at: string;
+}
+
+export interface Service {
+  id: string;
+  name: string;
+  price: number; // stored as integer (guaranies)
+  created_at: string;
+  is_active: boolean;
+}
+
+export interface Contact {
+  id: string;
+  full_name: string;
+  ci: string | null;
+  phone: string | null;
+  comment: string | null;
+  created_at: string;
+}
+
+export interface Movement {
+  id: string;
+  type: MovementType;
+  amount_charged: number | null; // price of service (only for tipo=servicio)
+  income: number; // money coming in
+  expense: number; // money going out (change given, expenses, etc.)
+  payment_method: PaymentMethod | null; // only for tipo=servicio
+  contact_id: string | null;
+  service_id: string | null;
+  user_id: string;
+  comment: string | null;
+  created_at: string;
+}
+
+// Extended types for UI (joined data)
+export interface MovementWithDetails extends Movement {
+  contact?: Contact;
+  service?: Service;
+  user?: Profile;
+}
+
+// Form data for creating movements
+export interface MovementFormData {
+  type: MovementType;
+  amount_charged?: number;
+  income: number;
+  expense: number;
+  payment_method?: PaymentMethod;
+  contact_id?: string;
+  service_id?: string;
+  comment?: string;
+}
+
+// KPI data structure
+export interface CashBoxKPIs {
+  totalIncome: number;
+  incomeByMethod: {
+    efectivo: number;
+    transferencia: number;
+    pos: number;
+  };
+  totalExpenses: number; // gastos only (not service change)
+  balanceEfectivo: number;
+  balanceGlobal: number;
+}
