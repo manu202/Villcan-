@@ -23,6 +23,9 @@ export function HamburgerMenu() {
   const [isOpen, setIsOpen] = useState(false);
   const pathname = usePathname();
 
+  // Don't render on login page
+  if (pathname === '/login') return null;
+
   const closeMenu = useCallback(() => setIsOpen(false), []);
 
   // Manage body overflow when menu is open (client-side only)

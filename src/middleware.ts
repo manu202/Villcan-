@@ -6,11 +6,11 @@ export async function middleware(request: NextRequest) {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
-  // If no credentials, continue without auth
+  // If no credentials, redirect to /login (don't allow open access)
   if (!supabaseUrl || !supabaseAnonKey ||
       supabaseUrl.includes('placeholder') ||
       supabaseAnonKey === 'placeholder-key') {
-    return NextResponse.next({ request });
+    return NextResponse.redirect(new URL('/login', request.url));
   }
 
   let supabaseResponse = NextResponse.next({
