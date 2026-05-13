@@ -33,24 +33,35 @@ export default function HomePage() {
         .lt('created_at', endOfDay.toISOString());
 
       if (serviceMovements) {
-        const efectivoNet = serviceMovements
+        // Efectivo: sum of ALL money received (full bills). The expense/vuelto is NOT
+        // subtracted from balance because it already passed through the cash box.
+        // The net effect on cash is: we receive X, we return Y as change, net = X - Y
+        // But for the BALANCE IN THE BOX we track the flow: cash in = income, cash out = gastos
+        const efectivo = serviceMovements
           .filter(m => m.payment_method === 'efectivo')
-          .reduce((sum, m) => sum + ((m.income || 0) - (m.expense || 0)), 0);
+          .reduce((sum, m) => sum + (m.income || 0), 0);
         const transferencia = serviceMovements
           .filter(m => m.payment_method === 'transferencia')
           .reduce((sum, m) => sum + (m.income || 0), 0);
         const pos = serviceMovements
           .filter(m => m.payment_method === 'pos')
           .reduce((sum, m) => sum + (m.income || 0), 0);
-        const totalIncome = efectivoNet + transferencia + pos;
+        // Total "gross" income (before subtracting expenses)
+        const totalIncome = efectivo + transferencia + pos;
+        // Only gastos (real expenses, not service change/vuelto) reduce balance
         const totalExpenses = (expenseMovements || []).reduce((sum, m) => sum + (m.expense || 0), 0);
+        // Balance = all cash received - real expenses (gastos only)
+        // Note: efectivo IS income (full bills), so balanceGlobal includes full efectivo
+        const balanceGlobal = efectivo + transferencia + pos - totalExpenses;
+        // Efectivo balance = efectivo cash received - real cash expenses
+        const balanceEfectivo = efectivo - totalExpenses;
 
         setKpis({
           totalIncome,
-          incomeByMethod: { efectivo: efectivoNet, transferencia, pos },
+          incomeByMethod: { efectivo, transferencia, pos },
           totalExpenses,
-          balanceEfectivo: efectivoNet - totalExpenses,
-          balanceGlobal: totalIncome - totalExpenses,
+          balanceEfectivo,
+          balanceGlobal,
         });
       }
 

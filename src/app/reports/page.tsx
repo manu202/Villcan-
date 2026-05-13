@@ -122,7 +122,8 @@ export default function ReportsPage() {
       .map(([name, agg]) => ({ name, count: agg.count, total: agg.total }))
       .sort((a, b) => b.total - a.total);
 
-    // Aggregate by payment method
+    // Aggregate by payment method (for INCOME BY METHOD breakdown)
+    // This uses FULL income received (efectivo full payment), not amount_charged
     const methodAgg: Record<string, number> = {};
     let totalByMethod = 0;
 
@@ -130,10 +131,8 @@ export default function ReportsPage() {
       for (const m of methodData) {
         const method = m.payment_method || 'sin método';
         if (!methodAgg[method]) methodAgg[method] = 0;
-        // For efectivo, net = income - expense; for others, use income directly
-        const netAmount = m.payment_method === 'efectivo'
-          ? (m.income || 0) - (m.expense || 0)
-          : (m.income || 0);
+        // Efectivo: full income received (what customer paid). cambio/vuelto goes back from cash box.
+        const netAmount = (m.income || 0);
         methodAgg[method] += netAmount;
         totalByMethod += netAmount;
       }
@@ -160,7 +159,7 @@ export default function ReportsPage() {
       .map(([comment, total]) => ({ comment, total }))
       .sort((a, b) => b.total - a.total);
 
-    // Daily breakdown (for week view)
+    // Daily breakdown (for week view) - uses amount_charged for service revenue
     let dailySummaries: DailySummary[] = [];
     if (view === 'week' && serviceData) {
       const dailyAgg: Record<string, number> = {};
@@ -175,16 +174,21 @@ export default function ReportsPage() {
         const date = new Date(m.created_at);
         const dayIndex = date.getDay() === 0 ? 6 : date.getDay() - 1; // Convert Sunday=0 to Lu=0
         const dayName = dayNames[dayIndex];
+        // For daily breakdown show actual service revenue (amount_charged)
         dailyAgg[dayName] += m.amount_charged || 0;
       }
 
       dailySummaries = dayNames.map((day) => ({ day, total: dailyAgg[day] }));
     }
 
+    // Balance neto = all money received (efectivo full + transferencia + pos) - gastos
+    // Note: efectivo income = full payment received (customer paying more than service price is OK)
+    const balanceNeto = (totalByMethod) - gastosTotal;
+
     setTotalServicios(serviciosCount);
     setTotalServiciosAmount(serviciosAmount);
     setTotalGastos(gastosTotal);
-    setBalanceNeto(serviciosAmount - gastosTotal);
+    setBalanceNeto(balanceNeto);
 
     setByService(serviceSummaries);
     setByMethod(methodSummaries);
