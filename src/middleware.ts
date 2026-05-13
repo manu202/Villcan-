@@ -2,20 +2,26 @@ import { createServerClient } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
 
 export async function middleware(request: NextRequest) {
-  // Skip Supabase initialization if credentials are not configured
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
-  // If no credentials, redirect to /login (don't allow open access)
+  // If no credentials or placeholder, redirect to /login
   if (!supabaseUrl || !supabaseAnonKey ||
       supabaseUrl.includes('placeholder') ||
       supabaseAnonKey === 'placeholder-key') {
     return NextResponse.redirect(new URL('/login', request.url));
   }
 
-  let supabaseResponse = NextResponse.next({
-    request,
-  });
+  // Allow /login, /logout, and static assets through without auth check
+  const pathname = request.nextUrl.pathname;
+  if (pathname.startsWith('/login') ||
+      pathname.startsWith('/logout') ||
+      pathname.startsWith('/_next') ||
+      pathname.startsWith('/favicon')) {
+    return NextResponse.next({ request });
+  }
+
+  let supabaseResponse = NextResponse.next({ request });
 
   const supabase = createServerClient(
     supabaseUrl,
@@ -29,9 +35,7 @@ export async function middleware(request: NextRequest) {
           cookiesToSet.forEach(({ name, value }) =>
             request.cookies.set(name, value)
           );
-          supabaseResponse = NextResponse.next({
-            request,
-          });
+          supabaseResponse = NextResponse.next({ request });
           cookiesToSet.forEach(({ name, value, options }) =>
             supabaseResponse.cookies.set(name, value, options)
           );
@@ -42,9 +46,8 @@ export async function middleware(request: NextRequest) {
 
   const { data: { user } } = await supabase.auth.getUser();
 
-  // Redirect to /login if not authenticated (except for /login and static assets)
-  if (!user && !request.nextUrl.pathname.startsWith('/login') &&
-      !request.nextUrl.pathname.startsWith('/_next')) {
+  // Redirect to /login if not authenticated
+  if (!user) {
     return NextResponse.redirect(new URL('/login', request.url));
   }
 
@@ -53,6 +56,6 @@ export async function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
-    '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
+    '/((?!_next/static|_next/image|favicon.ico).*)',
   ],
 };
