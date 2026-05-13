@@ -77,6 +77,9 @@ export function HamburgerMenu() {
       <nav className={`drawer ${isOpen ? 'open' : ''}`} aria-label="Main navigation">
         <div className="drawer-header">
           <span className="logo">VILLCAN</span>
+          <button className="close-btn" onClick={handleClose} aria-label="Cerrar menú">
+            ✕
+          </button>
         </div>
 
         <ul className="nav-list">
@@ -177,6 +180,29 @@ export function HamburgerMenu() {
         .drawer-header {
           padding: 24px 20px;
           border-bottom: 1px solid var(--gray-200);
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+        }
+
+        .close-btn {
+          width: 32px;
+          height: 32px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          background: transparent;
+          border: 1px solid var(--gray-200);
+          border-radius: 6px;
+          cursor: pointer;
+          font-size: 16px;
+          color: var(--gray-600);
+          transition: all 0.15s ease;
+        }
+
+        .close-btn:hover {
+          background: var(--gray-100);
+          color: var(--black);
         }
 
         .logo {

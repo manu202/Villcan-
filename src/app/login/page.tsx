@@ -83,12 +83,13 @@ export default function LoginPage() {
 
       <style>{`
         .login-page {
-          min-height: 100vh;
+          min-height: 100dvh;
           display: flex;
           align-items: center;
           justify-content: center;
           padding: 24px 16px;
           background: var(--gray-50);
+          overflow-y: auto;
         }
 
         .login-container {
