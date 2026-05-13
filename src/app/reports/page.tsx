@@ -109,7 +109,7 @@ export default function ReportsPage() {
     if (serviceData) {
       for (const m of serviceData) {
         const name = (m.service as { name?: string } | null)?.name || 'Sin servicio';
-        const amount = m.amount_charged || 0;
+        const amount = m.income || 0;
         if (!serviceAgg[name]) serviceAgg[name] = { count: 0, total: 0 };
         serviceAgg[name].count++;
         serviceAgg[name].total += amount;
@@ -123,7 +123,7 @@ export default function ReportsPage() {
       .sort((a, b) => b.total - a.total);
 
     // Aggregate by payment method (for INCOME BY METHOD breakdown)
-    // This uses FULL income received (efectivo full payment), not amount_charged
+    // Shows income per method (actual cash received), NOT service price
     const methodAgg: Record<string, number> = {};
     let totalByMethod = 0;
 
@@ -131,7 +131,7 @@ export default function ReportsPage() {
       for (const m of methodData) {
         const method = m.payment_method || 'sin método';
         if (!methodAgg[method]) methodAgg[method] = 0;
-        // Efectivo: full income received (what customer paid). cambio/vuelto goes back from cash box.
+        // Income per method = actual cash received
         const netAmount = (m.income || 0);
         methodAgg[method] += netAmount;
         totalByMethod += netAmount;
@@ -159,7 +159,7 @@ export default function ReportsPage() {
       .map(([comment, total]) => ({ comment, total }))
       .sort((a, b) => b.total - a.total);
 
-    // Daily breakdown (for week view) - uses amount_charged for service revenue
+    // Daily breakdown (for week view) - uses income for actual cash received
     let dailySummaries: DailySummary[] = [];
     if (view === 'week' && serviceData) {
       const dailyAgg: Record<string, number> = {};
@@ -174,8 +174,8 @@ export default function ReportsPage() {
         const date = new Date(m.created_at);
         const dayIndex = date.getDay() === 0 ? 6 : date.getDay() - 1; // Convert Sunday=0 to Lu=0
         const dayName = dayNames[dayIndex];
-        // For daily breakdown show actual service revenue (amount_charged)
-        dailyAgg[dayName] += m.amount_charged || 0;
+        // For daily breakdown show actual cash received (income)
+        dailyAgg[dayName] += m.income || 0;
       }
 
       dailySummaries = dayNames.map((day) => ({ day, total: dailyAgg[day] }));

@@ -138,14 +138,34 @@ export function MovementForm({ initialType }: MovementFormProps) {
     }
 
     const supabase = createClient();
-    const incomeNum = parseGuaranies(income);
-    const expenseNum = parseGuaranies(change > 0 ? change.toString() : expense);
     const amountChargedNum = parseGuaranies(amountCharged);
+    const incomeNum = parseGuaranies(income); // this is "Dinero recibido" or "Monto" depending on type
+
+    let finalIncome = 0;
+    let finalExpense = 0;
+
+    if (type === 'servicio') {
+      // income = actual cash received (net of change for efectivo)
+      // expense = the change/vuelto given back
+      finalIncome = paymentMethod === 'efectivo' 
+        ? incomeNum - (change > 0 ? parseGuaranies(change.toString()) : 0)
+        : amountChargedNum;
+      finalExpense = change > 0 ? parseGuaranies(change.toString()) : 0;
+    } else if (type === 'gasto') {
+      // income = 0 (no cash came in)
+      // expense = the amount spent (goes out)
+      finalIncome = 0;
+      finalExpense = incomeNum;
+    } else {
+      // apertura/cierre: the amount entered IS the income
+      finalIncome = incomeNum;
+      finalExpense = 0;
+    }
 
     const movementData: Record<string, unknown> = {
       type,
-      income: incomeNum,
-      expense: expenseNum,
+      income: finalIncome,
+      expense: finalExpense,
       comment: comment.trim() || null,
       user_id: userId,
       created_at: new Date().toISOString(),
