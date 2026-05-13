@@ -83,13 +83,14 @@ export default function LoginPage() {
 
       <style>{`
         .login-page {
-          min-height: 100dvh;
+          height: 100dvh;
+          height: 100vh;
           display: flex;
           align-items: center;
           justify-content: center;
-          padding: 24px 16px;
+          padding: 16px;
           background: var(--gray-50);
-          overflow-y: auto;
+          overflow: hidden;
         }
 
         .login-container {
@@ -118,7 +119,7 @@ export default function LoginPage() {
           background: var(--white);
           border: 1px solid var(--gray-200);
           border-radius: 12px;
-          padding: 24px;
+          padding: 20px;
         }
 
         .error-message {

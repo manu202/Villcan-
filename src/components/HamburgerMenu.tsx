@@ -166,7 +166,7 @@ export function HamburgerMenu() {
           width: 280px;
           height: 100vh;
           background: var(--white);
-          z-index: 1000;
+          z-index: 1002;
           transform: translateX(-100%);
           transition: transform 0.3s ease;
           display: flex;

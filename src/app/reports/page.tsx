@@ -78,7 +78,7 @@ export default function ReportsPage() {
     const { data: serviceData } = await supabase
       .from('movements')
       .select(`
-        income, created_at,
+        amount_charged, income, expense, payment_method, created_at,
         service:services(name)
       `)
       .eq('type', 'servicio')
@@ -88,7 +88,7 @@ export default function ReportsPage() {
     // Query: payment methods for servicios
     const { data: methodData } = await supabase
       .from('movements')
-      .select('income, payment_method')
+      .select('amount_charged, income, expense, payment_method')
       .eq('type', 'servicio')
       .gte('created_at', start)
       .lt('created_at', end);
@@ -109,11 +109,12 @@ export default function ReportsPage() {
     if (serviceData) {
       for (const m of serviceData) {
         const name = (m.service as { name?: string } | null)?.name || 'Sin servicio';
+        const amount = m.amount_charged || 0;
         if (!serviceAgg[name]) serviceAgg[name] = { count: 0, total: 0 };
         serviceAgg[name].count++;
-        serviceAgg[name].total += m.income || 0;
+        serviceAgg[name].total += amount;
         serviciosCount++;
-        serviciosAmount += m.income || 0;
+        serviciosAmount += amount;
       }
     }
 
@@ -129,8 +130,12 @@ export default function ReportsPage() {
       for (const m of methodData) {
         const method = m.payment_method || 'sin método';
         if (!methodAgg[method]) methodAgg[method] = 0;
-        methodAgg[method] += m.income || 0;
-        totalByMethod += m.income || 0;
+        // For efectivo, net = income - expense; for others, use income directly
+        const netAmount = m.payment_method === 'efectivo'
+          ? (m.income || 0) - (m.expense || 0)
+          : (m.income || 0);
+        methodAgg[method] += netAmount;
+        totalByMethod += netAmount;
       }
     }
 
@@ -170,7 +175,7 @@ export default function ReportsPage() {
         const date = new Date(m.created_at);
         const dayIndex = date.getDay() === 0 ? 6 : date.getDay() - 1; // Convert Sunday=0 to Lu=0
         const dayName = dayNames[dayIndex];
-        dailyAgg[dayName] += m.income || 0;
+        dailyAgg[dayName] += m.amount_charged || 0;
       }
 
       dailySummaries = dayNames.map((day) => ({ day, total: dailyAgg[day] }));

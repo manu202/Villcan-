@@ -20,7 +20,7 @@ export default function HomePage() {
 
       const { data: serviceMovements } = await supabase
         .from('movements')
-        .select('income, expense, payment_method')
+        .select('amount_charged, income, expense, payment_method')
         .eq('type', 'servicio')
         .gte('created_at', startOfDay.toISOString())
         .lt('created_at', endOfDay.toISOString());
@@ -33,23 +33,23 @@ export default function HomePage() {
         .lt('created_at', endOfDay.toISOString());
 
       if (serviceMovements) {
-        const efectivo = serviceMovements
+        const efectivoNet = serviceMovements
           .filter(m => m.payment_method === 'efectivo')
-          .reduce((sum, m) => sum + (m.income || 0), 0);
+          .reduce((sum, m) => sum + ((m.income || 0) - (m.expense || 0)), 0);
         const transferencia = serviceMovements
           .filter(m => m.payment_method === 'transferencia')
           .reduce((sum, m) => sum + (m.income || 0), 0);
         const pos = serviceMovements
           .filter(m => m.payment_method === 'pos')
           .reduce((sum, m) => sum + (m.income || 0), 0);
-        const totalIncome = efectivo + transferencia + pos;
+        const totalIncome = efectivoNet + transferencia + pos;
         const totalExpenses = (expenseMovements || []).reduce((sum, m) => sum + (m.expense || 0), 0);
 
         setKpis({
           totalIncome,
-          incomeByMethod: { efectivo, transferencia, pos },
+          incomeByMethod: { efectivo: efectivoNet, transferencia, pos },
           totalExpenses,
-          balanceEfectivo: efectivo - totalExpenses,
+          balanceEfectivo: efectivoNet - totalExpenses,
           balanceGlobal: totalIncome - totalExpenses,
         });
       }
