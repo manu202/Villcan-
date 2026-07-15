@@ -3,7 +3,11 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
+import { escapeSearchQuery } from '@/lib/utils';
 import type { Contact } from '@/types';
+import { Spinner } from '@/components/Spinner';
+import { EmptyState } from '@/components/EmptyState';
+import { ErrorState } from '@/components/ErrorState';
 
 type SortBy = 'name' | 'date';
 
@@ -13,6 +17,7 @@ export default function ContactsPage() {
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
+  const [error, setError] = useState(false);
   const [search, setSearch] = useState('');
   const [sortBy, setSortBy] = useState<SortBy>('name');
   const [page, setPage] = useState(0);
@@ -20,15 +25,18 @@ export default function ContactsPage() {
 
   useEffect(() => {
     const loadContacts = async (reset = false) => {
-      const supabase = createClient();
       const currentPage = reset ? 0 : page;
+      setLoading(currentPage === 0);
+      setError(false);
+      const supabase = createClient();
 
       let query = supabase
         .from('contacts')
         .select('id, full_name, ci, phone, comment', { count: 'exact' });
 
       if (search.length >= 2) {
-        query = query.or(`full_name.ilike.%${search}%,ci.ilike.%${search}%`);
+        const escaped = escapeSearchQuery(search);
+        query = query.or(`full_name.ilike.%${escaped}%,ci.ilike.%${escaped}%`);
       }
 
       query = query.order(sortBy === 'name' ? 'full_name' : 'created_at', {
@@ -37,9 +45,11 @@ export default function ContactsPage() {
 
       query = query.range(currentPage * PAGE_SIZE, (currentPage + 1) * PAGE_SIZE - 1);
 
-      const { data } = await query;
+      const { data, error: fetchError } = await query;
 
-      if (data) {
+      if (fetchError) {
+        setError(true);
+      } else if (data) {
         const newContacts = data as Contact[];
         if (reset || currentPage === 0) {
           setContacts(newContacts);
@@ -107,14 +117,19 @@ export default function ContactsPage() {
 
       <section className="section">
         {loading ? (
-          <p className="page-subtitle">Cargando...</p>
-        ) : contacts.length === 0 ? (
-          <div className="empty-state">
-            <p>No hay contactos registrados</p>
-            <Link href="/contacts/new" className="btn-secondary">
-              Agregar primer contacto
-            </Link>
+          <div style={{ display: 'flex', justifyContent: 'center', padding: '48px' }}>
+            <Spinner size={36} color="black" />
           </div>
+        ) : error ? (
+          <ErrorState onRetry={() => { setPage(0); setSearch(search); }} />
+        ) : contacts.length === 0 ? (
+          <EmptyState
+            icon="👥"
+            title="Sin contactos"
+            message="No hay contactos registrados"
+            actionLabel="Agregar contacto"
+            onAction={() => window.location.href = '/contacts/new'}
+          />
         ) : (
           <>
             <ul className="contact-list">

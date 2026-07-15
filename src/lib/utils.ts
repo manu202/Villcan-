@@ -73,6 +73,14 @@ export function calculateNet(income: number, expense: number): number {
 }
 
 /**
+ * Escape special characters for Supabase ilike queries
+ * % and _ are wildcards in PostgreSQL LIKE/ILike
+ */
+export function escapeSearchQuery(query: string): string {
+  return query.replace(/[%_]/g, '\\$&');
+}
+
+/**
  * Get today's date range (start and end of day in ISO format)
  */
 export function getTodayRange(): { start: string; end: string } {
@@ -90,9 +98,7 @@ export function getTodayRange(): { start: string; end: string } {
  * Classify movement as income/expense/neutral
  */
 export function getMovementFlow(
-  type: MovementType,
-  income: number,
-  expense: number
+  type: MovementType
 ): 'income' | 'expense' | 'transfer' {
   if (type === 'servicio') return 'income';
   if (type === 'gasto') return 'expense';

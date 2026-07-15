@@ -1,6 +1,8 @@
 import type { Metadata, Viewport } from 'next';
 import { Inter } from 'next/font/google';
 import { HamburgerMenu } from '@/components/HamburgerMenu';
+import { ToastProvider } from '@/components/Toast';
+import { BranchProvider } from '@/contexts/BranchContext';
 import './globals.css';
 
 const inter = Inter({
@@ -35,8 +37,12 @@ export default function RootLayout({
   return (
     <html lang="es" className={inter.className}>
       <body>
-        <HamburgerMenu />
-        <main className="main-content">{children}</main>
+        <ToastProvider>
+          <BranchProvider>
+            <HamburgerMenu />
+            <main className="main-content">{children}</main>
+          </BranchProvider>
+        </ToastProvider>
       </body>
     </html>
   );

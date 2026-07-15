@@ -14,12 +14,32 @@ export interface Profile {
   created_at: string;
 }
 
+export interface Branch {
+  id: string;
+  name: string;
+  address: string | null;
+  is_active: boolean;
+  created_at: string;
+}
+
+export interface UserBranchAccess {
+  user_id: string;
+  branch_id: string;
+  role: 'admin' | 'barber' | 'viewer';
+  created_at: string;
+}
+
+export interface BranchWithRole extends Branch {
+  user_role: 'admin' | 'barber' | 'viewer';
+}
+
 export interface Service {
   id: string;
   name: string;
   price: number; // stored as integer (guaranies)
   created_at: string;
   is_active: boolean;
+  branch_id: string | null; // NULL = global
 }
 
 export interface Contact {
@@ -41,6 +61,7 @@ export interface Movement {
   contact_id: string | null;
   service_id: string | null;
   user_id: string;
+  branch_id: string; // ADDED - REQUIRED
   comment: string | null;
   created_at: string;
 }

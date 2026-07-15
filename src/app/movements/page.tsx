@@ -1,10 +1,14 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import Link from 'next/link';
 import { formatGuaranies, formatDate, formatTime, getMovementTypeLabel } from '@/lib/utils';
 import { createClient } from '@/lib/supabase/client';
+import { useBranch } from '@/contexts/BranchContext';
 import type { MovementWithDetails } from '@/types';
+import { Spinner } from '@/components/Spinner';
+import { EmptyState } from '@/components/EmptyState';
+import { ErrorState } from '@/components/ErrorState';
 
 type FilterType = 'today' | 'week' | 'month' | 'all';
 
@@ -31,13 +35,35 @@ const getDateRange = (filter: FilterType): { start: string; end: string } => {
   return { start: start.toISOString(), end: end.toISOString() };
 };
 
+const TOTAL_MOVEMENTS = 100; // Maximum requested
+
 export default function MovementsPage() {
+  const { currentBranch, initialized } = useBranch();
   const [movements, setMovements] = useState<MovementWithDetails[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
   const [filter, setFilter] = useState<FilterType>('today');
 
+  // Use ref to always have current branch value inside async functions
+  const currentBranchRef = useRef(currentBranch);
   useEffect(() => {
+    currentBranchRef.current = currentBranch;
+  }, [currentBranch]);
+
+  useEffect(() => {
+    if (!initialized) return;
+
+    let cancelled = false;
+
     const loadMovements = async () => {
+      const branch = currentBranchRef.current;
+      if (!branch) {
+        setLoading(false);
+        return;
+      }
+
+      setLoading(true);
+      setError(false);
       const supabase = createClient();
       const { start, end } = getDateRange(filter);
 
@@ -53,22 +79,34 @@ export default function MovementsPage() {
         .order('created_at', { ascending: false })
         .limit(100);
 
-      const { data } = await query;
+      query = query.eq('branch_id', branch.id);
 
-      if (data) {
+      const { data, error: fetchError } = await query;
+
+      if (cancelled) return;
+
+      if (fetchError) {
+        setError(true);
+      } else if (data) {
         setMovements(data as unknown as MovementWithDetails[]);
       }
       setLoading(false);
     };
     loadMovements();
-  }, [filter]);
+
+    return () => {
+      cancelled = true;
+    };
+  }, [filter, initialized]);
 
   return (
     <div className="page">
       <header className="page-header flex-header">
         <div>
           <h1 className="page-title">Movimientos</h1>
-          <p className="page-subtitle">Historial de caja</p>
+          {!loading && !error && (
+            <p className="page-subtitle">{movements.length} de {TOTAL_MOVEMENTS} movimientos</p>
+          )}
         </div>
         <Link href="/movements/new" className="btn-add">
           +Nuevo
@@ -98,16 +136,19 @@ export default function MovementsPage() {
 
       <section className="section">
         {loading ? (
-          <div className="empty-state">
-            <p>Cargando...</p>
+          <div style={{ display: 'flex', justifyContent: 'center', padding: '48px' }}>
+            <Spinner size={36} color="black" />
           </div>
+        ) : error ? (
+          <ErrorState onRetry={() => setFilter(filter)} />
         ) : movements.length === 0 ? (
-          <div className="empty-state">
-            <p>No hay movimientos registrados</p>
-            <Link href="/movements/new" className="btn-secondary">
-              Registrar primer movimiento
-            </Link>
-          </div>
+          <EmptyState
+            icon="💰"
+            title="Sin movimientos"
+            message="No hay movimientos registrados para este período"
+            actionLabel="Registrar movimiento"
+            onAction={() => window.location.href = '/movements/new'}
+          />
         ) : (
           <ul className="movement-list">
             {movements.map((m) => (

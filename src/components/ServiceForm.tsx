@@ -4,10 +4,12 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { parseGuaranies } from '@/lib/utils';
 import { createClient } from '@/lib/supabase/client';
+import { useBranch } from '@/contexts/BranchContext';
 
 interface ServiceFormData {
   name: string;
   price: string;
+  isGlobal: boolean;
 }
 
 interface ServiceFormProps {
@@ -17,16 +19,22 @@ interface ServiceFormProps {
 
 export function ServiceForm({ onCancel, onSuccess }: ServiceFormProps) {
   const router = useRouter();
+  const { currentBranch, initialized } = useBranch();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [form, setForm] = useState<ServiceFormData>({
     name: '',
     price: '',
+    isGlobal: false,
   });
   const [error, setError] = useState('');
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setForm(prev => ({ ...prev, [name]: value }));
+  };
+
+  const handleCheckboxChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setForm(prev => ({ ...prev, isGlobal: e.target.checked }));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -46,13 +54,32 @@ export function ServiceForm({ onCancel, onSuccess }: ServiceFormProps) {
 
     setIsSubmitting(true);
 
+    // Wait for branches to be initialized
+    if (!initialized) {
+      setError('Cargando sucursales...');
+      setIsSubmitting(false);
+      return;
+    }
+
     const supabase = createClient();
+
+    // If isGlobal is true, branch_id = null (global service)
+    // Otherwise, use current branch (required - error if no branch selected)
+    const branchId = form.isGlobal ? null : currentBranch?.id;
+
+    if (!form.isGlobal && !currentBranch) {
+      setError('Debes seleccionar una sucursal para crear servicios');
+      setIsSubmitting(false);
+      return;
+    }
+
     const { data, error } = await supabase
       .from('services')
       .insert({
         name: form.name.trim(),
         price: parseGuaranies(form.price),
         is_active: true,
+        branch_id: branchId,
       })
       .select()
       .single();
@@ -106,6 +133,17 @@ export function ServiceForm({ onCancel, onSuccess }: ServiceFormProps) {
             className="input input-price"
             inputMode="numeric"
           />
+        </section>
+
+        <section className="section">
+          <label className="checkbox-label">
+            <input
+              type="checkbox"
+              checked={form.isGlobal}
+              onChange={handleCheckboxChange}
+            />
+            <span>Servicio global (todas las sucursales)</span>
+          </label>
         </section>
 
         {error && <p className="error">{error}</p>}
@@ -182,6 +220,21 @@ export function ServiceForm({ onCancel, onSuccess }: ServiceFormProps) {
           color: var(--gray-600);
           font-size: 14px;
           margin-bottom: 16px;
+        }
+
+        .checkbox-label {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          font-size: 14px;
+          color: var(--gray-600);
+          cursor: pointer;
+        }
+
+        .checkbox-label input[type="checkbox"] {
+          width: 20px;
+          height: 20px;
+          cursor: pointer;
         }
 
         .btn-primary {

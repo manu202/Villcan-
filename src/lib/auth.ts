@@ -19,6 +19,7 @@ export async function signOut() {
 }
 
 export async function getCurrentUserId(): Promise<string | null> {
-  const user = await getUser();
+  const supabase = createClient();
+  const { data: { user } } = await supabase.auth.getUser();
   return user?.id || null;
 }

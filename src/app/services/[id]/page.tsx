@@ -26,7 +26,7 @@ export default function ServiceDetailPage() {
       const [serviceRes, movementsRes] = await Promise.all([
         supabase
           .from('services')
-          .select('id, name, price, is_active, created_at')
+          .select('id, name, price, is_active, created_at, branch_id')
           .eq('id', serviceId)
           .single(),
         supabase

@@ -1,17 +1,35 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { KPICard } from '@/components/KPICard';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
+import { useBranch } from '@/contexts/BranchContext';
 import type { CashBoxKPIs } from '@/types';
 
 export default function HomePage() {
+  const { currentBranch, isLoading: branchLoading, initialized } = useBranch();
   const [kpis, setKpis] = useState<CashBoxKPIs | null>(null);
   const [loading, setLoading] = useState(true);
 
+  // Use ref to always have current branch value inside async functions
+  const currentBranchRef = useRef(currentBranch);
   useEffect(() => {
+    currentBranchRef.current = currentBranch;
+  }, [currentBranch]);
+
+  useEffect(() => {
+    if (!initialized) return;
+
+    let cancelled = false;
+
     const loadKPIs = async () => {
+      const branch = currentBranchRef.current;
+      if (!branch) {
+        setLoading(false);
+        return;
+      }
+
       const supabase = createClient();
       const today = new Date();
       const startOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate());
@@ -22,21 +40,21 @@ export default function HomePage() {
         .from('movements')
         .select('amount_charged, income, expense, payment_method')
         .eq('type', 'servicio')
+        .eq('branch_id', branch.id)
         .gte('created_at', startOfDay.toISOString())
         .lt('created_at', endOfDay.toISOString());
 
       const { data: expenseMovements } = await supabase
         .from('movements')
-        .select('expense')
+        .select('expense, comment')
         .eq('type', 'gasto')
+        .eq('branch_id', branch.id)
         .gte('created_at', startOfDay.toISOString())
         .lt('created_at', endOfDay.toISOString());
 
+      if (cancelled) return;
+
       if (serviceMovements) {
-        // Efectivo: sum of ALL money received (full bills). The expense/vuelto is NOT
-        // subtracted from balance because it already passed through the cash box.
-        // The net effect on cash is: we receive X, we return Y as change, net = X - Y
-        // But for the BALANCE IN THE BOX we track the flow: cash in = income, cash out = gastos
         const efectivo = serviceMovements
           .filter(m => m.payment_method === 'efectivo')
           .reduce((sum, m) => sum + (m.income || 0), 0);
@@ -46,15 +64,13 @@ export default function HomePage() {
         const pos = serviceMovements
           .filter(m => m.payment_method === 'pos')
           .reduce((sum, m) => sum + (m.income || 0), 0);
-        // Total "gross" income (before subtracting expenses)
         const totalIncome = efectivo + transferencia + pos;
-        // Only gastos (real expenses, not service change/vuelto) reduce balance
         const totalExpenses = (expenseMovements || []).reduce((sum, m) => sum + (m.expense || 0), 0);
-        // Balance = all cash received - real expenses (gastos only)
-        // Note: efectivo IS income (full bills), so balanceGlobal includes full efectivo
+        const gastosFromCaja = (expenseMovements || [])
+          .filter(m => !m.comment?.includes('Cta Bancaria'))
+          .reduce((sum, m) => sum + (m.expense || 0), 0);
+        const balanceEfectivo = efectivo - gastosFromCaja;
         const balanceGlobal = efectivo + transferencia + pos - totalExpenses;
-        // Efectivo balance = efectivo cash received - real cash expenses
-        const balanceEfectivo = efectivo - totalExpenses;
 
         setKpis({
           totalIncome,
@@ -68,7 +84,11 @@ export default function HomePage() {
       setLoading(false);
     };
     loadKPIs();
-  }, []);
+
+    return () => {
+      cancelled = true;
+    };
+  }, [initialized]);
 
   return (
     <div className="page">
@@ -77,9 +97,13 @@ export default function HomePage() {
         <p className="page-subtitle">Resumen del día</p>
       </header>
 
-      {loading ? (
+      {loading || branchLoading ? (
         <section className="section">
           <p className="page-subtitle">Cargando...</p>
+        </section>
+      ) : !currentBranch ? (
+        <section className="section">
+          <p className="page-subtitle">Selecciona una sucursal para ver los KPIs</p>
         </section>
       ) : kpis ? (
         <>

@@ -1,29 +1,59 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import Link from 'next/link';
 import { formatGuaranies } from '@/lib/utils';
 import { createClient } from '@/lib/supabase/client';
+import { useBranch } from '@/contexts/BranchContext';
 import type { Service } from '@/types';
 
 export default function ServicesPage() {
+  const { currentBranch, initialized } = useBranch();
   const [services, setServices] = useState<Service[]>([]);
   const [loading, setLoading] = useState(true);
 
+  // Use ref to always have current branch value inside async functions
+  const currentBranchRef = useRef(currentBranch);
   useEffect(() => {
+    currentBranchRef.current = currentBranch;
+  }, [currentBranch]);
+
+  useEffect(() => {
+    if (!initialized) return;
+
+    let cancelled = false;
+
     const loadServices = async () => {
+      const branch = currentBranchRef.current;
       const supabase = createClient();
-      const { data } = await supabase
+
+      // Show: services from current branch + global services (branch_id IS NULL)
+      let query = supabase
         .from('services')
-        .select('id, name, price, is_active')
+        .select('id, name, price, is_active, branch_id')
         .eq('is_active', true)
         .order('name');
 
+      // Apply branch filter: current branch OR global (null)
+      if (branch) {
+        query = query.or(`branch_id.eq.${branch.id},branch_id.is.null`);
+      } else {
+        // No branch selected, only show global services
+        query = query.is('branch_id', null);
+      }
+
+      const { data } = await query;
+
+      if (cancelled) return;
       if (data) setServices(data as Service[]);
       setLoading(false);
     };
     loadServices();
-  }, []);
+
+    return () => {
+      cancelled = true;
+    };
+  }, [initialized]);
 
   return (
     <div className="page">

@@ -1,8 +1,9 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { formatGuaranies } from '@/lib/utils';
 import { createClient } from '@/lib/supabase/client';
+import { useBranch } from '@/contexts/BranchContext';
 
 type ViewType = 'today' | 'week' | 'month' | 'custom';
 
@@ -55,8 +56,10 @@ const getDateRange = (view: ViewType, customRange: { from: string; to: string })
 };
 
 export default function ReportsPage() {
+  const { currentBranch, initialized } = useBranch();
   const [view, setView] = useState<ViewType>('today');
   const [customRange, setCustomRange] = useState({ from: '', to: '' });
+  const [selectedBranch, setSelectedBranch] = useState<string | 'all'>('all');
 
   const [loading, setLoading] = useState(true);
   const [totalServicios, setTotalServicios] = useState(0);
@@ -69,137 +72,25 @@ export default function ReportsPage() {
   const [expenses, setExpenses] = useState<{ comment: string; total: number }[]>([]);
   const [dailySummary, setDailySummary] = useState<DailySummary[]>([]);
 
-  const loadData = useCallback(async () => {
-    setLoading(true);
-    const supabase = createClient();
-    const { start, end } = getDateRange(view, customRange);
+  // Update selectedBranch when currentBranch changes
+  const [lastSyncedBranchId, setLastSyncedBranchId] = useState<string | null>(null);
+  if (currentBranch && currentBranch.id !== lastSyncedBranchId) {
+    setLastSyncedBranchId(currentBranch.id);
+    setSelectedBranch(currentBranch.id);
+  }
 
-    // Query: servicios grouped by service
-    const { data: serviceData } = await supabase
-      .from('movements')
-      .select(`
-        amount_charged, income, expense, payment_method, created_at,
-        service:services(name)
-      `)
-      .eq('type', 'servicio')
-      .gte('created_at', start)
-      .lt('created_at', end);
-
-    // Query: payment methods for servicios
-    const { data: methodData } = await supabase
-      .from('movements')
-      .select('amount_charged, income, expense, payment_method')
-      .eq('type', 'servicio')
-      .gte('created_at', start)
-      .lt('created_at', end);
-
-    // Query: gastos
-    const { data: gastoData } = await supabase
-      .from('movements')
-      .select('expense, comment')
-      .eq('type', 'gasto')
-      .gte('created_at', start)
-      .lt('created_at', end);
-
-    // Aggregate servicios
-    const serviceAgg: Record<string, { count: number; total: number }> = {};
-    let serviciosCount = 0;
-    let serviciosAmount = 0;
-
-    if (serviceData) {
-      for (const m of serviceData) {
-        const name = (m.service as { name?: string } | null)?.name || 'Sin servicio';
-        const amount = m.income || 0;
-        if (!serviceAgg[name]) serviceAgg[name] = { count: 0, total: 0 };
-        serviceAgg[name].count++;
-        serviceAgg[name].total += amount;
-        serviciosCount++;
-        serviciosAmount += amount;
-      }
-    }
-
-    const serviceSummaries: ServiceSummary[] = Object.entries(serviceAgg)
-      .map(([name, agg]) => ({ name, count: agg.count, total: agg.total }))
-      .sort((a, b) => b.total - a.total);
-
-    // Aggregate by payment method (for INCOME BY METHOD breakdown)
-    // Shows income per method (actual cash received), NOT service price
-    const methodAgg: Record<string, number> = {};
-    let totalByMethod = 0;
-
-    if (methodData) {
-      for (const m of methodData) {
-        const method = m.payment_method || 'sin método';
-        if (!methodAgg[method]) methodAgg[method] = 0;
-        // Income per method = actual cash received
-        const netAmount = (m.income || 0);
-        methodAgg[method] += netAmount;
-        totalByMethod += netAmount;
-      }
-    }
-
-    const methodSummaries: MethodSummary[] = Object.entries(methodAgg)
-      .map(([method, total]) => ({ method, total }))
-      .sort((a, b) => b.total - a.total);
-
-    // Aggregate gastos
-    let gastosTotal = 0;
-    const gastoAgg: Record<string, number> = {};
-
-    if (gastoData) {
-      for (const m of gastoData) {
-        const comment = m.comment || 'Sin descripción';
-        if (!gastoAgg[comment]) gastoAgg[comment] = 0;
-        gastoAgg[comment] += m.expense || 0;
-        gastosTotal += m.expense || 0;
-      }
-    }
-
-    const expenseList: { comment: string; total: number }[] = Object.entries(gastoAgg)
-      .map(([comment, total]) => ({ comment, total }))
-      .sort((a, b) => b.total - a.total);
-
-    // Daily breakdown (for week view) - uses income for actual cash received
-    let dailySummaries: DailySummary[] = [];
-    if (view === 'week' && serviceData) {
-      const dailyAgg: Record<string, number> = {};
-      const dayNames = ['Lu', 'Ma', 'Mi', 'Ju', 'Vi', 'Sa', 'Do'];
-
-      // Initialize all days
-      for (const day of dayNames) {
-        dailyAgg[day] = 0;
-      }
-
-      for (const m of serviceData) {
-        const date = new Date(m.created_at);
-        const dayIndex = date.getDay() === 0 ? 6 : date.getDay() - 1; // Convert Sunday=0 to Lu=0
-        const dayName = dayNames[dayIndex];
-        // For daily breakdown show actual cash received (income)
-        dailyAgg[dayName] += m.income || 0;
-      }
-
-      dailySummaries = dayNames.map((day) => ({ day, total: dailyAgg[day] }));
-    }
-
-    // Balance neto = all money received (efectivo full + transferencia + pos) - gastos
-    // Note: efectivo income = full payment received (customer paying more than service price is OK)
-    const balanceNeto = (totalByMethod) - gastosTotal;
-
-    setTotalServicios(serviciosCount);
-    setTotalServiciosAmount(serviciosAmount);
-    setTotalGastos(gastosTotal);
-    setBalanceNeto(balanceNeto);
-
-    setByService(serviceSummaries);
-    setByMethod(methodSummaries);
-    setExpenses(expenseList);
-    setDailySummary(dailySummaries);
-    setLoading(false);
-  }, [view, customRange]);
-
+  const viewRef = useRef(view);
+  const customRangeRef = useRef(customRange);
+  const selectedBranchRef = useRef(selectedBranch);
   useEffect(() => {
-    loadData();
-  }, [loadData]);
+    viewRef.current = view;
+  }, [view]);
+  useEffect(() => {
+    customRangeRef.current = customRange;
+  }, [customRange]);
+  useEffect(() => {
+    selectedBranchRef.current = selectedBranch;
+  }, [selectedBranch]);
 
   const handleCustomFromChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setCustomRange((prev) => ({ ...prev, from: e.target.value }));
@@ -209,6 +100,159 @@ export default function ReportsPage() {
     setCustomRange((prev) => ({ ...prev, to: e.target.value }));
   };
 
+  useEffect(() => {
+    // Wait for branch context to be initialized
+    if (!initialized) return;
+
+    let cancelled = false;
+
+    const load = async () => {
+      setLoading(true);
+      const supabase = createClient();
+      const { start, end } = getDateRange(viewRef.current, customRangeRef.current);
+      const branchFilter = selectedBranchRef.current === 'all'
+        ? undefined
+        : selectedBranchRef.current;
+
+      let serviceQuery = supabase
+        .from('movements')
+        .select(`
+          amount_charged, income, expense, payment_method, created_at, branch_id,
+          service:services(name)
+        `)
+        .eq('type', 'servicio')
+        .gte('created_at', start)
+        .lt('created_at', end);
+
+      if (branchFilter) {
+        serviceQuery = serviceQuery.eq('branch_id', branchFilter);
+      }
+
+      const { data: serviceData } = await serviceQuery;
+
+      if (cancelled) return;
+
+      let methodQuery = supabase
+        .from('movements')
+        .select('amount_charged, income, expense, payment_method')
+        .eq('type', 'servicio')
+        .gte('created_at', start)
+        .lt('created_at', end);
+
+      if (branchFilter) {
+        methodQuery = methodQuery.eq('branch_id', branchFilter);
+      }
+
+      const { data: methodData } = await methodQuery;
+
+      if (cancelled) return;
+
+      let gastoQuery = supabase
+        .from('movements')
+        .select('expense, income, comment')
+        .eq('type', 'gasto')
+        .gte('created_at', start)
+        .lt('created_at', end);
+
+      if (branchFilter) {
+        gastoQuery = gastoQuery.eq('branch_id', branchFilter);
+      }
+
+      const { data: gastoData } = await gastoQuery;
+
+      if (cancelled) return;
+
+      const serviceAgg: Record<string, { count: number; total: number }> = {};
+      let serviciosCount = 0;
+      let serviciosAmount = 0;
+
+      if (serviceData) {
+        for (const m of serviceData) {
+          const name = (m.service as { name?: string } | null)?.name || 'Sin servicio';
+          const amount = m.income || 0;
+          if (!serviceAgg[name]) serviceAgg[name] = { count: 0, total: 0 };
+          serviceAgg[name].count++;
+          serviceAgg[name].total += amount;
+          serviciosCount++;
+          serviciosAmount += amount;
+        }
+      }
+
+      const serviceSummaries: ServiceSummary[] = Object.entries(serviceAgg)
+        .map(([name, agg]) => ({ name, count: agg.count, total: agg.total }))
+        .sort((a, b) => b.total - a.total);
+
+      const methodAgg: Record<string, number> = {};
+
+      if (methodData) {
+        for (const m of methodData) {
+          const method = m.payment_method || 'sin método';
+          if (!methodAgg[method]) methodAgg[method] = 0;
+          methodAgg[method] += m.income || 0;
+        }
+      }
+
+      const methodSummaries: MethodSummary[] = Object.entries(methodAgg)
+        .map(([method, total]) => ({ method, total }))
+        .sort((a, b) => b.total - a.total);
+
+      let gastosTotal = 0;
+      const gastoAgg: Record<string, number> = {};
+
+      if (gastoData) {
+        for (const m of gastoData) {
+          const comment = m.comment || 'Sin descripción';
+          if (!gastoAgg[comment]) gastoAgg[comment] = 0;
+          gastoAgg[comment] += m.expense || 0;
+          gastosTotal += m.expense || 0;
+        }
+      }
+
+      const expenseList: { comment: string; total: number }[] = Object.entries(gastoAgg)
+        .map(([comment, total]) => ({ comment, total }))
+        .sort((a, b) => b.total - a.total);
+
+      let dailySummaries: DailySummary[] = [];
+      if (viewRef.current === 'week' && serviceData) {
+        const dailyAgg: Record<string, number> = {};
+        const dayNames = ['Lu', 'Ma', 'Mi', 'Ju', 'Vi', 'Sa', 'Do'];
+
+        for (const day of dayNames) {
+          dailyAgg[day] = 0;
+        }
+
+        for (const m of serviceData) {
+          const date = new Date(m.created_at);
+          const dayIndex = date.getDay() === 0 ? 6 : date.getDay() - 1;
+          const dayName = dayNames[dayIndex];
+          dailyAgg[dayName] += m.income || 0;
+        }
+
+        dailySummaries = dayNames.map((day) => ({ day, total: dailyAgg[day] }));
+      }
+
+      if (cancelled) return;
+
+      const balanceNeto = serviciosAmount - gastosTotal;
+
+      setTotalServicios(serviciosCount);
+      setTotalServiciosAmount(serviciosAmount);
+      setTotalGastos(gastosTotal);
+      setBalanceNeto(balanceNeto);
+      setByService(serviceSummaries);
+      setByMethod(methodSummaries);
+      setExpenses(expenseList);
+      setDailySummary(dailySummaries);
+      setLoading(false);
+    };
+
+    load();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [view, customRange, selectedBranch, initialized]);
+
   return (
     <div className="page">
       <header className="page-header">
@@ -216,7 +260,19 @@ export default function ReportsPage() {
         <p className="page-subtitle">Arqueo de caja</p>
       </header>
 
-      {/* Date Range Tabs */}
+      <section className="section">
+        <div className="branch-filter">
+          <select
+            value={selectedBranch}
+            onChange={(e) => setSelectedBranch(e.target.value as string | 'all')}
+            className="select"
+          >
+            <option value="all">Todas las sucursales</option>
+            {currentBranch && <option value={currentBranch.id}>{currentBranch.name}</option>}
+          </select>
+        </div>
+      </section>
+
       <section className="section">
         <div className="filter-row">
           <button
@@ -270,7 +326,6 @@ export default function ReportsPage() {
         </div>
       ) : (
         <>
-          {/* Summary Cards */}
           <section className="section">
             <div className="kpi-grid">
               <div className="kpi-card">
@@ -295,7 +350,6 @@ export default function ReportsPage() {
             </div>
           </section>
 
-          {/* Servicios Breakdown */}
           <section className="section">
             <div className="card">
               <h2 className="card-title">Servicios</h2>
@@ -315,7 +369,6 @@ export default function ReportsPage() {
             </div>
           </section>
 
-          {/* Payment Methods Breakdown */}
           <section className="section">
             <div className="card">
               <h2 className="card-title">Por Método</h2>
@@ -334,7 +387,6 @@ export default function ReportsPage() {
             </div>
           </section>
 
-          {/* Gastos Breakdown */}
           <section className="section">
             <div className="card">
               <h2 className="card-title">Gastos</h2>
@@ -353,7 +405,6 @@ export default function ReportsPage() {
             </div>
           </section>
 
-          {/* Daily Breakdown (week view only) */}
           {view === 'week' && dailySummary.length > 0 && (
             <section className="section">
               <div className="card">
@@ -421,6 +472,22 @@ export default function ReportsPage() {
           align-items: center;
           gap: 12px;
           margin-top: 12px;
+        }
+
+        .branch-filter {
+          margin-bottom: 12px;
+        }
+
+        .select {
+          width: 100%;
+          padding: 10px 12px;
+          background: var(--white);
+          border: 1px solid var(--gray-200);
+          border-radius: 8px;
+          font-size: 14px;
+          color: var(--black);
+          cursor: pointer;
+          min-height: 44px;
         }
 
         .custom-range input {

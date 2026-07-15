@@ -3,7 +3,6 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
-import type { Contact } from '@/types';
 
 interface ContactFormData {
   full_name: string;
@@ -15,10 +14,9 @@ interface ContactFormData {
 interface ContactFormProps {
   onCancel?: () => void;
   onSuccess?: (contact: { id: string; full_name: string }) => void;
-  inline?: boolean;
 }
 
-export function ContactForm({ onCancel, onSuccess, inline }: ContactFormProps) {
+export function ContactForm({ onCancel, onSuccess }: ContactFormProps) {
   const router = useRouter();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [form, setForm] = useState<ContactFormData>({

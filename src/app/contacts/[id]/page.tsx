@@ -2,14 +2,13 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import type { Contact, MovementWithDetails } from '@/types';
 import { formatGuaranies, formatDate, getMovementTypeLabel } from '@/lib/utils';
 
 export default function ContactDetailPage() {
   const params = useParams();
-  const router = useRouter();
   const contactId = params.id as string;
 
   const [contact, setContact] = useState<Contact | null>(null);

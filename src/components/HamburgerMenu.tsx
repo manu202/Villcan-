@@ -4,6 +4,7 @@ import { useState, useCallback, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { AuthButton } from './AuthButton';
+import { BranchSelector } from './BranchSelector';
 
 interface NavItem {
   label: string;
@@ -17,18 +18,15 @@ const navItems: NavItem[] = [
   { label: 'Contactos', href: '/contacts', icon: '○' },
   { label: 'Servicios', href: '/services', icon: '✂' },
   { label: 'Reportes', href: '/reports', icon: '▦' },
+  { label: 'Sucursales', href: '/branches', icon: '◉' },
 ];
 
 export function HamburgerMenu() {
   const [isOpen, setIsOpen] = useState(false);
   const pathname = usePathname();
 
-  // Don't render on login page
-  if (pathname === '/login') return null;
-
   const closeMenu = useCallback(() => setIsOpen(false), []);
 
-  // Manage body overflow when menu is open (client-side only)
   useEffect(() => {
     if (isOpen) {
       document.body.style.overflow = 'hidden';
@@ -39,6 +37,8 @@ export function HamburgerMenu() {
       document.body.style.overflow = '';
     };
   }, [isOpen]);
+
+  if (pathname === '/login') return null;
 
   const handleClose = () => {
     closeMenu();
@@ -76,7 +76,10 @@ export function HamburgerMenu() {
       {/* Drawer */}
       <nav className={`drawer ${isOpen ? 'open' : ''}`} aria-label="Main navigation">
         <div className="drawer-header">
-          <span className="logo">VILLCAN</span>
+          <div className="drawer-header-left">
+            <span className="logo">VILLCAN</span>
+            <BranchSelector />
+          </div>
           <button className="close-btn" onClick={handleClose} aria-label="Cerrar menú">
             ✕
           </button>
@@ -209,6 +212,12 @@ export function HamburgerMenu() {
           font-size: 20px;
           font-weight: 700;
           letter-spacing: 0.1em;
+        }
+
+        .drawer-header-left {
+          display: flex;
+          align-items: center;
+          gap: 12px;
         }
 
         .nav-list {

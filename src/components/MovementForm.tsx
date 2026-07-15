@@ -1,16 +1,17 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import Link from 'next/link';
 import type { MovementType, PaymentMethod, Service, Contact } from '@/types';
-import { formatGuaranies, parseGuaranies } from '@/lib/utils';
+import { formatGuaranies, parseGuaranies, escapeSearchQuery } from '@/lib/utils';
 import { ContactForm } from './ContactForm';
 import { createClient } from '@/lib/supabase/client';
 import { getCurrentUserId } from '@/lib/auth';
+import { useBranch } from '@/contexts/BranchContext';
 
 interface MovementFormProps {
   initialType?: MovementType;
+  showToast?: (message: string, type?: 'success' | 'error') => void;
 }
 
 type FormStep = 'type' | 'details';
@@ -30,8 +31,29 @@ const paymentMethods: { value: PaymentMethod; label: string }[] = [
 
 const fuentes = ['Caja', 'Cta Bancaria'] as const;
 
-export function MovementForm({ initialType }: MovementFormProps) {
+/**
+ * Builds the final `comment` value persisted on a movement.
+ * For `gasto` movements with a selected `fuente`, the fuente is appended
+ * as a bracketed suffix (e.g. "Alquiler [Cta Bancaria]"), which is how
+ * src/app/page.tsx's balanceEfectivo filter identifies bank-account gastos.
+ * Extracted as a pure function so it can be unit tested independent of
+ * the (fuente-less) `servicio`/`apertura`/`cierre` UI paths.
+ */
+export function buildFinalComment(
+  type: MovementType | '',
+  fuente: string,
+  comment: string
+): string | null {
+  let finalComment: string | null = comment.trim() || null;
+  if (type === 'gasto' && fuente) {
+    finalComment = finalComment ? `${finalComment} [${fuente}]` : `[${fuente}]`;
+  }
+  return finalComment;
+}
+
+export function MovementForm({ initialType, showToast }: MovementFormProps) {
   const router = useRouter();
+  const { currentBranch } = useBranch();
   const [step, setStep] = useState<FormStep>(initialType ? 'details' : 'type');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showNewContact, setShowNewContact] = useState(false);
@@ -41,7 +63,6 @@ export function MovementForm({ initialType }: MovementFormProps) {
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod | ''>('');
   const [amountCharged, setAmountCharged] = useState('');
   const [income, setIncome] = useState('');
-  const [expense, setExpense] = useState('');
   const [fuente, setFuente] = useState<typeof fuentes[number] | ''>('');
   const [comment, setComment] = useState('');
 
@@ -78,15 +99,20 @@ export function MovementForm({ initialType }: MovementFormProps) {
 
   // Load contacts from Supabase on search
   useEffect(() => {
+    let cancelled = false;
+
     if (contactSearch.length >= 2) {
       const searchContacts = async () => {
         const supabase = createClient();
+        const escaped = escapeSearchQuery(contactSearch);
         const { data } = await supabase
           .from('contacts')
           .select('id, full_name')
-          .ilike('full_name', `%${contactSearch}%`)
+          .ilike('full_name', `%${escaped}%`)
           .order('full_name')
           .limit(10);
+
+        if (cancelled) return;
 
         if (data) {
           setContacts(data as Contact[]);
@@ -94,8 +120,14 @@ export function MovementForm({ initialType }: MovementFormProps) {
       };
       searchContacts();
     } else {
-      setContacts([]);
+      Promise.resolve().then(() => {
+        if (!cancelled) setContacts([]);
+      });
     }
+
+    return () => {
+      cancelled = true;
+    };
   }, [contactSearch]);
 
   const handleTypeSelect = (t: MovementType) => {
@@ -137,6 +169,13 @@ export function MovementForm({ initialType }: MovementFormProps) {
       return;
     }
 
+    const branchId = currentBranch?.id;
+    if (!currentBranch) {
+      alert('Debes seleccionar una sucursal');
+      setIsSubmitting(false);
+      return;
+    }
+
     const supabase = createClient();
     const amountChargedNum = parseGuaranies(amountCharged);
     const incomeNum = parseGuaranies(income); // this is "Dinero recibido" or "Monto" depending on type
@@ -162,12 +201,16 @@ export function MovementForm({ initialType }: MovementFormProps) {
       finalExpense = 0;
     }
 
+    // Build comment with fuente for gastos
+    const finalComment = buildFinalComment(type, fuente, comment);
+
     const movementData: Record<string, unknown> = {
       type,
       income: finalIncome,
       expense: finalExpense,
-      comment: comment.trim() || null,
+      comment: finalComment,
       user_id: userId,
+      branch_id: branchId,
       created_at: new Date().toISOString(),
     };
 
@@ -182,15 +225,22 @@ export function MovementForm({ initialType }: MovementFormProps) {
       .from('movements')
       .insert(movementData);
 
-    setIsSubmitting(false);
-
     if (error) {
       console.error('Error inserting movement:', error);
       alert('Error al registrar movimiento');
+      setIsSubmitting(false);
       return;
     }
 
-    router.push('/movements');
+    setIsSubmitting(false);
+
+    if (showToast) {
+      showToast('Movimiento registrado', 'success');
+    }
+
+    setTimeout(() => {
+      router.push('/movements');
+    }, 500);
   };
 
   const handleBack = () => {
