@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { parseGuaranies } from '@/lib/utils';
 import { createClient } from '@/lib/supabase/client';
 import { useBranch } from '@/contexts/BranchContext';
+import { useToast } from '@/contexts/ToastContext';
 
 interface ServiceFormData {
   name: string;
@@ -19,7 +20,9 @@ interface ServiceFormProps {
 
 export function ServiceForm({ onCancel, onSuccess }: ServiceFormProps) {
   const router = useRouter();
+  const handleBack = onCancel ?? (() => router.back());
   const { currentBranch, initialized } = useBranch();
+  const { showToast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [form, setForm] = useState<ServiceFormData>({
     name: '',
@@ -95,6 +98,7 @@ export function ServiceForm({ onCancel, onSuccess }: ServiceFormProps) {
     if (onSuccess && data) {
       onSuccess({ id: data.id, name: data.name, price: data.price });
     } else {
+      showToast('Servicio creado', 'success');
       router.push('/services');
     }
   };
@@ -102,9 +106,7 @@ export function ServiceForm({ onCancel, onSuccess }: ServiceFormProps) {
   return (
     <div className="page">
       <header className="page-header flex-header">
-        {onCancel && (
-          <button onClick={onCancel} className="back-btn">←</button>
-        )}
+        <button onClick={handleBack} className="back-btn">←</button>
         <h1 className="page-title">Nuevo Servicio</h1>
       </header>
 

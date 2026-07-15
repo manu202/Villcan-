@@ -114,6 +114,53 @@ describe('finalComment construction (locks existing correct behavior, REQ-TEST-3
   });
 });
 
+describe('MovementForm dirty-guard on back-tap (REQ-DIRTY-1)', () => {
+  beforeEach(() => {
+    contactFromCalls = 0;
+    contactDeferreds = [createDeferred(), createDeferred()];
+    mockUseBranch.mockReturnValue({
+      currentBranch: { id: 'branch-1', name: 'Centro' },
+      isLoading: false,
+    });
+  });
+
+  it('clean form back-tap changes step silently (no ConfirmModal)', async () => {
+    render(<MovementForm initialType="servicio" />);
+
+    // Sanity: we're on the details step.
+    expect(screen.getByPlaceholderText('Buscar cliente...')).toBeTruthy();
+
+    fireEvent.click(screen.getByText('←'));
+
+    // No confirm dialog, and it navigated back to type selection.
+    expect(screen.queryByRole('dialog')).toBeNull();
+    await waitFor(() => expect(screen.getByText('Seleccionar tipo')).toBeTruthy());
+  });
+
+  it('dirty form back-tap shows ConfirmModal and blocks step change until confirm/cancel', async () => {
+    render(<MovementForm initialType="servicio" />);
+
+    const searchInput = screen.getByPlaceholderText('Buscar cliente...');
+    fireEvent.change(searchInput, { target: { value: 'juan' } });
+
+    fireEvent.click(screen.getByText('←'));
+
+    // Modal shown, step unchanged.
+    expect(screen.getByRole('dialog')).toBeTruthy();
+    expect(screen.getByPlaceholderText('Buscar cliente...')).toBeTruthy();
+
+    // Cancel dismisses the modal only, data untouched.
+    fireEvent.click(screen.getByText('Cancelar'));
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect((screen.getByPlaceholderText('Buscar cliente...') as HTMLInputElement).value).toBe('juan');
+
+    // Now confirm discard -> back to type step.
+    fireEvent.click(screen.getByText('←'));
+    fireEvent.click(screen.getByText('Descartar'));
+    await waitFor(() => expect(screen.getByText('Seleccionar tipo')).toBeTruthy());
+  });
+});
+
 describe('"Cta Bancaria" substring convention guard (REQ-TEST-6, documents a KNOWN LIMITATION)', () => {
   it('the only producer of the "Cta Bancaria" marker is the fuente-suffix append', () => {
     // MovementForm's own construction always brackets the fuente:

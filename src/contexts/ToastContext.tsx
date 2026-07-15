@@ -1,18 +1,25 @@
 'use client';
 
-import { useState, useCallback, useEffect } from 'react';
-import type { ToastType } from '@/hooks/useToast';
+import { createContext, useContext, useState, useCallback, useEffect, ReactNode } from 'react';
 
-interface Toast {
+export type ToastType = 'success' | 'error';
+
+interface ToastItem {
   id: string;
   message: string;
   type: ToastType;
 }
 
+interface ToastContextValue {
+  showToast: (message: string, type?: ToastType) => void;
+}
+
+const ToastContext = createContext<ToastContextValue | null>(null);
+
 let toastCount = 0;
 
-export function useToast() {
-  const [toasts, setToasts] = useState<Toast[]>([]);
+export function ToastProvider({ children }: { children: ReactNode }) {
+  const [toasts, setToasts] = useState<ToastItem[]>([]);
 
   const showToast = useCallback((message: string, type: ToastType = 'success') => {
     const id = `toast-${++toastCount}`;
@@ -27,18 +34,20 @@ export function useToast() {
     setToasts((prev) => prev.filter((t) => t.id !== id));
   }, []);
 
-  return { toasts, showToast, dismissToast };
-}
-
-// ToastProvider is a client component that provides toast context
-export function ToastProvider({ children }: { children: React.ReactNode }) {
-  const { toasts, dismissToast } = useToast();
   return (
-    <>
+    <ToastContext.Provider value={{ showToast }}>
       {children}
       <ToastContainer toasts={toasts} onDismiss={dismissToast} />
-    </>
+    </ToastContext.Provider>
   );
+}
+
+export function useToast() {
+  const context = useContext(ToastContext);
+  if (!context) {
+    throw new Error('useToast must be used within ToastProvider');
+  }
+  return context;
 }
 
 interface ToastProps {

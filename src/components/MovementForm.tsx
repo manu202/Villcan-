@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import type { MovementType, PaymentMethod, Service, Contact } from '@/types';
 import { formatGuaranies, parseGuaranies, escapeSearchQuery } from '@/lib/utils';
 import { ContactForm } from './ContactForm';
+import { ConfirmModal } from './ConfirmModal';
 import { createClient } from '@/lib/supabase/client';
 import { getCurrentUserId } from '@/lib/auth';
 import { useBranch } from '@/contexts/BranchContext';
@@ -57,6 +58,7 @@ export function MovementForm({ initialType, showToast }: MovementFormProps) {
   const [step, setStep] = useState<FormStep>(initialType ? 'details' : 'type');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showNewContact, setShowNewContact] = useState(false);
+  const [showDiscardConfirm, setShowDiscardConfirm] = useState(false);
 
   // Form state
   const [type, setType] = useState<MovementType | ''>(initialType || '');
@@ -72,6 +74,7 @@ export function MovementForm({ initialType, showToast }: MovementFormProps) {
   const [serviceId, setServiceId] = useState('');
   const [services, setServices] = useState<Service[]>([]);
   const [contacts, setContacts] = useState<Contact[]>([]);
+  const [contactsLoading, setContactsLoading] = useState(false);
 
   // Calculated change for efectivo
   const amountChargedNum = parseGuaranies(amountCharged);
@@ -103,6 +106,7 @@ export function MovementForm({ initialType, showToast }: MovementFormProps) {
 
     if (contactSearch.length >= 2) {
       const searchContacts = async () => {
+        setContactsLoading(true);
         const supabase = createClient();
         const escaped = escapeSearchQuery(contactSearch);
         const { data } = await supabase
@@ -117,11 +121,15 @@ export function MovementForm({ initialType, showToast }: MovementFormProps) {
         if (data) {
           setContacts(data as Contact[]);
         }
+        setContactsLoading(false);
       };
       searchContacts();
     } else {
       Promise.resolve().then(() => {
-        if (!cancelled) setContacts([]);
+        if (!cancelled) {
+          setContacts([]);
+          setContactsLoading(false);
+        }
       });
     }
 
@@ -243,13 +251,37 @@ export function MovementForm({ initialType, showToast }: MovementFormProps) {
     }, 500);
   };
 
+  const isDirty = !!selectedContact || !!contactSearch || !!serviceId || !!amountCharged
+    || !!income || !!fuente || !!comment || !!paymentMethod;
+
   const handleBack = () => {
     if (step === 'details') {
+      if (isDirty) {
+        setShowDiscardConfirm(true);
+        return;
+      }
       setStep('type');
     } else if (type) {
       // Already in type selection, go back to movements
       router.push('/movements');
     }
+  };
+
+  const handleConfirmDiscard = () => {
+    setShowDiscardConfirm(false);
+    setSelectedContact(null);
+    setContactSearch('');
+    setServiceId('');
+    setAmountCharged('');
+    setIncome('');
+    setFuente('');
+    setComment('');
+    setPaymentMethod('');
+    setStep('type');
+  };
+
+  const handleCancelDiscard = () => {
+    setShowDiscardConfirm(false);
   };
 
   // If showing new contact form
@@ -358,6 +390,16 @@ export function MovementForm({ initialType, showToast }: MovementFormProps) {
             border-color: var(--black);
           }
 
+          .type-card:active {
+            background: var(--gray-50);
+            border-color: var(--black);
+          }
+
+          .type-card:focus-visible {
+            outline: 2px solid var(--black);
+            outline-offset: 2px;
+          }
+
           .type-label {
             font-size: 16px;
             font-weight: 600;
@@ -421,7 +463,9 @@ export function MovementForm({ initialType, showToast }: MovementFormProps) {
                     onChange={(e) => setContactSearch(e.target.value)}
                     className="input"
                   />
-                  {contacts.length > 0 && (
+                  {contactsLoading ? (
+                    <p className="search-status">Buscando...</p>
+                  ) : contacts.length > 0 ? (
                     <ul className="dropdown">
                       {contacts.map((c) => (
                         <li key={c.id}>
@@ -439,7 +483,9 @@ export function MovementForm({ initialType, showToast }: MovementFormProps) {
                         </li>
                       ))}
                     </ul>
-                  )}
+                  ) : contactSearch.length >= 2 ? (
+                    <p className="search-status">Sin resultados</p>
+                  ) : null}
                   <button
                     type="button"
                     className="link-btn"
@@ -671,6 +717,12 @@ export function MovementForm({ initialType, showToast }: MovementFormProps) {
           color: var(--gray-400);
         }
 
+        .search-status {
+          font-size: 13px;
+          color: var(--gray-500);
+          padding: 10px 4px;
+        }
+
         .link-btn {
           display: block;
           width: 100%;
@@ -703,6 +755,16 @@ export function MovementForm({ initialType, showToast }: MovementFormProps) {
 
         .service-btn:hover {
           border-color: var(--gray-400);
+        }
+
+        .service-btn:active {
+          background: var(--gray-50);
+          border-color: var(--black);
+        }
+
+        .service-btn:focus-visible {
+          outline: 2px solid var(--black);
+          outline-offset: 2px;
         }
 
         .service-btn.selected {
@@ -741,6 +803,16 @@ export function MovementForm({ initialType, showToast }: MovementFormProps) {
 
         .method-btn:hover {
           border-color: var(--gray-400);
+        }
+
+        .method-btn:active {
+          background: var(--gray-50);
+          border-color: var(--black);
+        }
+
+        .method-btn:focus-visible {
+          outline: 2px solid var(--black);
+          outline-offset: 2px;
         }
 
         .method-btn.selected {
@@ -816,6 +888,14 @@ export function MovementForm({ initialType, showToast }: MovementFormProps) {
           background: var(--gray-50);
         }
       `}</style>
+
+      {showDiscardConfirm && (
+        <ConfirmModal
+          message="¿Descartar los datos ingresados?"
+          onConfirm={handleConfirmDiscard}
+          onCancel={handleCancelDiscard}
+        />
+      )}
     </div>
   );
 }

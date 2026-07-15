@@ -1,7 +1,7 @@
 import type { Metadata, Viewport } from 'next';
 import { Inter } from 'next/font/google';
 import { HamburgerMenu } from '@/components/HamburgerMenu';
-import { ToastProvider } from '@/components/Toast';
+import { ToastProvider } from '@/contexts/ToastContext';
 import { BranchProvider } from '@/contexts/BranchContext';
 import './globals.css';
 

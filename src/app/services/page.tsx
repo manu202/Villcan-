@@ -5,12 +5,15 @@ import Link from 'next/link';
 import { formatGuaranies } from '@/lib/utils';
 import { createClient } from '@/lib/supabase/client';
 import { useBranch } from '@/contexts/BranchContext';
+import { ErrorState } from '@/components/ErrorState';
 import type { Service } from '@/types';
 
 export default function ServicesPage() {
   const { currentBranch, initialized } = useBranch();
   const [services, setServices] = useState<Service[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
+  const [reloadToken, setReloadToken] = useState(0);
 
   // Use ref to always have current branch value inside async functions
   const currentBranchRef = useRef(currentBranch);
@@ -25,6 +28,8 @@ export default function ServicesPage() {
 
     const loadServices = async () => {
       const branch = currentBranchRef.current;
+      setLoading(true);
+      setError(false);
       const supabase = createClient();
 
       // Show: services from current branch + global services (branch_id IS NULL)
@@ -42,10 +47,15 @@ export default function ServicesPage() {
         query = query.is('branch_id', null);
       }
 
-      const { data } = await query;
+      const { data, error: fetchError } = await query;
 
       if (cancelled) return;
-      if (data) setServices(data as Service[]);
+
+      if (fetchError) {
+        setError(true);
+      } else if (data) {
+        setServices(data as Service[]);
+      }
       setLoading(false);
     };
     loadServices();
@@ -53,14 +63,18 @@ export default function ServicesPage() {
     return () => {
       cancelled = true;
     };
-  }, [initialized]);
+  }, [initialized, reloadToken]);
 
   return (
     <div className="page">
       <header className="page-header flex-header">
         <div>
           <h1 className="page-title">Servicios</h1>
-          <p className="page-subtitle">{loading ? '...' : `${services.length} servicios`}</p>
+          {loading ? (
+            <p className="page-subtitle">...</p>
+          ) : !error ? (
+            <p className="page-subtitle">{services.length} servicios</p>
+          ) : null}
         </div>
         <Link href="/services/new" className="btn-add">+Nuevo</Link>
       </header>
@@ -68,6 +82,8 @@ export default function ServicesPage() {
       <section className="section">
         {loading ? (
           <p className="page-subtitle">Cargando...</p>
+        ) : error ? (
+          <ErrorState onRetry={() => setReloadToken((t) => t + 1)} />
         ) : services.length === 0 ? (
           <div className="empty-state">
             <p>No hay servicios registrados</p>

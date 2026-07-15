@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
+import { useToast } from '@/contexts/ToastContext';
 
 interface ContactFormData {
   full_name: string;
@@ -18,6 +19,8 @@ interface ContactFormProps {
 
 export function ContactForm({ onCancel, onSuccess }: ContactFormProps) {
   const router = useRouter();
+  const { showToast } = useToast();
+  const handleBack = onCancel ?? (() => router.back());
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [form, setForm] = useState<ContactFormData>({
     full_name: '',
@@ -63,6 +66,7 @@ export function ContactForm({ onCancel, onSuccess }: ContactFormProps) {
       if (onSuccess && data) {
         onSuccess({ id: data.id, full_name: data.full_name });
       } else {
+        showToast('Contacto creado', 'success');
         router.push('/contacts');
       }
     } catch (err) {
@@ -75,9 +79,7 @@ export function ContactForm({ onCancel, onSuccess }: ContactFormProps) {
   return (
     <div className="page">
       <header className="page-header flex-header">
-        {onCancel && (
-          <button onClick={onCancel} className="back-btn">←</button>
-        )}
+        <button onClick={handleBack} className="back-btn">←</button>
         <h1 className="page-title">Nuevo Contacto</h1>
       </header>
 
