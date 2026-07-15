@@ -57,11 +57,23 @@ export default function BranchesPage() {
       }
     } else {
       // Create
-      const { error } = await supabase
+      const { data: newBranch, error } = await supabase
         .from('branches')
-        .insert({ name: formData.name, address: formData.address });
+        .insert({ name: formData.name, address: formData.address })
+        .select('id')
+        .single();
+
       if (error) setError(error.message);
       else {
+        // Self-grant admin access on the branch we just created — required by RLS
+        // (branches_select only shows branches the user has a user_branch_access row for).
+        const { data: userData } = await supabase.auth.getUser();
+        if (userData.user) {
+          const { error: accessError } = await supabase
+            .from('user_branch_access')
+            .insert({ user_id: userData.user.id, branch_id: newBranch.id, role: 'admin' });
+          if (accessError) setError(accessError.message);
+        }
         setSuccess('Sucursal creada');
         setShowForm(false);
         setFormData({ name: '', address: '' });
