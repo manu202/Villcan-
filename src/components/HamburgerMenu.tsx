@@ -19,6 +19,7 @@ const navItems: NavItem[] = [
   { label: 'Servicios', href: '/services', icon: '✂' },
   { label: 'Reportes', href: '/reports', icon: '▦' },
   { label: 'Sucursales', href: '/branches', icon: '◉' },
+  { label: 'Configuración', href: '/settings', icon: '⚙' },
 ];
 
 export function HamburgerMenu() {

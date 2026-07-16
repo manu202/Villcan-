@@ -3,6 +3,7 @@ import { Inter } from 'next/font/google';
 import { HamburgerMenu } from '@/components/HamburgerMenu';
 import { ToastProvider } from '@/contexts/ToastContext';
 import { BranchProvider } from '@/contexts/BranchContext';
+import { SettingsProvider } from '@/contexts/SettingsContext';
 import './globals.css';
 
 const inter = Inter({
@@ -39,8 +40,10 @@ export default function RootLayout({
       <body>
         <ToastProvider>
           <BranchProvider>
-            <HamburgerMenu />
-            <main className="main-content">{children}</main>
+            <SettingsProvider>
+              <HamburgerMenu />
+              <main className="main-content">{children}</main>
+            </SettingsProvider>
           </BranchProvider>
         </ToastProvider>
       </body>

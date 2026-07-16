@@ -85,6 +85,18 @@ export interface MovementFormData {
   comment?: string;
 }
 
+export interface BusinessSettings {
+  id: number;
+  commissions_enabled: boolean;
+  default_commission_pct: number;
+  split_payment_enabled: boolean;
+  mandatory_arqueo_enabled: boolean;
+  inventory_enabled: boolean;
+  services_label: string;
+  updated_at: string;
+  updated_by: string | null;
+}
+
 // KPI data structure
 export interface CashBoxKPIs {
   totalIncome: number;
