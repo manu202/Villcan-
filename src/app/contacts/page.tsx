@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
-import { escapeSearchQuery } from '@/lib/utils';
+import { escapeSearchQuery, formatDate } from '@/lib/utils';
 import type { Contact } from '@/types';
 import { Spinner } from '@/components/Spinner';
 import { EmptyState } from '@/components/EmptyState';
@@ -22,6 +22,7 @@ export default function ContactsPage() {
   const [sortBy, setSortBy] = useState<SortBy>('name');
   const [page, setPage] = useState(0);
   const [hasMore, setHasMore] = useState(true);
+  const [lastVisitByContact, setLastVisitByContact] = useState<Map<string, string>>(new Map());
 
   useEffect(() => {
     const loadContacts = async (reset = false) => {
@@ -57,6 +58,31 @@ export default function ContactsPage() {
           setContacts((prev) => [...prev, ...newContacts]);
         }
         setHasMore(newContacts.length === PAGE_SIZE);
+
+        // Batched last-visit lookup: ONE query for all visible contacts, not one per row.
+        const ids = newContacts.map((c) => c.id);
+        if (ids.length > 0) {
+          const { data: visitRows } = await supabase
+            .from('movements')
+            .select('contact_id, created_at')
+            .eq('type', 'servicio')
+            .in('contact_id', ids);
+
+          const grouped = new Map<string, string>();
+          for (const row of (visitRows || []) as { contact_id: string; created_at: string }[]) {
+            const existing = grouped.get(row.contact_id);
+            if (!existing || row.created_at > existing) {
+              grouped.set(row.contact_id, row.created_at);
+            }
+          }
+
+          setLastVisitByContact((prev) => {
+            if (reset || currentPage === 0) return grouped;
+            const merged = new Map(prev);
+            grouped.forEach((value, key) => merged.set(key, value));
+            return merged;
+          });
+        }
       }
       setLoading(false);
       setLoadingMore(false);
@@ -145,6 +171,11 @@ export default function ContactsPage() {
                         {c.ci && `CI ${c.ci}`}
                         {c.ci && c.phone && ' • '}
                         {c.phone && c.phone}
+                      </span>
+                      <span className="contact-last-visit">
+                        {lastVisitByContact.has(c.id)
+                          ? `Última visita: ${formatDate(lastVisitByContact.get(c.id)!)}`
+                          : 'Sin visitas'}
                       </span>
                     </div>
                     <span className="contact-action">›</span>
@@ -292,6 +323,11 @@ export default function ContactsPage() {
         .contact-details {
           font-size: 12px;
           color: var(--gray-500);
+        }
+
+        .contact-last-visit {
+          font-size: 11px;
+          color: var(--gray-400);
         }
 
         .contact-action {

@@ -6,6 +6,7 @@ import { useParams } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import type { Contact, MovementWithDetails } from '@/types';
 import { formatGuaranies, formatDate, getMovementTypeLabel } from '@/lib/utils';
+import { getContactVisitAggregate } from '@/lib/contactAggregates';
 
 export default function ContactDetailPage() {
   const params = useParams();
@@ -73,6 +74,7 @@ export default function ContactDetailPage() {
   }
 
   const totalSpent = movements.reduce((sum, m) => sum + (m.amount_charged || 0), 0);
+  const { lastVisit, isFrequent } = getContactVisitAggregate(movements);
 
   return (
     <div className="page">
@@ -91,6 +93,7 @@ export default function ContactDetailPage() {
             {contact.ci && <span className="detail-row">CI: {contact.ci}</span>}
             {contact.phone && <span className="detail-row">{contact.phone}</span>}
             {contact.comment && <span className="detail-row comment">{contact.comment}</span>}
+            {isFrequent && <span className="frequent-badge">Cliente frecuente</span>}
           </div>
         </div>
       </section>
@@ -104,6 +107,10 @@ export default function ContactDetailPage() {
           <div className="stat">
             <span className="stat-value">{formatGuaranies(totalSpent)}</span>
             <span className="stat-label">Total gastado</span>
+          </div>
+          <div className="stat">
+            <span className="stat-value">{lastVisit ? formatDate(lastVisit) : 'Sin visitas'}</span>
+            <span className="stat-label">Última visita</span>
           </div>
         </div>
       </section>
@@ -225,6 +232,20 @@ export default function ContactDetailPage() {
         .detail-row.comment {
           font-style: italic;
           color: var(--gray-500);
+        }
+
+        .frequent-badge {
+          display: inline-block;
+          width: fit-content;
+          margin-top: 4px;
+          padding: 4px 10px;
+          background: var(--black);
+          color: var(--white);
+          border-radius: 999px;
+          font-size: 11px;
+          font-weight: 600;
+          text-transform: uppercase;
+          letter-spacing: 0.05em;
         }
 
         .stats-row {
