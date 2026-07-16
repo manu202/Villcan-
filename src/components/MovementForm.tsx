@@ -2,6 +2,16 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import {
+  Scissors,
+  Receipt,
+  Unlock,
+  Lock,
+  Banknote,
+  ArrowLeftRight,
+  CreditCard,
+  type LucideIcon,
+} from 'lucide-react';
 import type { MovementType, PaymentMethod, Service, Contact } from '@/types';
 import { formatGuaranies, parseGuaranies, escapeSearchQuery } from '@/lib/utils';
 import { ContactForm } from './ContactForm';
@@ -19,17 +29,17 @@ interface MovementFormProps {
 
 type FormStep = 'type' | 'details';
 
-const movementTypes: { value: MovementType; label: string; description: string }[] = [
-  { value: 'servicio', label: 'Servicio', description: 'Venta de servicio' },
-  { value: 'gasto', label: 'Gasto', description: 'Egreso de dinero' },
-  { value: 'apertura', label: 'Apertura', description: 'Capital inicial del turno' },
-  { value: 'cierre', label: 'Cierre', description: 'Extracción de caja' },
+const movementTypes: { value: MovementType; label: string; description: string; icon: LucideIcon }[] = [
+  { value: 'servicio', label: 'Servicio', description: 'Venta de servicio', icon: Scissors },
+  { value: 'gasto', label: 'Gasto', description: 'Egreso de dinero', icon: Receipt },
+  { value: 'apertura', label: 'Apertura', description: 'Capital inicial del turno', icon: Unlock },
+  { value: 'cierre', label: 'Cierre', description: 'Extracción de caja', icon: Lock },
 ];
 
-const paymentMethods: { value: PaymentMethod; label: string }[] = [
-  { value: 'efectivo', label: 'Efectivo' },
-  { value: 'transferencia', label: 'Transferencia' },
-  { value: 'pos', label: 'POS' },
+const paymentMethods: { value: PaymentMethod; label: string; icon: LucideIcon }[] = [
+  { value: 'efectivo', label: 'Efectivo', icon: Banknote },
+  { value: 'transferencia', label: 'Transferencia', icon: ArrowLeftRight },
+  { value: 'pos', label: 'POS', icon: CreditCard },
 ];
 
 const fuentes = ['Caja', 'Cta Bancaria'] as const;
@@ -322,6 +332,7 @@ export function MovementForm({ initialType, showToast }: MovementFormProps) {
                 onClick={() => handleTypeSelect(t.value)}
                 className="type-card"
               >
+                <t.icon size={20} className="type-icon" aria-hidden="true" />
                 <span className="type-label">{t.label}</span>
                 <span className="type-desc">{t.description}</span>
               </button>
@@ -382,37 +393,42 @@ export function MovementForm({ initialType, showToast }: MovementFormProps) {
             flex-direction: column;
             gap: 8px;
             padding: 20px;
-            background: var(--white);
-            border: 1px solid var(--gray-200);
+            background: var(--surface);
+            border: 1px solid var(--border);
             border-radius: 12px;
             text-align: left;
             cursor: pointer;
             transition: all 0.15s ease;
+            box-shadow: var(--shadow-sm);
           }
 
           .type-card:hover {
-            border-color: var(--black);
+            border-color: var(--accent-hover);
           }
 
           .type-card:active {
-            background: var(--gray-50);
-            border-color: var(--black);
+            background: var(--accent-subtle);
+            border-color: var(--accent-hover);
           }
 
           .type-card:focus-visible {
-            outline: 2px solid var(--black);
+            outline: 2px solid var(--accent);
             outline-offset: 2px;
+          }
+
+          .type-icon {
+            color: var(--text-secondary);
           }
 
           .type-label {
             font-size: 16px;
             font-weight: 600;
-            color: var(--black);
+            color: var(--text-primary);
           }
 
           .type-desc {
             font-size: 12px;
-            color: var(--gray-500);
+            color: var(--text-secondary);
           }
         `}</style>
       </div>
@@ -514,6 +530,7 @@ export function MovementForm({ initialType, showToast }: MovementFormProps) {
                     }}
                     className={`service-btn ${serviceId === s.id ? 'selected' : ''}`}
                   >
+                    <Scissors size={16} className="service-icon" aria-hidden="true" />
                     <span className="service-name">{s.name}</span>
                     <span className="service-price">{formatGuaranies(s.price)}</span>
                   </button>
@@ -531,6 +548,7 @@ export function MovementForm({ initialType, showToast }: MovementFormProps) {
                     onClick={() => handlePaymentMethodSelect(m.value)}
                     className={`method-btn ${paymentMethod === m.value ? 'selected' : ''}`}
                   >
+                    <m.icon size={16} className="method-icon" aria-hidden="true" />
                     {m.label}
                   </button>
                 ))}
@@ -749,42 +767,47 @@ export function MovementForm({ initialType, showToast }: MovementFormProps) {
           flex-direction: column;
           gap: 4px;
           padding: 16px;
-          background: var(--white);
-          border: 1px solid var(--gray-200);
+          background: var(--surface);
+          border: 1px solid var(--border);
           border-radius: 8px;
           text-align: left;
           cursor: pointer;
           transition: all 0.15s ease;
+          box-shadow: var(--shadow-sm);
         }
 
         .service-btn:hover {
-          border-color: var(--gray-400);
+          border-color: var(--accent-hover);
         }
 
         .service-btn:active {
-          background: var(--gray-50);
-          border-color: var(--black);
+          background: var(--accent-subtle);
+          border-color: var(--accent);
         }
 
         .service-btn:focus-visible {
-          outline: 2px solid var(--black);
+          outline: 2px solid var(--accent);
           outline-offset: 2px;
         }
 
         .service-btn.selected {
-          border-color: var(--black);
-          background: var(--gray-50);
+          border-color: var(--accent);
+          background: var(--accent-subtle);
+        }
+
+        .service-icon {
+          color: var(--text-secondary);
         }
 
         .service-name {
           font-size: 14px;
           font-weight: 500;
-          color: var(--black);
+          color: var(--text-primary);
         }
 
         .service-price {
           font-size: 12px;
-          color: var(--gray-500);
+          color: var(--text-secondary);
         }
 
         .method-grid {
@@ -794,35 +817,43 @@ export function MovementForm({ initialType, showToast }: MovementFormProps) {
         }
 
         .method-btn {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 6px;
           padding: 16px 12px;
-          background: var(--white);
-          border: 1px solid var(--gray-200);
+          background: var(--surface);
+          border: 1px solid var(--border);
           border-radius: 8px;
           font-size: 14px;
           font-weight: 500;
-          color: var(--gray-600);
+          color: var(--text-secondary);
           cursor: pointer;
           transition: all 0.15s ease;
         }
 
         .method-btn:hover {
-          border-color: var(--gray-400);
+          border-color: var(--accent-hover);
         }
 
         .method-btn:active {
-          background: var(--gray-50);
-          border-color: var(--black);
+          background: var(--accent-subtle);
+          border-color: var(--accent);
         }
 
         .method-btn:focus-visible {
-          outline: 2px solid var(--black);
+          outline: 2px solid var(--accent);
           outline-offset: 2px;
         }
 
         .method-btn.selected {
-          border-color: var(--black);
-          background: var(--black);
-          color: var(--white);
+          border-color: var(--accent);
+          background: var(--accent);
+          color: var(--accent-foreground);
+        }
+
+        .method-icon {
+          color: inherit;
         }
 
         .change-box {

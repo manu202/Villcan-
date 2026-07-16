@@ -3,7 +3,21 @@
 import { useState, useCallback, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Sun, Moon, Monitor } from 'lucide-react';
+import {
+  Sun,
+  Moon,
+  Monitor,
+  LayoutDashboard,
+  ArrowRightLeft,
+  Users,
+  Scissors,
+  BarChart3,
+  Archive,
+  Building2,
+  Settings,
+  X,
+  type LucideIcon,
+} from 'lucide-react';
 import { AuthButton } from './AuthButton';
 import { BranchSelector } from './BranchSelector';
 import { useTheme, type ThemePreference } from '@/contexts/ThemeContext';
@@ -43,18 +57,18 @@ function ThemeToggle() {
 interface NavItem {
   label: string;
   href: string;
-  icon: string;
+  icon: LucideIcon;
 }
 
 const navItems: NavItem[] = [
-  { label: 'Caja', href: '/', icon: '□' },
-  { label: 'Movimientos', href: '/movements', icon: '▤' },
-  { label: 'Contactos', href: '/contacts', icon: '○' },
-  { label: 'Servicios', href: '/services', icon: '✂' },
-  { label: 'Reportes', href: '/reports', icon: '▦' },
-  { label: 'Cierres de Caja', href: '/closings', icon: '🗄' },
-  { label: 'Sucursales', href: '/branches', icon: '◉' },
-  { label: 'Configuración', href: '/settings', icon: '⚙' },
+  { label: 'Caja', href: '/', icon: LayoutDashboard },
+  { label: 'Movimientos', href: '/movements', icon: ArrowRightLeft },
+  { label: 'Contactos', href: '/contacts', icon: Users },
+  { label: 'Servicios', href: '/services', icon: Scissors },
+  { label: 'Reportes', href: '/reports', icon: BarChart3 },
+  { label: 'Cierres de Caja', href: '/closings', icon: Archive },
+  { label: 'Sucursales', href: '/branches', icon: Building2 },
+  { label: 'Configuración', href: '/settings', icon: Settings },
 ];
 
 export function HamburgerMenu() {
@@ -117,7 +131,7 @@ export function HamburgerMenu() {
             <BranchSelector />
           </div>
           <button className="close-btn" onClick={handleClose} aria-label="Cerrar menú">
-            ✕
+            <X size={16} aria-hidden="true" />
           </button>
         </div>
 
@@ -129,7 +143,7 @@ export function HamburgerMenu() {
                 className={`nav-link ${pathname === item.href ? 'active' : ''}`}
                 onClick={handleClose}
               >
-                <span className="nav-icon">{item.icon}</span>
+                <item.icon size={18} className="nav-icon" aria-hidden="true" />
                 <span className="nav-label">{item.label}</span>
               </Link>
             </li>
@@ -153,8 +167,8 @@ export function HamburgerMenu() {
           display: flex;
           align-items: center;
           justify-content: center;
-          background: var(--white);
-          border: 1px solid var(--gray-200);
+          background: var(--surface);
+          border: 1px solid var(--border);
           border-radius: 8px;
           cursor: pointer;
         }
@@ -169,7 +183,7 @@ export function HamburgerMenu() {
         .hamburger-icon span {
           display: block;
           height: 2px;
-          background: var(--black);
+          background: var(--text-primary);
           border-radius: 1px;
           transition: all 0.3s ease;
         }
@@ -205,7 +219,7 @@ export function HamburgerMenu() {
           left: 0;
           width: 280px;
           height: 100vh;
-          background: var(--white);
+          background: var(--surface);
           z-index: 1002;
           transform: translateX(-100%);
           transition: transform 0.3s ease;
@@ -219,7 +233,7 @@ export function HamburgerMenu() {
 
         .drawer-header {
           padding: 24px 20px;
-          border-bottom: 1px solid var(--gray-200);
+          border-bottom: 1px solid var(--border);
           display: flex;
           align-items: center;
           justify-content: space-between;
@@ -232,17 +246,17 @@ export function HamburgerMenu() {
           align-items: center;
           justify-content: center;
           background: transparent;
-          border: 1px solid var(--gray-200);
+          border: 1px solid var(--border);
           border-radius: 6px;
           cursor: pointer;
           font-size: 16px;
-          color: var(--gray-600);
+          color: var(--text-secondary);
           transition: all 0.15s ease;
         }
 
         .close-btn:hover {
-          background: var(--gray-100);
-          color: var(--black);
+          background: var(--accent-subtle);
+          color: var(--text-primary);
         }
 
         .logo {
@@ -268,7 +282,7 @@ export function HamburgerMenu() {
           align-items: center;
           gap: 12px;
           padding: 16px 20px;
-          color: var(--gray-600);
+          color: var(--text-secondary);
           text-decoration: none;
           font-size: 15px;
           font-weight: 500;
@@ -276,24 +290,23 @@ export function HamburgerMenu() {
         }
 
         .nav-link:hover {
-          background: var(--gray-50);
-          color: var(--black);
+          background: var(--accent-subtle);
+          color: var(--text-primary);
         }
 
         .nav-link.active {
-          background: var(--gray-100);
-          color: var(--black);
+          background: var(--accent-subtle);
+          color: var(--text-primary);
         }
 
         .nav-icon {
-          font-size: 18px;
           width: 24px;
-          text-align: center;
+          flex-shrink: 0;
         }
 
         .drawer-footer {
           padding: 20px;
-          border-top: 1px solid var(--gray-200);
+          border-top: 1px solid var(--border);
           display: flex;
           flex-direction: column;
           gap: 12px;
@@ -304,10 +317,10 @@ export function HamburgerMenu() {
           align-items: center;
           gap: 10px;
           padding: 10px 12px;
-          background: var(--gray-50);
-          border: 1px solid var(--gray-200);
+          background: var(--surface-elevated);
+          border: 1px solid var(--border);
           border-radius: 8px;
-          color: var(--gray-600);
+          color: var(--text-secondary);
           font-size: 14px;
           font-weight: 500;
           width: 100%;
@@ -315,8 +328,8 @@ export function HamburgerMenu() {
         }
 
         .theme-toggle:hover {
-          background: var(--gray-100);
-          color: var(--black);
+          background: var(--accent-subtle);
+          color: var(--text-primary);
         }
 
         .theme-toggle-label {

@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/client';
 import { useBranch } from '@/contexts/BranchContext';
 import { formatGuaranies, formatDate, formatTime } from '@/lib/utils';
 import { Spinner } from '@/components/Spinner';
+import { Archive } from 'lucide-react';
 import { EmptyState } from '@/components/EmptyState';
 import { ErrorState } from '@/components/ErrorState';
 
@@ -108,7 +109,7 @@ export default function ClosingsHistoryPage() {
           <ErrorState onRetry={() => setReloadToken((t) => t + 1)} />
         ) : closings.length === 0 ? (
           <EmptyState
-            icon="🗄"
+            icon={Archive}
             title="Sin cierres"
             message="Todavía no se registraron cierres de caja para esta sucursal"
           />

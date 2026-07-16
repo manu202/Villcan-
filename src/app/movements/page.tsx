@@ -7,6 +7,7 @@ import { createClient } from '@/lib/supabase/client';
 import { useBranch } from '@/contexts/BranchContext';
 import type { MovementWithDetails } from '@/types';
 import { Spinner } from '@/components/Spinner';
+import { Wallet } from 'lucide-react';
 import { EmptyState } from '@/components/EmptyState';
 import { ErrorState } from '@/components/ErrorState';
 
@@ -143,7 +144,7 @@ export default function MovementsPage() {
           <ErrorState onRetry={() => setFilter(filter)} />
         ) : movements.length === 0 ? (
           <EmptyState
-            icon="💰"
+            icon={Wallet}
             title="Sin movimientos"
             message="No hay movimientos registrados para este período"
             actionLabel="Registrar movimiento"

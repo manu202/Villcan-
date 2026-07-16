@@ -32,6 +32,7 @@
   --text-muted: var(--gray-400);
 
   --danger: #dc2626;
+  --danger-foreground: var(--white);
   --danger-subtle: #fef2f2;
   --warning: #92400e;
   --warning-subtle: #fef3c7;
@@ -63,6 +64,7 @@
   --foreground: var(--text-primary);
 
   --danger: #f87171;
+  --danger-foreground: #450a0a;
   --danger-subtle: #3a1414;
   --warning: #fbbf24;
   --warning-subtle: #3a2a0a;
@@ -91,6 +93,7 @@
     --foreground: var(--text-primary);
 
     --danger: #f87171;
+    --danger-foreground: #450a0a;
     --danger-subtle: #3a1414;
     --warning: #fbbf24;
     --warning-subtle: #3a2a0a;
@@ -430,8 +433,8 @@ button {
   justify-content: center;
   gap: 8px;
   padding: 14px 24px;
-  background: var(--black);
-  color: var(--white);
+  background: var(--accent);
+  color: var(--accent-foreground);
   border: none;
   border-radius: 8px;
   font-size: 15px;
@@ -457,9 +460,9 @@ button {
   justify-content: center;
   gap: 8px;
   padding: 14px 24px;
-  background: var(--white);
-  color: var(--black);
-  border: 1px solid var(--gray-300);
+  background: var(--surface);
+  color: var(--text-primary);
+  border: 1px solid var(--border);
   border-radius: 8px;
   font-size: 15px;
   font-weight: 500;
@@ -470,11 +473,38 @@ button {
 }
 
 .btn-secondary:hover {
-  border-color: var(--black);
+  border-color: var(--accent-hover);
 }
 
 .btn-secondary:active {
-  background: var(--gray-50);
+  background: var(--accent-subtle);
+}
+
+/* Danger button (shared class; no existing call site migrated in this change) */
+.btn-danger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 14px 24px;
+  background: var(--danger);
+  color: var(--danger-foreground);
+  border: none;
+  border-radius: 8px;
+  font-size: 15px;
+  font-weight: 600;
+  text-decoration: none;
+  cursor: pointer;
+  transition: opacity 0.15s ease;
+  min-height: 48px;
+}
+
+.btn-danger:hover {
+  opacity: 0.85;
+}
+
+.btn-danger:active {
+  opacity: 0.7;
 }
 
 /* Button full width */

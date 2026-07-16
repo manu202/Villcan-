@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/client';
 import { escapeSearchQuery, formatDate } from '@/lib/utils';
 import type { Contact } from '@/types';
 import { Spinner } from '@/components/Spinner';
+import { Users } from 'lucide-react';
 import { EmptyState } from '@/components/EmptyState';
 import { ErrorState } from '@/components/ErrorState';
 
@@ -150,7 +151,7 @@ export default function ContactsPage() {
           <ErrorState onRetry={() => { setPage(0); setSearch(search); }} />
         ) : contacts.length === 0 ? (
           <EmptyState
-            icon="👥"
+            icon={Users}
             title="Sin contactos"
             message="No hay contactos registrados"
             actionLabel="Agregar contacto"

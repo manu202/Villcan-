@@ -1,9 +1,12 @@
+import { AlertTriangle, type LucideIcon } from 'lucide-react';
+
 interface ErrorStateProps {
   message?: string;
   onRetry?: () => void;
+  icon?: LucideIcon;
 }
 
-export function ErrorState({ message = 'Ocurrió un error', onRetry }: ErrorStateProps) {
+export function ErrorState({ message = 'Ocurrió un error', onRetry, icon: Icon = AlertTriangle }: ErrorStateProps) {
   return (
     <div
       style={{
@@ -13,17 +16,19 @@ export function ErrorState({ message = 'Ocurrió un error', onRetry }: ErrorStat
     >
       <div
         style={{
-          fontSize: '48px',
+          display: 'flex',
+          justifyContent: 'center',
           marginBottom: '16px',
+          color: 'var(--danger)',
         }}
       >
-        ⚠️
+        <Icon size={48} aria-hidden="true" />
       </div>
       <h3
         style={{
           fontSize: '18px',
           fontWeight: '600',
-          color: 'var(--black)',
+          color: 'var(--text-primary)',
           marginBottom: '8px',
         }}
       >
@@ -32,7 +37,7 @@ export function ErrorState({ message = 'Ocurrió un error', onRetry }: ErrorStat
       <p
         style={{
           fontSize: '14px',
-          color: 'var(--gray-500)',
+          color: 'var(--text-secondary)',
           marginBottom: '20px',
         }}
       >
@@ -43,8 +48,8 @@ export function ErrorState({ message = 'Ocurrió un error', onRetry }: ErrorStat
           onClick={onRetry}
           style={{
             padding: '12px 20px',
-            background: 'var(--black)',
-            color: 'var(--white)',
+            background: 'var(--accent)',
+            color: 'var(--accent-foreground)',
             border: 'none',
             borderRadius: '8px',
             fontSize: '14px',
