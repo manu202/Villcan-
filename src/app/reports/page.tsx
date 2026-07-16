@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState, useRef } from 'react';
+import Link from 'next/link';
 import { formatGuaranies } from '@/lib/utils';
 import { createClient } from '@/lib/supabase/client';
 import { useBranch } from '@/contexts/BranchContext';
@@ -261,6 +262,12 @@ export default function ReportsPage() {
       </header>
 
       <section className="section">
+        <Link href="/reports/liquidacion" className="liquidacion-link">
+          Liquidación por barbero ›
+        </Link>
+      </section>
+
+      <section className="section">
         <div className="branch-filter">
           <select
             value={selectedBranch}
@@ -437,6 +444,18 @@ export default function ReportsPage() {
           font-size: 14px;
           color: var(--gray-500);
           margin-top: 4px;
+        }
+
+        .liquidacion-link {
+          display: block;
+          padding: 14px 16px;
+          background: var(--gray-50);
+          border: 1px solid var(--gray-200);
+          border-radius: 8px;
+          font-size: 14px;
+          font-weight: 600;
+          color: var(--black);
+          text-decoration: none;
         }
 
         .filter-row {

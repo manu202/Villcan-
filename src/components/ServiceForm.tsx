@@ -10,6 +10,7 @@ import { useToast } from '@/contexts/ToastContext';
 interface ServiceFormData {
   name: string;
   price: string;
+  cost: string;
   isGlobal: boolean;
 }
 
@@ -27,6 +28,7 @@ export function ServiceForm({ onCancel, onSuccess }: ServiceFormProps) {
   const [form, setForm] = useState<ServiceFormData>({
     name: '',
     price: '',
+    cost: '',
     isGlobal: false,
   });
   const [error, setError] = useState('');
@@ -81,6 +83,7 @@ export function ServiceForm({ onCancel, onSuccess }: ServiceFormProps) {
       .insert({
         name: form.name.trim(),
         price: parseGuaranies(form.price),
+        cost: form.cost ? parseGuaranies(form.cost) : 0,
         is_active: true,
         branch_id: branchId,
       })
@@ -132,6 +135,19 @@ export function ServiceForm({ onCancel, onSuccess }: ServiceFormProps) {
             value={form.price}
             onChange={handleChange}
             placeholder="35000"
+            className="input input-price"
+            inputMode="numeric"
+          />
+        </section>
+
+        <section className="section">
+          <label className="label">Costo (G)</label>
+          <input
+            type="text"
+            name="cost"
+            value={form.cost}
+            onChange={handleChange}
+            placeholder="0"
             className="input input-price"
             inputMode="numeric"
           />

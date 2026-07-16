@@ -12,6 +12,7 @@ export default function ServiceEditPage() {
 
   const [name, setName] = useState('');
   const [price, setPrice] = useState('');
+  const [cost, setCost] = useState('');
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -23,7 +24,7 @@ export default function ServiceEditPage() {
       const supabase = createClient();
       const { data, error } = await supabase
         .from('services')
-        .select('id, name, price')
+        .select('id, name, price, cost')
         .eq('id', serviceId)
         .single();
 
@@ -35,6 +36,7 @@ export default function ServiceEditPage() {
 
       setName(data.name);
       setPrice(data.price.toString());
+      setCost(data.cost != null ? data.cost.toString() : '');
       setLoading(false);
     }
 
@@ -49,7 +51,7 @@ export default function ServiceEditPage() {
     const supabase = createClient();
     const { error } = await supabase
       .from('services')
-      .update({ name, price: parseInt(price, 10) })
+      .update({ name, price: parseInt(price, 10), cost: cost ? parseInt(cost, 10) : 0 })
       .eq('id', serviceId);
 
     if (error) {
@@ -96,6 +98,17 @@ export default function ServiceEditPage() {
             value={price}
             onChange={(e) => setPrice(e.target.value)}
             required
+            min="0"
+          />
+        </div>
+
+        <div className="field">
+          <label htmlFor="cost">Costo (Gs)</label>
+          <input
+            id="cost"
+            type="number"
+            value={cost}
+            onChange={(e) => setCost(e.target.value)}
             min="0"
           />
         </div>

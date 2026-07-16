@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { formatGuaranies, formatDate } from '@/lib/utils';
+import { computeMargin } from '@/lib/margin';
 import type { Service, MovementWithDetails } from '@/types';
 
 export default function ServiceDetailPage() {
@@ -26,7 +27,7 @@ export default function ServiceDetailPage() {
       const [serviceRes, movementsRes] = await Promise.all([
         supabase
           .from('services')
-          .select('id, name, price, is_active, created_at, branch_id')
+          .select('id, name, price, cost, is_active, created_at, branch_id')
           .eq('id', serviceId)
           .single(),
         supabase
@@ -95,6 +96,21 @@ export default function ServiceDetailPage() {
           <span className="price-value">{formatGuaranies(service.price)}</span>
         </div>
       </section>
+
+      {service.cost != null && service.cost > 0 && (
+        <section className="section">
+          <div className="stats-row">
+            <div className="stat">
+              <span className="stat-value">{formatGuaranies(service.cost)}</span>
+              <span className="stat-label">Costo</span>
+            </div>
+            <div className="stat">
+              <span className="stat-value">{formatGuaranies(computeMargin(service.price, service.cost))}</span>
+              <span className="stat-label">Margen</span>
+            </div>
+          </div>
+        </section>
+      )}
 
       <section className="section">
         <div className="stats-row">

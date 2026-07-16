@@ -9,6 +9,8 @@ import { ConfirmModal } from './ConfirmModal';
 import { createClient } from '@/lib/supabase/client';
 import { getCurrentUserId } from '@/lib/auth';
 import { useBranch } from '@/contexts/BranchContext';
+import { useSettings } from '@/contexts/SettingsContext';
+import { computeCommissionPct } from '@/lib/commission';
 
 interface MovementFormProps {
   initialType?: MovementType;
@@ -55,6 +57,7 @@ export function buildFinalComment(
 export function MovementForm({ initialType, showToast }: MovementFormProps) {
   const router = useRouter();
   const { currentBranch } = useBranch();
+  const { settings } = useSettings();
   const [step, setStep] = useState<FormStep>(initialType ? 'details' : 'type');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showNewContact, setShowNewContact] = useState(false);
@@ -227,6 +230,7 @@ export function MovementForm({ initialType, showToast }: MovementFormProps) {
       movementData.service_id = serviceId || null;
       movementData.payment_method = paymentMethod || null;
       movementData.amount_charged = amountChargedNum;
+      movementData.commission_pct = computeCommissionPct(settings);
     }
 
     const { error } = await supabase

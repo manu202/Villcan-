@@ -32,18 +32,42 @@ vi.mock('@/contexts/BranchContext', () => ({
   useBranch: () => mockUseBranch(),
 }));
 
+const mockUseSettings = vi.fn();
+vi.mock('@/contexts/SettingsContext', () => ({
+  useSettings: () => mockUseSettings(),
+}));
+// Default: commissions off, matches today's out-of-the-box behavior. Tests
+// that need commissions on override this locally via mockUseSettings.mockReturnValue(...).
+mockUseSettings.mockReturnValue({ settings: { commissions_enabled: false, default_commission_pct: 0 } });
+
 let contactFromCalls = 0;
 let contactDeferreds: ReturnType<typeof createDeferred>[] = [];
+let servicesData: unknown[] = [];
+let lastMovementInsert: Record<string, unknown> | null = null;
 
 vi.mock('@/lib/supabase/client', () => ({
   createClient: () => ({
+    auth: {
+      getUser: () => Promise.resolve({ data: { user: { id: 'user-1' } } }),
+    },
     from: (table: string) => {
       if (table === 'contacts') {
         const deferred = contactDeferreds[contactFromCalls];
         contactFromCalls++;
         return createQueryMock(deferred.promise);
       }
-      // services (and anything else): resolve immediately with empty list
+      if (table === 'services') {
+        return createQueryMock(Promise.resolve({ data: servicesData, error: null }));
+      }
+      if (table === 'movements') {
+        return {
+          insert: (payload: Record<string, unknown>) => {
+            lastMovementInsert = payload;
+            return Promise.resolve({ error: null });
+          },
+        };
+      }
+      // anything else: resolve immediately with empty list
       return createQueryMock(Promise.resolve({ data: [], error: null }));
     },
   }),
@@ -222,5 +246,61 @@ describe('cierre step regression guard (caja-integrity change must NOT touch thi
 
     fireEvent.change(screen.getByPlaceholderText('0'), { target: { value: '50000' } });
     expect(submitBtn.disabled).toBe(false);
+  });
+});
+
+describe('commission_pct frozen at insert, servicio branch only (REQ-PROFIT-1/2)', () => {
+  beforeEach(() => {
+    contactFromCalls = 0;
+    contactDeferreds = [createDeferred(), createDeferred()];
+    servicesData = [{ id: 'svc-1', name: 'Corte', price: 100000 }];
+    lastMovementInsert = null;
+    mockUseBranch.mockReturnValue({
+      currentBranch: { id: 'branch-1', name: 'Centro' },
+      isLoading: false,
+    });
+  });
+
+  async function fillAndSubmitServicio() {
+    render(<MovementForm initialType="servicio" />);
+
+    const searchInput = screen.getByPlaceholderText('Buscar cliente...');
+    fireEvent.change(searchInput, { target: { value: 'juan' } });
+    await waitFor(() => expect(contactFromCalls).toBe(1));
+    contactDeferreds[0].resolve({
+      data: [{ id: 'c1', full_name: 'Juan Perez' }],
+      error: null,
+    });
+    await waitFor(() => screen.getByText('Juan Perez'));
+    fireEvent.click(screen.getByText('Juan Perez'));
+
+    await waitFor(() => screen.getByText('Corte'));
+    fireEvent.click(screen.getByText('Corte'));
+
+    fireEvent.click(screen.getByText('Transferencia'));
+
+    fireEvent.click(screen.getByText('Registrar movimiento'));
+
+    await waitFor(() => expect(lastMovementInsert).not.toBeNull());
+  }
+
+  it('commissions disabled -> commission_pct is null/undefined on the inserted movement', async () => {
+    mockUseSettings.mockReturnValue({
+      settings: { commissions_enabled: false, default_commission_pct: 15 },
+    });
+
+    await fillAndSubmitServicio();
+
+    expect(lastMovementInsert?.commission_pct ?? null).toBeNull();
+  });
+
+  it('commissions enabled -> commission_pct = business_settings.default_commission_pct', async () => {
+    mockUseSettings.mockReturnValue({
+      settings: { commissions_enabled: true, default_commission_pct: 12.5 },
+    });
+
+    await fillAndSubmitServicio();
+
+    expect(lastMovementInsert?.commission_pct).toBe(12.5);
   });
 });

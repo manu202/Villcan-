@@ -37,6 +37,7 @@ export interface Service {
   id: string;
   name: string;
   price: number; // stored as integer (guaranies)
+  cost: number | null; // stored as integer (guaranies), NULL/0 = unknown/no cost tracked
   created_at: string;
   is_active: boolean;
   branch_id: string | null; // NULL = global
@@ -55,6 +56,7 @@ export interface Movement {
   id: string;
   type: MovementType;
   amount_charged: number | null; // price of service (only for tipo=servicio)
+  commission_pct: number | null; // frozen at insert (only for tipo=servicio, when commissions_enabled=true)
   income: number; // money coming in
   expense: number; // money going out (change given, expenses, etc.)
   payment_method: PaymentMethod | null; // only for tipo=servicio
