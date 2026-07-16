@@ -166,9 +166,9 @@ export default function ServiceDetailPage() {
           align-items: center;
           justify-content: center;
           font-size: 24px;
-          background: var(--gray-100);
+          background: var(--surface-elevated);
           border-radius: 8px;
-          color: var(--black);
+          color: var(--text-primary);
           text-decoration: none;
         }
 
@@ -180,8 +180,8 @@ export default function ServiceDetailPage() {
 
         .edit-btn {
           padding: 8px 16px;
-          background: var(--black);
-          color: var(--white);
+          background: var(--accent);
+          color: var(--accent-foreground);
           border: none;
           border-radius: 8px;
           font-size: 14px;
@@ -192,7 +192,7 @@ export default function ServiceDetailPage() {
         .loading {
           text-align: center;
           padding: 48px;
-          color: var(--gray-500);
+          color: var(--text-secondary);
         }
 
         .error-state {
@@ -205,7 +205,7 @@ export default function ServiceDetailPage() {
         }
 
         .error-state p {
-          color: var(--gray-500);
+          color: var(--text-secondary);
         }
 
         .section {
@@ -218,8 +218,8 @@ export default function ServiceDetailPage() {
           align-items: center;
           gap: 8px;
           padding: 32px;
-          background: var(--black);
-          color: var(--white);
+          background: var(--accent);
+          color: var(--accent-foreground);
           border-radius: 12px;
           text-align: center;
         }
@@ -229,7 +229,8 @@ export default function ServiceDetailPage() {
           font-weight: 600;
           text-transform: uppercase;
           letter-spacing: 0.05em;
-          color: var(--gray-400);
+          color: var(--accent-foreground);
+          opacity: 0.75;
         }
 
         .price-value {
@@ -246,8 +247,8 @@ export default function ServiceDetailPage() {
         .stat {
           flex: 1;
           padding: 16px;
-          background: var(--white);
-          border: 1px solid var(--gray-200);
+          background: var(--surface);
+          border: 1px solid var(--border);
           border-radius: 12px;
           text-align: center;
         }
@@ -256,13 +257,13 @@ export default function ServiceDetailPage() {
           display: block;
           font-size: 20px;
           font-weight: 700;
-          color: var(--black);
+          color: var(--text-primary);
           margin-bottom: 4px;
         }
 
         .stat-label {
           font-size: 12px;
-          color: var(--gray-500);
+          color: var(--text-secondary);
           text-transform: uppercase;
           letter-spacing: 0.05em;
         }
@@ -272,12 +273,12 @@ export default function ServiceDetailPage() {
           font-weight: 600;
           text-transform: uppercase;
           letter-spacing: 0.05em;
-          color: var(--gray-400);
+          color: var(--text-muted);
           margin-bottom: 12px;
         }
 
         .empty-text {
-          color: var(--gray-500);
+          color: var(--text-secondary);
           font-size: 14px;
           text-align: center;
           padding: 24px;
@@ -288,7 +289,7 @@ export default function ServiceDetailPage() {
           display: flex;
           flex-direction: column;
           gap: 1px;
-          background: var(--gray-200);
+          background: var(--border);
           border-radius: 12px;
           overflow: hidden;
         }
@@ -298,7 +299,7 @@ export default function ServiceDetailPage() {
           justify-content: space-between;
           align-items: center;
           padding: 16px;
-          background: var(--white);
+          background: var(--surface);
         }
 
         .movement-info {
@@ -310,12 +311,12 @@ export default function ServiceDetailPage() {
         .movement-contact {
           font-size: 14px;
           font-weight: 500;
-          color: var(--black);
+          color: var(--text-primary);
         }
 
         .movement-date {
           font-size: 12px;
-          color: var(--gray-500);
+          color: var(--text-secondary);
         }
 
         .movement-amount {
@@ -328,7 +329,7 @@ export default function ServiceDetailPage() {
         .amount {
           font-size: 15px;
           font-weight: 700;
-          color: var(--black);
+          color: var(--text-primary);
           font-variant-numeric: tabular-nums;
         }
 
@@ -337,8 +338,8 @@ export default function ServiceDetailPage() {
           font-weight: 600;
           text-transform: uppercase;
           letter-spacing: 0.05em;
-          color: var(--gray-500);
-          background: var(--gray-100);
+          color: var(--text-secondary);
+          background: var(--surface-elevated);
           padding: 4px 8px;
           border-radius: 4px;
         }

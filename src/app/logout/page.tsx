@@ -20,7 +20,7 @@ export default function LogoutPage() {
         }
         .logout-text {
           font-size: 15px;
-          color: var(--gray-500);
+          color: var(--text-secondary);
         }
       `}</style>
     </div>

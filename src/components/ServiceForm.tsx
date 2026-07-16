@@ -196,9 +196,9 @@ export function ServiceForm({ onCancel, onSuccess }: ServiceFormProps) {
           align-items: center;
           justify-content: center;
           font-size: 24px;
-          background: var(--gray-100);
+          background: var(--surface-elevated);
           border-radius: 8px;
-          color: var(--black);
+          color: var(--text-primary);
         }
 
         .page-title {
@@ -216,14 +216,14 @@ export function ServiceForm({ onCancel, onSuccess }: ServiceFormProps) {
           font-weight: 600;
           text-transform: uppercase;
           letter-spacing: 0.05em;
-          color: var(--gray-500);
+          color: var(--text-secondary);
           margin-bottom: 8px;
         }
 
         .input {
           width: 100%;
           padding: 14px 16px;
-          border: 1px solid var(--gray-300);
+          border: 1px solid var(--border);
           border-radius: 8px;
           font-size: 16px;
         }
@@ -235,7 +235,7 @@ export function ServiceForm({ onCancel, onSuccess }: ServiceFormProps) {
         }
 
         .error {
-          color: var(--gray-600);
+          color: var(--text-secondary);
           font-size: 14px;
           margin-bottom: 16px;
         }
@@ -245,7 +245,7 @@ export function ServiceForm({ onCancel, onSuccess }: ServiceFormProps) {
           align-items: center;
           gap: 10px;
           font-size: 14px;
-          color: var(--gray-600);
+          color: var(--text-secondary);
           cursor: pointer;
         }
 
@@ -260,8 +260,8 @@ export function ServiceForm({ onCancel, onSuccess }: ServiceFormProps) {
           align-items: center;
           justify-content: center;
           padding: 14px 24px;
-          background: var(--black);
-          color: var(--white);
+          background: var(--accent);
+          color: var(--accent-foreground);
           border: none;
           border-radius: 8px;
           font-size: 15px;

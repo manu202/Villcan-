@@ -212,7 +212,7 @@ export default function LiquidacionPage() {
         .back-link {
           display: inline-block;
           font-size: 14px;
-          color: var(--gray-500);
+          color: var(--text-secondary);
           text-decoration: none;
           margin-bottom: 8px;
         }
@@ -229,11 +229,11 @@ export default function LiquidacionPage() {
         .select {
           width: 100%;
           padding: 10px 12px;
-          background: var(--white);
-          border: 1px solid var(--gray-200);
+          background: var(--surface);
+          border: 1px solid var(--border);
           border-radius: 8px;
           font-size: 14px;
-          color: var(--black);
+          color: var(--text-primary);
           cursor: pointer;
           min-height: 44px;
         }
@@ -246,19 +246,19 @@ export default function LiquidacionPage() {
         .filter-btn {
           flex: 1;
           padding: 10px 12px;
-          background: var(--white);
-          border: 1px solid var(--gray-200);
+          background: var(--surface);
+          border: 1px solid var(--border);
           border-radius: 8px;
           font-size: 13px;
           font-weight: 500;
-          color: var(--gray-600);
+          color: var(--text-secondary);
           cursor: pointer;
         }
 
         .filter-btn.active {
-          background: var(--black);
-          color: var(--white);
-          border-color: var(--black);
+          background: var(--accent);
+          color: var(--accent-foreground);
+          border-color: var(--accent);
         }
 
         .custom-range {
@@ -274,12 +274,12 @@ export default function LiquidacionPage() {
         }
 
         .range-separator {
-          color: var(--gray-400);
+          color: var(--text-muted);
           font-size: 18px;
         }
 
         .card {
-          background: var(--gray-50);
+          background: var(--surface-elevated);
           border-radius: 12px;
           padding: 20px;
         }
@@ -289,7 +289,7 @@ export default function LiquidacionPage() {
           font-weight: 700;
           text-transform: uppercase;
           letter-spacing: 0.08em;
-          color: var(--gray-500);
+          color: var(--text-secondary);
           margin-bottom: 16px;
         }
 
@@ -301,7 +301,7 @@ export default function LiquidacionPage() {
 
         .breakdown-empty {
           font-size: 14px;
-          color: var(--gray-400);
+          color: var(--text-muted);
           text-align: center;
           padding: 24px 0;
         }
@@ -311,7 +311,7 @@ export default function LiquidacionPage() {
           align-items: center;
           gap: 12px;
           padding: 12px 0;
-          border-bottom: 1px solid var(--gray-200);
+          border-bottom: 1px solid var(--border);
         }
 
         .breakdown-row:last-child {
@@ -319,7 +319,7 @@ export default function LiquidacionPage() {
         }
 
         .breakdown-row.total {
-          border-top: 2px solid var(--gray-300);
+          border-top: 2px solid var(--border);
           margin-top: 8px;
           padding-top: 12px;
         }
@@ -328,27 +328,27 @@ export default function LiquidacionPage() {
           flex: 1;
           font-size: 14px;
           font-weight: 500;
-          color: var(--black);
+          color: var(--text-primary);
         }
 
         .breakdown-amount {
           font-size: 14px;
           font-weight: 600;
-          color: var(--black);
+          color: var(--text-primary);
           font-variant-numeric: tabular-nums;
         }
 
         .breakdown-commission {
           font-size: 13px;
           font-weight: 600;
-          color: var(--gray-600);
+          color: var(--text-secondary);
           font-variant-numeric: tabular-nums;
         }
 
         .empty-state {
           text-align: center;
           padding: 48px 24px;
-          color: var(--gray-500);
+          color: var(--text-secondary);
         }
       `}</style>
     </div>

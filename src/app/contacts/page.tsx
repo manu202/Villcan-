@@ -218,7 +218,7 @@ export default function ContactsPage() {
 
         .page-subtitle {
           font-size: 14px;
-          color: var(--gray-500);
+          color: var(--text-secondary);
         }
 
         .sort-btn {
@@ -226,14 +226,14 @@ export default function ContactsPage() {
           font-weight: 600;
           padding: 4px 10px;
           border-radius: 6px;
-          border: 1px solid var(--gray-200);
-          background: var(--white);
-          color: var(--gray-700);
+          border: 1px solid var(--border);
+          background: var(--surface);
+          color: var(--text-secondary);
           cursor: pointer;
         }
 
         .sort-btn:active {
-          background: var(--gray-50);
+          background: var(--accent-subtle);
         }
 
         .btn-add {
@@ -241,8 +241,8 @@ export default function ContactsPage() {
           align-items: center;
           justify-content: center;
           padding: 10px 16px;
-          background: var(--black);
-          color: var(--white);
+          background: var(--accent);
+          color: var(--accent-foreground);
           border-radius: 8px;
           font-size: 14px;
           font-weight: 600;
@@ -254,7 +254,7 @@ export default function ContactsPage() {
         .search-input {
           width: 100%;
           padding: 12px 16px;
-          border: 1px solid var(--gray-200);
+          border: 1px solid var(--border);
           border-radius: 8px;
           font-size: 16px;
         }
@@ -262,7 +262,7 @@ export default function ContactsPage() {
         .empty-state {
           text-align: center;
           padding: 48px 24px;
-          color: var(--gray-500);
+          color: var(--text-secondary);
         }
 
         .empty-state p {
@@ -274,7 +274,7 @@ export default function ContactsPage() {
           display: flex;
           flex-direction: column;
           gap: 1px;
-          background: var(--gray-200);
+          background: var(--border);
           border-radius: 12px;
           overflow: hidden;
         }
@@ -284,13 +284,13 @@ export default function ContactsPage() {
           align-items: center;
           gap: 12px;
           padding: 16px;
-          background: var(--white);
+          background: var(--surface);
           text-decoration: none;
           color: inherit;
         }
 
         .contact-item:active {
-          background: var(--gray-50);
+          background: var(--accent-subtle);
         }
 
         .contact-avatar {
@@ -299,8 +299,8 @@ export default function ContactsPage() {
           display: flex;
           align-items: center;
           justify-content: center;
-          background: var(--black);
-          color: var(--white);
+          background: var(--accent);
+          color: var(--accent-foreground);
           border-radius: 50%;
           font-size: 16px;
           font-weight: 600;
@@ -318,22 +318,22 @@ export default function ContactsPage() {
         .contact-name {
           font-size: 15px;
           font-weight: 500;
-          color: var(--black);
+          color: var(--text-primary);
         }
 
         .contact-details {
           font-size: 12px;
-          color: var(--gray-500);
+          color: var(--text-secondary);
         }
 
         .contact-last-visit {
           font-size: 11px;
-          color: var(--gray-400);
+          color: var(--text-muted);
         }
 
         .contact-action {
           font-size: 24px;
-          color: var(--gray-400);
+          color: var(--text-muted);
           flex-shrink: 0;
         }
 
@@ -342,17 +342,17 @@ export default function ContactsPage() {
           width: 100%;
           margin-top: 16px;
           padding: 12px 16px;
-          border: 1px solid var(--gray-200);
+          border: 1px solid var(--border);
           border-radius: 8px;
-          background: var(--white);
+          background: var(--surface);
           font-size: 14px;
           font-weight: 500;
-          color: var(--gray-700);
+          color: var(--text-secondary);
           cursor: pointer;
         }
 
         .btn-load-more:active {
-          background: var(--gray-50);
+          background: var(--accent-subtle);
         }
 
         .btn-load-more:disabled {

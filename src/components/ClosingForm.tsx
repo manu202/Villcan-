@@ -233,7 +233,7 @@ export function ClosingForm() {
 
         .page-subtitle {
           font-size: 14px;
-          color: var(--gray-500);
+          color: var(--text-secondary);
           margin-top: 4px;
         }
 
@@ -246,7 +246,7 @@ export function ClosingForm() {
           font-weight: 600;
           text-transform: uppercase;
           letter-spacing: 0.05em;
-          color: var(--gray-400);
+          color: var(--text-muted);
           margin-bottom: 12px;
         }
 
@@ -255,7 +255,7 @@ export function ClosingForm() {
           flex-direction: column;
           gap: 8px;
           padding: 16px;
-          background: var(--gray-50);
+          background: var(--surface-elevated);
           border-radius: 12px;
         }
 
@@ -263,13 +263,13 @@ export function ClosingForm() {
           display: flex;
           justify-content: space-between;
           font-size: 14px;
-          color: var(--gray-600);
+          color: var(--text-secondary);
         }
 
         .balance-total {
           font-weight: 700;
-          color: var(--black);
-          border-top: 1px solid var(--gray-200);
+          color: var(--text-primary);
+          border-top: 1px solid var(--border);
           padding-top: 8px;
           margin-top: 4px;
         }
@@ -284,21 +284,21 @@ export function ClosingForm() {
         .count-field label {
           font-size: 14px;
           font-weight: 600;
-          color: var(--black);
+          color: var(--text-primary);
         }
 
         .input {
           padding: 12px 16px;
           font-size: 16px;
-          border: 1px solid var(--gray-200);
+          border: 1px solid var(--border);
           border-radius: 8px;
-          background: var(--white);
+          background: var(--surface);
         }
 
         .discrepancy {
           font-size: 13px;
           font-weight: 600;
-          color: var(--gray-500);
+          color: var(--text-secondary);
         }
 
         .btn-primary {
@@ -307,8 +307,8 @@ export function ClosingForm() {
           justify-content: center;
           gap: 8px;
           padding: 14px 24px;
-          background: var(--black);
-          color: var(--white);
+          background: var(--accent);
+          color: var(--accent-foreground);
           border: none;
           border-radius: 8px;
           font-size: 15px;

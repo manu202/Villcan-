@@ -225,14 +225,14 @@ function SettingsForm({
 
         .page-subtitle {
           font-size: 14px;
-          color: var(--gray-500);
+          color: var(--text-secondary);
           margin-top: 4px;
         }
 
         .empty-state {
           text-align: center;
           padding: 48px 24px;
-          color: var(--gray-500);
+          color: var(--text-secondary);
         }
 
         .form {
@@ -257,22 +257,23 @@ function SettingsForm({
         .field > span {
           font-size: 14px;
           font-weight: 600;
-          color: var(--black);
+          color: var(--text-primary);
         }
 
         .field input[type="text"],
         .field input[type="number"] {
           padding: 12px 16px;
           font-size: 16px;
-          border: 1px solid var(--gray-200);
+          border: 1px solid var(--border);
           border-radius: 8px;
-          background: var(--white);
+          background: var(--surface);
+          color: var(--text-primary);
         }
 
         .field input[type="text"]:focus,
         .field input[type="number"]:focus {
           outline: none;
-          border-color: var(--black);
+          border-color: var(--accent);
         }
 
         .swatch-picker {
@@ -288,7 +289,7 @@ function SettingsForm({
           min-width: 36px;
           min-height: 36px;
           border-radius: 50%;
-          border: 2px solid var(--gray-200);
+          border: 2px solid var(--border);
           background: var(--accent);
           cursor: pointer;
           transition: transform 0.15s ease, border-color 0.15s ease;
@@ -299,8 +300,8 @@ function SettingsForm({
         }
 
         .swatch-selected {
-          border-color: var(--black);
-          box-shadow: 0 0 0 2px var(--white), 0 0 0 4px var(--black);
+          border-color: var(--text-primary);
+          box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--text-primary);
         }
 
         .error {
@@ -320,8 +321,8 @@ function SettingsForm({
         .submit-btn {
           flex: 1;
           padding: 14px;
-          background: var(--black);
-          color: var(--white);
+          background: var(--accent);
+          color: var(--accent-foreground);
           border: none;
           border-radius: 8px;
           font-size: 16px;

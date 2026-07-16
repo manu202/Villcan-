@@ -202,7 +202,7 @@ export default function MovementsPage() {
 
         .page-subtitle {
           font-size: 14px;
-          color: var(--gray-500);
+          color: var(--text-secondary);
           margin-top: 4px;
         }
 
@@ -211,8 +211,8 @@ export default function MovementsPage() {
           align-items: center;
           justify-content: center;
           padding: 10px 16px;
-          background: var(--black);
-          color: var(--white);
+          background: var(--accent);
+          color: var(--accent-foreground);
           border-radius: 8px;
           font-size: 14px;
           font-weight: 600;
@@ -229,30 +229,30 @@ export default function MovementsPage() {
         .filter-btn {
           flex: 1;
           padding: 10px 12px;
-          background: var(--white);
-          border: 1px solid var(--gray-200);
+          background: var(--surface);
+          border: 1px solid var(--border);
           border-radius: 8px;
           font-size: 13px;
           font-weight: 500;
-          color: var(--gray-600);
+          color: var(--text-secondary);
           cursor: pointer;
           transition: all 0.15s ease;
         }
 
         .filter-btn:hover {
-          border-color: var(--gray-400);
+          border-color: var(--accent-hover);
         }
 
         .filter-btn.active {
-          background: var(--black);
-          color: var(--white);
-          border-color: var(--black);
+          background: var(--accent);
+          color: var(--accent-foreground);
+          border-color: var(--accent);
         }
 
         .empty-state {
           text-align: center;
           padding: 48px 24px;
-          color: var(--gray-500);
+          color: var(--text-secondary);
         }
 
         .empty-state p {
@@ -264,7 +264,7 @@ export default function MovementsPage() {
           display: flex;
           flex-direction: column;
           gap: 1px;
-          background: var(--gray-200);
+          background: var(--border);
           border-radius: 12px;
           overflow: hidden;
         }
@@ -275,13 +275,13 @@ export default function MovementsPage() {
           align-items: center;
           gap: 12px;
           padding: 16px;
-          background: var(--white);
+          background: var(--surface);
           text-decoration: none;
           color: inherit;
         }
 
         .movement-item:active {
-          background: var(--gray-50);
+          background: var(--accent-subtle);
         }
 
         .movement-main {
@@ -305,13 +305,13 @@ export default function MovementsPage() {
           font-weight: 600;
           text-transform: uppercase;
           letter-spacing: 0.05em;
-          color: var(--gray-500);
+          color: var(--text-secondary);
         }
 
         .movement-contact {
           font-size: 14px;
           font-weight: 500;
-          color: var(--black);
+          color: var(--text-primary);
           white-space: nowrap;
           overflow: hidden;
           text-overflow: ellipsis;
@@ -332,12 +332,12 @@ export default function MovementsPage() {
         }
 
         .amount.expense {
-          color: var(--gray-600);
+          color: var(--text-secondary);
         }
 
         .movement-time {
           font-size: 11px;
-          color: var(--gray-400);
+          color: var(--text-muted);
         }
 
         .payment-badge {
@@ -345,8 +345,8 @@ export default function MovementsPage() {
           font-weight: 600;
           text-transform: uppercase;
           letter-spacing: 0.05em;
-          color: var(--gray-500);
-          background: var(--gray-100);
+          color: var(--text-secondary);
+          background: var(--surface-elevated);
           padding: 4px 8px;
           border-radius: 4px;
           flex-shrink: 0;

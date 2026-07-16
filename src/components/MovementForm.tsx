@@ -359,9 +359,9 @@ export function MovementForm({ initialType, showToast }: MovementFormProps) {
             align-items: center;
             justify-content: center;
             font-size: 24px;
-            background: var(--gray-100);
+            background: var(--surface-elevated);
             border-radius: 8px;
-            color: var(--black);
+            color: var(--text-primary);
           }
 
           .page-title {
@@ -378,7 +378,7 @@ export function MovementForm({ initialType, showToast }: MovementFormProps) {
             font-weight: 600;
             text-transform: uppercase;
             letter-spacing: 0.05em;
-            color: var(--gray-400);
+            color: var(--text-muted);
             margin-bottom: 12px;
           }
 
@@ -674,9 +674,9 @@ export function MovementForm({ initialType, showToast }: MovementFormProps) {
           align-items: center;
           justify-content: center;
           font-size: 24px;
-          background: var(--gray-100);
+          background: var(--surface-elevated);
           border-radius: 8px;
-          color: var(--black);
+          color: var(--text-primary);
         }
 
         .page-title {
@@ -693,7 +693,7 @@ export function MovementForm({ initialType, showToast }: MovementFormProps) {
           font-weight: 600;
           text-transform: uppercase;
           letter-spacing: 0.05em;
-          color: var(--gray-400);
+          color: var(--text-muted);
           margin-bottom: 12px;
         }
 
@@ -710,7 +710,7 @@ export function MovementForm({ initialType, showToast }: MovementFormProps) {
 
         .input-hint {
           font-size: 12px;
-          color: var(--gray-500);
+          color: var(--text-secondary);
           margin-top: 8px;
         }
 
@@ -719,8 +719,8 @@ export function MovementForm({ initialType, showToast }: MovementFormProps) {
           align-items: center;
           justify-content: space-between;
           padding: 14px 16px;
-          background: var(--gray-50);
-          border: 1px solid var(--gray-200);
+          background: var(--surface-elevated);
+          border: 1px solid var(--border);
           border-radius: 8px;
         }
 
@@ -736,12 +736,12 @@ export function MovementForm({ initialType, showToast }: MovementFormProps) {
           align-items: center;
           justify-content: center;
           font-size: 14px;
-          color: var(--gray-400);
+          color: var(--text-muted);
         }
 
         .search-status {
           font-size: 13px;
-          color: var(--gray-500);
+          color: var(--text-secondary);
           padding: 10px 4px;
         }
 
@@ -751,7 +751,7 @@ export function MovementForm({ initialType, showToast }: MovementFormProps) {
           padding: 12px 0;
           text-align: left;
           font-size: 14px;
-          color: var(--gray-600);
+          color: var(--text-secondary);
           text-decoration: underline;
           margin-top: 8px;
         }
@@ -861,39 +861,21 @@ export function MovementForm({ initialType, showToast }: MovementFormProps) {
           justify-content: space-between;
           align-items: center;
           padding: 20px;
-          background: var(--gray-50);
-          border: 1px solid var(--gray-200);
+          background: var(--surface-elevated);
+          border: 1px solid var(--border);
           border-radius: 12px;
         }
 
         .change-label {
           font-size: 14px;
           font-weight: 500;
-          color: var(--gray-600);
+          color: var(--text-secondary);
         }
 
         .change-value {
           font-size: 20px;
           font-weight: 700;
-          color: var(--black);
-        }
-
-        .btn-primary {
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          gap: 8px;
-          padding: 14px 24px;
-          background: var(--black);
-          color: var(--white);
-          border: none;
-          border-radius: 8px;
-          font-size: 15px;
-          font-weight: 600;
-          cursor: pointer;
-          transition: opacity 0.15s ease;
-          min-height: 48px;
-          width: 100%;
+          color: var(--text-primary);
         }
 
         .btn-primary:disabled {
@@ -903,7 +885,7 @@ export function MovementForm({ initialType, showToast }: MovementFormProps) {
 
         .dropdown {
           list-style: none;
-          border: 1px solid var(--gray-200);
+          border: 1px solid var(--border);
           border-radius: 8px;
           margin-top: 8px;
           overflow: hidden;
@@ -915,12 +897,12 @@ export function MovementForm({ initialType, showToast }: MovementFormProps) {
           padding: 12px 16px;
           text-align: left;
           font-size: 14px;
-          background: var(--white);
+          background: var(--surface-elevated);
           cursor: pointer;
         }
 
         .dropdown-item:hover {
-          background: var(--gray-50);
+          background: var(--accent-subtle);
         }
       `}</style>
 

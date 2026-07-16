@@ -89,7 +89,7 @@ export default function LoginPage() {
           align-items: center;
           justify-content: center;
           padding: 16px;
-          background: var(--gray-50);
+          background: var(--surface);
           overflow: hidden;
         }
 
@@ -112,24 +112,24 @@ export default function LoginPage() {
 
         .login-subtitle {
           font-size: 15px;
-          color: var(--gray-500);
+          color: var(--text-secondary);
         }
 
         .login-form {
-          background: var(--white);
-          border: 1px solid var(--gray-200);
+          background: var(--surface-elevated);
+          border: 1px solid var(--border);
           border-radius: 12px;
           padding: 20px;
         }
 
         .error-message {
-          background: var(--gray-50);
-          border: 1px solid var(--gray-200);
+          background: var(--surface);
+          border: 1px solid var(--border);
           border-radius: 8px;
           padding: 12px 16px;
           margin-bottom: 16px;
           font-size: 14px;
-          color: var(--gray-700);
+          color: var(--text-primary);
         }
 
         .form-group {
@@ -142,7 +142,7 @@ export default function LoginPage() {
           font-weight: 600;
           text-transform: uppercase;
           letter-spacing: 0.05em;
-          color: var(--gray-600);
+          color: var(--text-secondary);
           margin-bottom: 8px;
         }
 
@@ -157,12 +157,12 @@ export default function LoginPage() {
 
         .back-link {
           font-size: 14px;
-          color: var(--gray-500);
+          color: var(--text-secondary);
           text-decoration: none;
         }
 
         .back-link:hover {
-          color: var(--black);
+          color: var(--text-primary);
         }
       `}</style>
     </div>

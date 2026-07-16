@@ -145,9 +145,9 @@ export default function ServiceEditPage() {
           align-items: center;
           justify-content: center;
           font-size: 24px;
-          background: var(--gray-100);
+          background: var(--surface-elevated);
           border-radius: 8px;
-          color: var(--black);
+          color: var(--text-primary);
           text-decoration: none;
         }
 
@@ -159,7 +159,7 @@ export default function ServiceEditPage() {
         .loading {
           text-align: center;
           padding: 48px;
-          color: var(--gray-500);
+          color: var(--text-secondary);
         }
 
         .form {
@@ -177,20 +177,20 @@ export default function ServiceEditPage() {
         .field label {
           font-size: 14px;
           font-weight: 600;
-          color: var(--black);
+          color: var(--text-primary);
         }
 
         .field input {
           padding: 12px 16px;
           font-size: 16px;
-          border: 1px solid var(--gray-200);
+          border: 1px solid var(--border);
           border-radius: 8px;
-          background: var(--white);
+          background: var(--surface);
         }
 
         .field input:focus {
           outline: none;
-          border-color: var(--black);
+          border-color: var(--accent);
         }
 
         .error {
@@ -211,8 +211,8 @@ export default function ServiceEditPage() {
           flex: 1;
           padding: 14px;
           text-align: center;
-          background: var(--gray-100);
-          color: var(--black);
+          background: var(--surface-elevated);
+          color: var(--text-primary);
           border-radius: 8px;
           font-size: 16px;
           font-weight: 600;
@@ -222,8 +222,8 @@ export default function ServiceEditPage() {
         .submit-btn {
           flex: 2;
           padding: 14px;
-          background: var(--black);
-          color: var(--white);
+          background: var(--accent);
+          color: var(--accent-foreground);
           border: none;
           border-radius: 8px;
           font-size: 16px;

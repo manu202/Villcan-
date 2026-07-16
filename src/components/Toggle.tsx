@@ -49,17 +49,17 @@ export function Toggle({ checked, onChange, label, disabled = false }: TogglePro
           min-width: 44px;
           min-height: 24px;
           padding: 2px;
-          border: 1px solid var(--border, var(--gray-300));
+          border: 1px solid var(--border);
           border-radius: 999px;
-          background: var(--gray-200);
+          background: var(--border);
           cursor: pointer;
           transition: background 0.15s ease, border-color 0.15s ease;
           flex-shrink: 0;
         }
 
         .toggle.toggle-on {
-          background: var(--accent, var(--black));
-          border-color: var(--accent, var(--black));
+          background: var(--accent);
+          border-color: var(--accent);
         }
 
         .toggle:disabled {
@@ -71,10 +71,10 @@ export function Toggle({ checked, onChange, label, disabled = false }: TogglePro
           width: 18px;
           height: 18px;
           border-radius: 50%;
-          background: var(--white);
+          background: var(--surface-elevated);
           transform: translateX(0);
           transition: transform 0.15s ease;
-          box-shadow: var(--shadow-sm, 0 1px 2px rgba(0, 0, 0, 0.15));
+          box-shadow: var(--shadow-sm);
         }
 
         .toggle.toggle-on .toggle-thumb {

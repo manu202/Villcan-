@@ -158,18 +158,18 @@ export default function ContactDetailPage() {
           align-items: center;
           justify-content: center;
           font-size: 24px;
-          background: var(--gray-100);
+          background: var(--surface-elevated);
           border-radius: 8px;
-          color: var(--black);
+          color: var(--text-primary);
           text-decoration: none;
         }
 
         .edit-btn {
           margin-left: auto;
           padding: 8px 16px;
-          background: var(--gray-100);
+          background: var(--surface-elevated);
           border-radius: 8px;
-          color: var(--black);
+          color: var(--text-primary);
           text-decoration: none;
           font-size: 14px;
           font-weight: 600;
@@ -183,13 +183,13 @@ export default function ContactDetailPage() {
         .loading {
           text-align: center;
           padding: 48px;
-          color: var(--gray-500);
+          color: var(--text-secondary);
         }
 
         .error-state {
           text-align: center;
           padding: 48px;
-          color: var(--gray-500);
+          color: var(--text-secondary);
         }
 
         .section {
@@ -200,7 +200,7 @@ export default function ContactDetailPage() {
           display: flex;
           gap: 16px;
           padding: 20px;
-          background: var(--gray-50);
+          background: var(--surface-elevated);
           border-radius: 12px;
         }
 
@@ -210,8 +210,8 @@ export default function ContactDetailPage() {
           display: flex;
           align-items: center;
           justify-content: center;
-          background: var(--black);
-          color: var(--white);
+          background: var(--accent);
+          color: var(--accent-foreground);
           border-radius: 50%;
           font-size: 24px;
           font-weight: 600;
@@ -226,12 +226,12 @@ export default function ContactDetailPage() {
 
         .detail-row {
           font-size: 14px;
-          color: var(--gray-600);
+          color: var(--text-secondary);
         }
 
         .detail-row.comment {
           font-style: italic;
-          color: var(--gray-500);
+          color: var(--text-secondary);
         }
 
         .frequent-badge {
@@ -239,8 +239,8 @@ export default function ContactDetailPage() {
           width: fit-content;
           margin-top: 4px;
           padding: 4px 10px;
-          background: var(--black);
-          color: var(--white);
+          background: var(--accent);
+          color: var(--accent-foreground);
           border-radius: 999px;
           font-size: 11px;
           font-weight: 600;
@@ -256,8 +256,8 @@ export default function ContactDetailPage() {
         .stat {
           flex: 1;
           padding: 16px;
-          background: var(--white);
-          border: 1px solid var(--gray-200);
+          background: var(--surface);
+          border: 1px solid var(--border);
           border-radius: 12px;
           text-align: center;
         }
@@ -266,13 +266,13 @@ export default function ContactDetailPage() {
           display: block;
           font-size: 20px;
           font-weight: 700;
-          color: var(--black);
+          color: var(--text-primary);
           margin-bottom: 4px;
         }
 
         .stat-label {
           font-size: 12px;
-          color: var(--gray-500);
+          color: var(--text-secondary);
           text-transform: uppercase;
           letter-spacing: 0.05em;
         }
@@ -282,12 +282,12 @@ export default function ContactDetailPage() {
           font-weight: 600;
           text-transform: uppercase;
           letter-spacing: 0.05em;
-          color: var(--gray-400);
+          color: var(--text-muted);
           margin-bottom: 12px;
         }
 
         .empty-text {
-          color: var(--gray-500);
+          color: var(--text-secondary);
           font-size: 14px;
           text-align: center;
           padding: 24px;
@@ -298,7 +298,7 @@ export default function ContactDetailPage() {
           display: flex;
           flex-direction: column;
           gap: 1px;
-          background: var(--gray-200);
+          background: var(--border);
           border-radius: 12px;
           overflow: hidden;
         }
@@ -308,7 +308,7 @@ export default function ContactDetailPage() {
           justify-content: space-between;
           align-items: center;
           padding: 16px;
-          background: var(--white);
+          background: var(--surface);
         }
 
         .movement-info {
@@ -322,13 +322,13 @@ export default function ContactDetailPage() {
           font-weight: 600;
           text-transform: uppercase;
           letter-spacing: 0.05em;
-          color: var(--gray-500);
+          color: var(--text-secondary);
         }
 
         .movement-service {
           font-size: 14px;
           font-weight: 500;
-          color: var(--black);
+          color: var(--text-primary);
         }
 
         .movement-amount {
@@ -341,13 +341,13 @@ export default function ContactDetailPage() {
         .amount {
           font-size: 15px;
           font-weight: 700;
-          color: var(--black);
+          color: var(--text-primary);
           font-variant-numeric: tabular-nums;
         }
 
         .movement-date {
           font-size: 11px;
-          color: var(--gray-400);
+          color: var(--text-muted);
         }
       `}</style>
     </div>

@@ -41,7 +41,7 @@ export function AuthButton() {
           }
           .loading-dot {
             font-size: 14px;
-            color: var(--gray-400);
+            color: var(--text-muted);
             animation: pulse 1s ease-in-out infinite;
           }
           @keyframes pulse {
@@ -63,8 +63,8 @@ export function AuthButton() {
             align-items: center;
             gap: 8px;
             padding: 10px 16px;
-            background: var(--black);
-            color: var(--white);
+            background: var(--accent);
+            color: var(--accent-foreground);
             border-radius: 8px;
             font-size: 14px;
             font-weight: 600;
@@ -94,14 +94,14 @@ export function AuthButton() {
         .user-email {
           font-size: 14px;
           font-weight: 500;
-          color: var(--gray-600);
+          color: var(--text-secondary);
           word-break: break-all;
         }
         .signout-btn {
           padding: 10px 16px;
-          background: var(--white);
-          color: var(--black);
-          border: 1px solid var(--gray-300);
+          background: var(--surface);
+          color: var(--text-primary);
+          border: 1px solid var(--border);
           border-radius: 8px;
           font-size: 14px;
           font-weight: 500;
@@ -109,7 +109,7 @@ export function AuthButton() {
           transition: border-color 0.15s ease;
         }
         .signout-btn:hover {
-          border-color: var(--black);
+          border-color: var(--accent-hover);
         }
       `}</style>
     </div>

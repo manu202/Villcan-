@@ -4,7 +4,7 @@ interface SpinnerProps {
 }
 
 export function Spinner({ size = 24, color = 'gray' }: SpinnerProps) {
-  const strokeColor = color === 'black' ? 'var(--black)' : 'var(--gray-400)';
+  const strokeColor = color === 'black' ? 'var(--text-primary)' : 'var(--text-muted)';
   const strokeWidth = size === 48 ? 3 : size === 36 ? 2.5 : 2;
 
   return (

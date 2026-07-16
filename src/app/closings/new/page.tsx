@@ -32,14 +32,14 @@ export default function NewClosingPage() {
 
           .page-subtitle {
             font-size: 14px;
-            color: var(--gray-500);
+            color: var(--text-secondary);
             margin-top: 4px;
           }
 
           .empty-state {
             text-align: center;
             padding: 48px 24px;
-            color: var(--gray-500);
+            color: var(--text-secondary);
           }
         `}</style>
       </div>

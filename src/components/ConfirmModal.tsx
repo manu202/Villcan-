@@ -31,7 +31,7 @@ export function ConfirmModal({
     >
       <div
         style={{
-          background: 'var(--white)',
+          background: 'var(--surface-elevated)',
           borderRadius: '12px',
           padding: '24px',
           maxWidth: '320px',
@@ -44,7 +44,7 @@ export function ConfirmModal({
           style={{
             fontSize: '15px',
             fontWeight: '500',
-            color: 'var(--black)',
+            color: 'var(--text-primary)',
             marginBottom: '20px',
             textAlign: 'center',
           }}
@@ -57,9 +57,9 @@ export function ConfirmModal({
             style={{
               flex: 1,
               padding: '12px',
-              background: 'var(--gray-100)',
-              color: 'var(--black)',
-              border: 'none',
+              background: 'var(--surface)',
+              color: 'var(--text-primary)',
+              border: '1px solid var(--border)',
               borderRadius: '8px',
               fontSize: '14px',
               fontWeight: '600',
@@ -75,7 +75,7 @@ export function ConfirmModal({
               flex: 1,
               padding: '12px',
               background: '#DC2626',
-              color: 'var(--white)',
+              color: 'var(--danger-foreground)',
               border: 'none',
               borderRadius: '8px',
               fontSize: '14px',

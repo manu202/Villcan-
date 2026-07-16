@@ -442,19 +442,19 @@ export default function ReportsPage() {
 
         .page-subtitle {
           font-size: 14px;
-          color: var(--gray-500);
+          color: var(--text-secondary);
           margin-top: 4px;
         }
 
         .liquidacion-link {
           display: block;
           padding: 14px 16px;
-          background: var(--gray-50);
-          border: 1px solid var(--gray-200);
+          background: var(--surface-elevated);
+          border: 1px solid var(--border);
           border-radius: 8px;
           font-size: 14px;
           font-weight: 600;
-          color: var(--black);
+          color: var(--text-primary);
           text-decoration: none;
         }
 
@@ -466,24 +466,24 @@ export default function ReportsPage() {
         .filter-btn {
           flex: 1;
           padding: 10px 12px;
-          background: var(--white);
-          border: 1px solid var(--gray-200);
+          background: var(--surface);
+          border: 1px solid var(--border);
           border-radius: 8px;
           font-size: 13px;
           font-weight: 500;
-          color: var(--gray-600);
+          color: var(--text-secondary);
           cursor: pointer;
           transition: all 0.15s ease;
         }
 
         .filter-btn:hover {
-          border-color: var(--gray-400);
+          border-color: var(--accent-hover);
         }
 
         .filter-btn.active {
-          background: var(--black);
-          color: var(--white);
-          border-color: var(--black);
+          background: var(--accent);
+          color: var(--accent-foreground);
+          border-color: var(--accent);
         }
 
         .custom-range {
@@ -500,11 +500,11 @@ export default function ReportsPage() {
         .select {
           width: 100%;
           padding: 10px 12px;
-          background: var(--white);
-          border: 1px solid var(--gray-200);
+          background: var(--surface);
+          border: 1px solid var(--border);
           border-radius: 8px;
           font-size: 14px;
-          color: var(--black);
+          color: var(--text-primary);
           cursor: pointer;
           min-height: 44px;
         }
@@ -515,7 +515,7 @@ export default function ReportsPage() {
         }
 
         .range-separator {
-          color: var(--gray-400);
+          color: var(--text-muted);
           font-size: 18px;
         }
 
@@ -526,7 +526,7 @@ export default function ReportsPage() {
         }
 
         .kpi-card {
-          background: var(--gray-50);
+          background: var(--surface-elevated);
           border-radius: 12px;
           padding: 16px 12px;
           display: flex;
@@ -540,41 +540,41 @@ export default function ReportsPage() {
           font-weight: 600;
           text-transform: uppercase;
           letter-spacing: 0.05em;
-          color: var(--gray-500);
+          color: var(--text-secondary);
           margin-bottom: 8px;
         }
 
         .kpi-value {
           font-size: 20px;
           font-weight: 700;
-          color: var(--black);
+          color: var(--text-primary);
         }
 
         .kpi-value.income {
-          color: var(--black);
+          color: var(--text-primary);
         }
 
         .kpi-value.expense {
-          color: var(--gray-600);
+          color: var(--text-secondary);
         }
 
         .kpi-amount {
           font-size: 12px;
           font-weight: 600;
-          color: var(--gray-600);
+          color: var(--text-secondary);
           margin-top: 4px;
         }
 
         .kpi-amount.income {
-          color: var(--black);
+          color: var(--text-primary);
         }
 
         .kpi-amount.expense {
-          color: var(--gray-600);
+          color: var(--text-secondary);
         }
 
         .card {
-          background: var(--gray-50);
+          background: var(--surface-elevated);
           border-radius: 12px;
           padding: 20px;
         }
@@ -584,7 +584,7 @@ export default function ReportsPage() {
           font-weight: 700;
           text-transform: uppercase;
           letter-spacing: 0.08em;
-          color: var(--gray-500);
+          color: var(--text-secondary);
           margin-bottom: 16px;
         }
 
@@ -597,7 +597,7 @@ export default function ReportsPage() {
 
         .breakdown-empty {
           font-size: 14px;
-          color: var(--gray-400);
+          color: var(--text-muted);
           text-align: center;
           padding: 24px 0;
         }
@@ -606,7 +606,7 @@ export default function ReportsPage() {
           display: flex;
           align-items: center;
           padding: 12px 0;
-          border-bottom: 1px solid var(--gray-200);
+          border-bottom: 1px solid var(--border);
         }
 
         .breakdown-row:last-child {
@@ -618,7 +618,7 @@ export default function ReportsPage() {
         }
 
         .breakdown-row.total {
-          border-top: 2px solid var(--gray-300);
+          border-top: 2px solid var(--border);
           margin-top: 8px;
           padding-top: 12px;
         }
@@ -627,7 +627,7 @@ export default function ReportsPage() {
           flex: 1;
           font-size: 14px;
           font-weight: 500;
-          color: var(--black);
+          color: var(--text-primary);
         }
 
         .breakdown-label.method {
@@ -636,35 +636,35 @@ export default function ReportsPage() {
 
         .breakdown-label.day {
           font-weight: 600;
-          color: var(--gray-600);
+          color: var(--text-secondary);
           width: 32px;
         }
 
         .breakdown-label.expense {
-          color: var(--gray-700);
+          color: var(--text-secondary);
         }
 
         .breakdown-count {
           font-size: 13px;
-          color: var(--gray-500);
+          color: var(--text-secondary);
           margin-right: 12px;
         }
 
         .breakdown-amount {
           font-size: 14px;
           font-weight: 600;
-          color: var(--black);
+          color: var(--text-primary);
           font-variant-numeric: tabular-nums;
         }
 
         .breakdown-amount.expense {
-          color: var(--gray-600);
+          color: var(--text-secondary);
         }
 
         .empty-state {
           text-align: center;
           padding: 48px 24px;
-          color: var(--gray-500);
+          color: var(--text-secondary);
         }
       `}</style>
     </div>

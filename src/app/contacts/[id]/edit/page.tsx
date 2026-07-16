@@ -211,9 +211,9 @@ export default function EditContactPage() {
           align-items: center;
           justify-content: center;
           font-size: 24px;
-          background: var(--gray-100);
+          background: var(--surface-elevated);
           border-radius: 8px;
-          color: var(--black);
+          color: var(--text-primary);
           text-decoration: none;
         }
 
@@ -225,13 +225,13 @@ export default function EditContactPage() {
         .loading {
           text-align: center;
           padding: 48px;
-          color: var(--gray-500);
+          color: var(--text-secondary);
         }
 
         .error-state {
           text-align: center;
           padding: 48px;
-          color: var(--gray-500);
+          color: var(--text-secondary);
         }
 
         .section {
@@ -244,25 +244,25 @@ export default function EditContactPage() {
           font-weight: 600;
           text-transform: uppercase;
           letter-spacing: 0.05em;
-          color: var(--gray-500);
+          color: var(--text-secondary);
           margin-bottom: 8px;
         }
 
         .input {
           width: 100%;
           padding: 14px 16px;
-          border: 1px solid var(--gray-300);
+          border: 1px solid var(--border);
           border-radius: 8px;
           font-size: 16px;
         }
 
         .input:focus {
-          border-color: var(--black);
+          border-color: var(--accent);
           outline: none;
         }
 
         .error {
-          color: var(--gray-600);
+          color: var(--text-secondary);
           font-size: 14px;
           margin-bottom: 16px;
         }
@@ -273,8 +273,8 @@ export default function EditContactPage() {
           justify-content: center;
           gap: 8px;
           padding: 14px 24px;
-          background: var(--black);
-          color: var(--white);
+          background: var(--accent);
+          color: var(--accent-foreground);
           border: none;
           border-radius: 8px;
           font-size: 15px;
@@ -295,8 +295,8 @@ export default function EditContactPage() {
           justify-content: center;
           gap: 8px;
           padding: 14px 24px;
-          background: var(--gray-100);
-          color: var(--black);
+          background: var(--surface-elevated);
+          color: var(--text-primary);
           border: none;
           border-radius: 8px;
           font-size: 15px;

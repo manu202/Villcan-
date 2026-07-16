@@ -347,7 +347,7 @@ export function HamburgerMenu() {
         .user-name {
           font-size: 14px;
           font-weight: 500;
-          color: var(--gray-600);
+          color: var(--text-secondary);
         }
       `}</style>
     </>

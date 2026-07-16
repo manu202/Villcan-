@@ -124,7 +124,7 @@ export default function ServicesPage() {
 
         .page-subtitle {
           font-size: 14px;
-          color: var(--gray-500);
+          color: var(--text-secondary);
           margin-top: 4px;
         }
 
@@ -133,8 +133,8 @@ export default function ServicesPage() {
           align-items: center;
           justify-content: center;
           padding: 10px 16px;
-          background: var(--black);
-          color: var(--white);
+          background: var(--accent);
+          color: var(--accent-foreground);
           border-radius: 8px;
           font-size: 14px;
           font-weight: 600;
@@ -146,7 +146,7 @@ export default function ServicesPage() {
         .empty-state {
           text-align: center;
           padding: 48px 24px;
-          color: var(--gray-500);
+          color: var(--text-secondary);
         }
 
         .empty-state p {
@@ -158,7 +158,7 @@ export default function ServicesPage() {
           display: flex;
           flex-direction: column;
           gap: 1px;
-          background: var(--gray-200);
+          background: var(--border);
           border-radius: 12px;
           overflow: hidden;
         }
@@ -168,13 +168,13 @@ export default function ServicesPage() {
           justify-content: space-between;
           align-items: center;
           padding: 16px 20px;
-          background: var(--white);
+          background: var(--surface);
           text-decoration: none;
           color: inherit;
         }
 
         .service-item:active {
-          background: var(--gray-50);
+          background: var(--surface-elevated);
         }
 
         .service-info {
@@ -186,7 +186,7 @@ export default function ServicesPage() {
         .service-name {
           font-size: 15px;
           font-weight: 500;
-          color: var(--black);
+          color: var(--text-primary);
         }
 
         .service-actions {
@@ -198,13 +198,13 @@ export default function ServicesPage() {
         .service-price {
           font-size: 15px;
           font-weight: 600;
-          color: var(--black);
+          color: var(--text-primary);
           font-variant-numeric: tabular-nums;
         }
 
         .service-arrow {
           font-size: 20px;
-          color: var(--gray-400);
+          color: var(--text-muted);
         }
       `}</style>
     </div>

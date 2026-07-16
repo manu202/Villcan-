@@ -59,8 +59,15 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  // suppressHydrationWarning below: data-theme/data-accent are stamped on
+  // <html> by the blocking pre-hydration script (THEME_INIT_SCRIPT above)
+  // and later kept in sync imperatively by ThemeContext/SettingsContext —
+  // outside React's own render output entirely. Without this, React treats
+  // that as a real mismatch on every load, since it never rendered those
+  // attributes itself. Standard pattern for this exact approach (same
+  // reason next-themes requires it).
   return (
-    <html lang="es" className={inter.className}>
+    <html lang="es" className={inter.className} suppressHydrationWarning>
       <body>
         <Script
           id="theme-init"

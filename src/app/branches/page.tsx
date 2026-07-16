@@ -269,8 +269,8 @@ export default function BranchesPage() {
 
         .btn-add {
           padding: 10px 16px;
-          background: var(--black);
-          color: var(--white);
+          background: var(--accent);
+          color: var(--accent-foreground);
           border: none;
           border-radius: 8px;
           font-size: 14px;
@@ -296,8 +296,8 @@ export default function BranchesPage() {
 
         .btn-primary {
           padding: 14px 24px;
-          background: var(--black);
-          color: var(--white);
+          background: var(--accent);
+          color: var(--accent-foreground);
           border: none;
           border-radius: 8px;
           font-size: 16px;
@@ -307,9 +307,9 @@ export default function BranchesPage() {
 
         .btn-secondary {
           padding: 14px 24px;
-          background: var(--gray-100);
-          color: var(--black);
-          border: 1px solid var(--gray-300);
+          background: var(--surface);
+          color: var(--text-primary);
+          border: 1px solid var(--border);
           border-radius: 8px;
           font-size: 16px;
           font-weight: 600;
@@ -318,8 +318,8 @@ export default function BranchesPage() {
 
         .btn-small {
           padding: 8px 12px;
-          background: var(--gray-100);
-          border: 1px solid var(--gray-200);
+          background: var(--surface-elevated);
+          border: 1px solid var(--border);
           border-radius: 6px;
           font-size: 13px;
           cursor: pointer;
@@ -354,7 +354,7 @@ export default function BranchesPage() {
 
         .branch-item {
           padding: 16px;
-          background: var(--gray-50);
+          background: var(--surface-elevated);
           border-radius: 12px;
           margin-bottom: 12px;
         }
@@ -369,19 +369,19 @@ export default function BranchesPage() {
         .branch-name {
           font-size: 16px;
           font-weight: 600;
-          color: var(--black);
+          color: var(--text-primary);
         }
 
         .branch-address {
           font-size: 13px;
-          color: var(--gray-500);
+          color: var(--text-secondary);
         }
 
         .branch-badge {
           display: inline-block;
           padding: 4px 8px;
-          background: var(--black);
-          color: var(--white);
+          background: var(--accent);
+          color: var(--accent-foreground);
           font-size: 11px;
           font-weight: 600;
           border-radius: 4px;
@@ -401,20 +401,20 @@ export default function BranchesPage() {
 
         .hint {
           font-size: 12px;
-          color: var(--gray-400);
+          color: var(--text-muted);
         }
 
         .input {
           width: 100%;
           padding: 14px 16px;
-          border: 1px solid var(--gray-200);
+          border: 1px solid var(--border);
           border-radius: 8px;
           font-size: 16px;
         }
 
         .input:focus {
           outline: none;
-          border-color: var(--black);
+          border-color: var(--accent);
         }
       `}</style>
     </div>

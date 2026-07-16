@@ -178,8 +178,8 @@ export default function ClosingsHistoryPage() {
           align-items: center;
           justify-content: center;
           padding: 10px 16px;
-          background: var(--black);
-          color: var(--white);
+          background: var(--accent);
+          color: var(--accent-foreground);
           border-radius: 8px;
           font-size: 14px;
           font-weight: 600;
@@ -196,8 +196,8 @@ export default function ClosingsHistoryPage() {
 
         .closing-item {
           padding: 16px;
-          background: var(--white);
-          border: 1px solid var(--gray-200);
+          background: var(--surface);
+          border: 1px solid var(--border);
           border-radius: 12px;
         }
 
@@ -205,14 +205,14 @@ export default function ClosingsHistoryPage() {
           display: flex;
           justify-content: space-between;
           font-size: 13px;
-          color: var(--gray-500);
+          color: var(--text-secondary);
           margin-bottom: 4px;
         }
 
         .closing-closed-by {
           font-size: 14px;
           font-weight: 600;
-          color: var(--black);
+          color: var(--text-primary);
           margin-bottom: 12px;
         }
 
@@ -227,7 +227,7 @@ export default function ClosingsHistoryPage() {
           grid-template-columns: 1fr 1fr 1fr 1fr;
           gap: 8px;
           font-size: 13px;
-          color: var(--gray-600);
+          color: var(--text-secondary);
         }
 
         .method-name {
@@ -238,7 +238,7 @@ export default function ClosingsHistoryPage() {
         .no-arqueo {
           margin-top: 8px;
           font-size: 12px;
-          color: var(--gray-400);
+          color: var(--text-muted);
         }
       `}</style>
     </div>
