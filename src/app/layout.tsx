@@ -1,10 +1,31 @@
 import type { Metadata, Viewport } from 'next';
 import { Inter } from 'next/font/google';
+import Script from 'next/script';
 import { HamburgerMenu } from '@/components/HamburgerMenu';
 import { ToastProvider } from '@/contexts/ToastContext';
 import { BranchProvider } from '@/contexts/BranchContext';
 import { SettingsProvider } from '@/contexts/SettingsContext';
+import { ThemeProvider } from '@/contexts/ThemeContext';
 import './globals.css';
+
+// Blocking, pre-hydration theme/accent stamp — avoids a flash of the wrong
+// theme/accent (REQ-THEME-4). Reads cached localStorage values only; the DB
+// value for brand_color (source of truth) reconciles once SettingsContext
+// loads, in the settings page / SettingsContext (REQ-THEME-5).
+const THEME_INIT_SCRIPT = `
+(function () {
+  try {
+    var theme = localStorage.getItem('theme');
+    if (theme === 'dark' || theme === 'light') {
+      document.documentElement.setAttribute('data-theme', theme);
+    }
+    var accent = localStorage.getItem('brand_color');
+    if (accent) {
+      document.documentElement.setAttribute('data-accent', accent);
+    }
+  } catch (e) {}
+})();
+`;
 
 const inter = Inter({
   subsets: ['latin'],
@@ -27,7 +48,10 @@ export const viewport: Viewport = {
   initialScale: 1,
   maximumScale: 1,
   userScalable: false,
-  themeColor: '#000000',
+  themeColor: [
+    { media: '(prefers-color-scheme: light)', color: '#ffffff' },
+    { media: '(prefers-color-scheme: dark)', color: '#121212' },
+  ],
 };
 
 export default function RootLayout({
@@ -38,15 +62,22 @@ export default function RootLayout({
   return (
     <html lang="es" className={inter.className}>
       <body>
-        <ToastProvider>
-          <BranchProvider>
-            <SettingsProvider>
-              <HamburgerMenu />
-              <main className="main-content">{children}</main>
-            </SettingsProvider>
-          </BranchProvider>
-        </ToastProvider>
+        <ThemeProvider>
+          <ToastProvider>
+            <BranchProvider>
+              <SettingsProvider>
+                <HamburgerMenu />
+                <main className="main-content">{children}</main>
+              </SettingsProvider>
+            </BranchProvider>
+          </ToastProvider>
+        </ThemeProvider>
       </body>
+      <Script
+        id="theme-init"
+        strategy="beforeInteractive"
+        dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }}
+      />
     </html>
   );
 }

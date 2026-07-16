@@ -80,6 +80,7 @@ describe('SettingsContext', () => {
       mandatory_arqueo_enabled: true,
       inventory_enabled: true,
       services_label: 'Cortes',
+      brand_color: 'emerald',
       updated_at: '2026-01-01T00:00:00.000Z',
       updated_by: 'user-1',
     };

@@ -20,6 +20,261 @@
 
   --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
   --font-mono: 'JetBrains Mono', ui-monospace, monospace;
+
+  /* Semantic tokens (light, default) — layered over the raw --black/--gray-* ramp.
+     REQ-THEME-1: existing pages that don't consume these yet keep rendering
+     identically off the raw ramp; nothing here changes their look. */
+  --surface: var(--white);
+  --surface-elevated: var(--white);
+  --border: var(--gray-200);
+  --text-primary: var(--black);
+  --text-secondary: var(--gray-600);
+  --text-muted: var(--gray-400);
+
+  --danger: #dc2626;
+  --danger-subtle: #fef2f2;
+  --warning: #92400e;
+  --warning-subtle: #fef3c7;
+
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.06);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.1);
+  --shadow-lg: 0 12px 32px rgba(0, 0, 0, 0.14);
+
+  /* Accent — default preset is 'slate' (near-mono, matches current B&W look). REQ-THEME-3. */
+  --accent: var(--gray-800);
+  --accent-hover: var(--black);
+  --accent-foreground: var(--white);
+  --accent-subtle: var(--gray-100);
+}
+
+/* --- Dark theme values --- REQ-THEME-2
+   Explicit `data-theme="dark"` always wins. When no explicit `data-theme` is
+   stamped (user preference = "system"), fall back to the OS setting via
+   @media, scoped so it never fights an explicit light/dark choice. */
+[data-theme='dark'] {
+  --surface: #121212;
+  --surface-elevated: #1c1c1c;
+  --border: #2e2e2e;
+  --text-primary: #f5f5f5;
+  --text-secondary: #b3b3b3;
+  --text-muted: #7a7a7a;
+
+  --background: var(--surface);
+  --foreground: var(--text-primary);
+
+  --danger: #f87171;
+  --danger-subtle: #3a1414;
+  --warning: #fbbf24;
+  --warning-subtle: #3a2a0a;
+
+  /* Elevation in dark mode reads better as a lighter tint + border than a shadow. */
+  --shadow-sm: none;
+  --shadow-md: none;
+  --shadow-lg: none;
+
+  --accent: var(--gray-400);
+  --accent-hover: var(--gray-300);
+  --accent-foreground: var(--black);
+  --accent-subtle: #262626;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme]) {
+    --surface: #121212;
+    --surface-elevated: #1c1c1c;
+    --border: #2e2e2e;
+    --text-primary: #f5f5f5;
+    --text-secondary: #b3b3b3;
+    --text-muted: #7a7a7a;
+
+    --background: var(--surface);
+    --foreground: var(--text-primary);
+
+    --danger: #f87171;
+    --danger-subtle: #3a1414;
+    --warning: #fbbf24;
+    --warning-subtle: #3a2a0a;
+
+    --shadow-sm: none;
+    --shadow-md: none;
+    --shadow-lg: none;
+
+    --accent: var(--gray-400);
+    --accent-hover: var(--gray-300);
+    --accent-foreground: var(--black);
+    --accent-subtle: #262626;
+  }
+}
+
+/* --- Accent presets --- REQ-THEME-3
+   8 curated brand accents. Each defines light values by default and
+   overrides under [data-theme="dark"] (or the system-dark fallback) for
+   an AA-contrast-safe --accent-foreground in both modes. */
+
+/* slate (default — near-monochrome). Explicit rule so a swatch preview or
+   any element carrying data-accent="slate" renders slate's own values
+   instead of inheriting whatever accent is active on an ancestor
+   (e.g. the settings swatch picker, when a non-slate accent is active
+   app-wide) — :root/dark above cover the implicit default case. */
+[data-accent='slate'] {
+  --accent: var(--gray-800);
+  --accent-hover: var(--black);
+  --accent-foreground: var(--white);
+  --accent-subtle: var(--gray-100);
+}
+
+[data-theme='dark'][data-accent='slate'] {
+  --accent: var(--gray-400);
+  --accent-hover: var(--gray-300);
+  --accent-foreground: var(--black);
+  --accent-subtle: #262626;
+}
+
+[data-accent='emerald'] {
+  --accent: #059669;
+  --accent-hover: #047857;
+  --accent-foreground: var(--white);
+  --accent-subtle: #ecfdf5;
+}
+[data-theme='dark'][data-accent='emerald'] {
+  --accent: #34d399;
+  --accent-hover: #6ee7b7;
+  --accent-foreground: #052e21;
+  --accent-subtle: #052e21;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root[data-accent='emerald']:not([data-theme]) {
+    --accent: #34d399;
+    --accent-hover: #6ee7b7;
+    --accent-foreground: #052e21;
+    --accent-subtle: #052e21;
+  }
+}
+
+[data-accent='blue'] {
+  --accent: #2563eb;
+  --accent-hover: #1d4ed8;
+  --accent-foreground: var(--white);
+  --accent-subtle: #eff6ff;
+}
+
+[data-accent='violet'] {
+  --accent: #7c3aed;
+  --accent-hover: #6d28d9;
+  --accent-foreground: var(--white);
+  --accent-subtle: #f5f3ff;
+}
+
+[data-accent='rose'] {
+  --accent: #e11d48;
+  --accent-hover: #be123c;
+  --accent-foreground: var(--white);
+  --accent-subtle: #fff1f2;
+}
+
+[data-accent='amber'] {
+  --accent: #d97706;
+  --accent-hover: #b45309;
+  --accent-foreground: var(--black);
+  --accent-subtle: #fffbeb;
+}
+
+[data-accent='teal'] {
+  --accent: #0d9488;
+  --accent-hover: #0f766e;
+  --accent-foreground: var(--white);
+  --accent-subtle: #f0fdfa;
+}
+
+[data-accent='pink'] {
+  --accent: #db2777;
+  --accent-hover: #be185d;
+  --accent-foreground: var(--white);
+  --accent-subtle: #fdf2f8;
+}
+
+[data-theme='dark'][data-accent='blue'] {
+  --accent: #60a5fa;
+  --accent-hover: #93c5fd;
+  --accent-foreground: #0b1e3d;
+  --accent-subtle: #0b1e3d;
+}
+
+[data-theme='dark'][data-accent='violet'] {
+  --accent: #a78bfa;
+  --accent-hover: #c4b5fd;
+  --accent-foreground: #241a42;
+  --accent-subtle: #241a42;
+}
+
+[data-theme='dark'][data-accent='rose'] {
+  --accent: #fb7185;
+  --accent-hover: #fda4af;
+  --accent-foreground: #3f0d17;
+  --accent-subtle: #3f0d17;
+}
+
+[data-theme='dark'][data-accent='amber'] {
+  --accent: #fbbf24;
+  --accent-hover: #fcd34d;
+  --accent-foreground: #3d2a05;
+  --accent-subtle: #3d2a05;
+}
+
+[data-theme='dark'][data-accent='teal'] {
+  --accent: #2dd4bf;
+  --accent-hover: #5eead4;
+  --accent-foreground: #04302b;
+  --accent-subtle: #04302b;
+}
+
+[data-theme='dark'][data-accent='pink'] {
+  --accent: #f472b6;
+  --accent-hover: #f9a8d4;
+  --accent-foreground: #3d0f28;
+  --accent-subtle: #3d0f28;
+}
+
+/* system-preference dark fallback for each non-default accent (mirrors the
+   explicit [data-theme=dark] blocks above, scoped to "no explicit theme set"). */
+@media (prefers-color-scheme: dark) {
+  :root[data-accent='blue']:not([data-theme]) {
+    --accent: #60a5fa;
+    --accent-hover: #93c5fd;
+    --accent-foreground: #0b1e3d;
+    --accent-subtle: #0b1e3d;
+  }
+  :root[data-accent='violet']:not([data-theme]) {
+    --accent: #a78bfa;
+    --accent-hover: #c4b5fd;
+    --accent-foreground: #241a42;
+    --accent-subtle: #241a42;
+  }
+  :root[data-accent='rose']:not([data-theme]) {
+    --accent: #fb7185;
+    --accent-hover: #fda4af;
+    --accent-foreground: #3f0d17;
+    --accent-subtle: #3f0d17;
+  }
+  :root[data-accent='amber']:not([data-theme]) {
+    --accent: #fbbf24;
+    --accent-hover: #fcd34d;
+    --accent-foreground: #3d2a05;
+    --accent-subtle: #3d2a05;
+  }
+  :root[data-accent='teal']:not([data-theme]) {
+    --accent: #2dd4bf;
+    --accent-hover: #5eead4;
+    --accent-foreground: #04302b;
+    --accent-subtle: #04302b;
+  }
+  :root[data-accent='pink']:not([data-theme]) {
+    --accent: #f472b6;
+    --accent-hover: #f9a8d4;
+    --accent-foreground: #3d0f28;
+    --accent-subtle: #3d0f28;
+  }
 }
 
 @theme inline {
@@ -74,7 +329,7 @@ button, a {
 
 /* Focus states for accessibility */
 :focus-visible {
-  outline: 2px solid var(--black);
+  outline: 2px solid var(--accent, var(--black));
   outline-offset: 2px;
 }
 

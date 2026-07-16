@@ -4,7 +4,19 @@ import { useState } from 'react';
 import { useBranch } from '@/contexts/BranchContext';
 import { useSettings } from '@/contexts/SettingsContext';
 import { createClient } from '@/lib/supabase/client';
+import { Toggle } from '@/components/Toggle';
 import type { BusinessSettings } from '@/types';
+
+const ACCENT_PRESETS: { key: string; label: string }[] = [
+  { key: 'slate', label: 'Pizarra' },
+  { key: 'emerald', label: 'Esmeralda' },
+  { key: 'blue', label: 'Azul' },
+  { key: 'violet', label: 'Violeta' },
+  { key: 'rose', label: 'Rosa' },
+  { key: 'amber', label: 'Ámbar' },
+  { key: 'teal', label: 'Verde azulado' },
+  { key: 'pink', label: 'Rosado' },
+];
 
 export default function SettingsPage() {
   const { branches } = useBranch();
@@ -48,9 +60,24 @@ function SettingsForm({
   );
   const [inventoryEnabled, setInventoryEnabled] = useState(settings.inventory_enabled);
   const [servicesLabel, setServicesLabel] = useState(settings.services_label);
+  const [brandColor, setBrandColor] = useState(settings.brand_color);
 
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Optimistic, flash-free preview: cache immediately + stamp <html> so the
+  // swatch choice is visible right away, before the DB round-trip settles
+  // (REQ-THEME-5). SettingsContext.refreshSettings() reconciles with the DB
+  // value (source of truth) after a successful save.
+  function selectBrandColor(key: string) {
+    setBrandColor(key);
+    try {
+      window.localStorage.setItem('brand_color', key);
+    } catch {
+      // non-fatal — DB remains source of truth
+    }
+    document.documentElement.setAttribute('data-accent', key);
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -67,6 +94,7 @@ function SettingsForm({
         mandatory_arqueo_enabled: mandatoryArqueoEnabled,
         inventory_enabled: inventoryEnabled,
         services_label: servicesLabel,
+        brand_color: brandColor,
       })
       .eq('id', 1);
 
@@ -88,12 +116,11 @@ function SettingsForm({
 
       <form onSubmit={handleSubmit} className="form">
         <div className="field field-toggle">
-          <label htmlFor="commissions_enabled">Comisiones</label>
-          <input
-            id="commissions_enabled"
-            type="checkbox"
+          <span id="commissions_enabled-label">Comisiones</span>
+          <Toggle
             checked={commissionsEnabled}
-            onChange={(e) => setCommissionsEnabled(e.target.checked)}
+            onChange={setCommissionsEnabled}
+            label="Comisiones"
           />
         </div>
 
@@ -112,32 +139,29 @@ function SettingsForm({
         </div>
 
         <div className="field field-toggle">
-          <label htmlFor="split_payment_enabled">Pago dividido</label>
-          <input
-            id="split_payment_enabled"
-            type="checkbox"
+          <span id="split_payment_enabled-label">Pago dividido</span>
+          <Toggle
             checked={splitPaymentEnabled}
-            onChange={(e) => setSplitPaymentEnabled(e.target.checked)}
+            onChange={setSplitPaymentEnabled}
+            label="Pago dividido"
           />
         </div>
 
         <div className="field field-toggle">
-          <label htmlFor="mandatory_arqueo_enabled">Arqueo obligatorio</label>
-          <input
-            id="mandatory_arqueo_enabled"
-            type="checkbox"
+          <span id="mandatory_arqueo_enabled-label">Arqueo obligatorio</span>
+          <Toggle
             checked={mandatoryArqueoEnabled}
-            onChange={(e) => setMandatoryArqueoEnabled(e.target.checked)}
+            onChange={setMandatoryArqueoEnabled}
+            label="Arqueo obligatorio"
           />
         </div>
 
         <div className="field field-toggle">
-          <label htmlFor="inventory_enabled">Inventario</label>
-          <input
-            id="inventory_enabled"
-            type="checkbox"
+          <span id="inventory_enabled-label">Inventario</span>
+          <Toggle
             checked={inventoryEnabled}
-            onChange={(e) => setInventoryEnabled(e.target.checked)}
+            onChange={setInventoryEnabled}
+            label="Inventario"
           />
         </div>
 
@@ -150,6 +174,29 @@ function SettingsForm({
             onChange={(e) => setServicesLabel(e.target.value)}
             required
           />
+        </div>
+
+        <div className="field">
+          <span id="brand_color-label">Color de marca</span>
+          <div
+            className="swatch-picker"
+            role="radiogroup"
+            aria-labelledby="brand_color-label"
+          >
+            {ACCENT_PRESETS.map((preset) => (
+              <button
+                key={preset.key}
+                type="button"
+                role="radio"
+                aria-checked={brandColor === preset.key}
+                aria-label={preset.label}
+                title={preset.label}
+                data-accent={preset.key}
+                className={`swatch ${brandColor === preset.key ? 'swatch-selected' : ''}`}
+                onClick={() => selectBrandColor(preset.key)}
+              />
+            ))}
+          </div>
         </div>
 
         {error && <p className="error">{error}</p>}
@@ -206,7 +253,8 @@ function SettingsForm({
           justify-content: space-between;
         }
 
-        .field label {
+        .field label,
+        .field > span {
           font-size: 14px;
           font-weight: 600;
           color: var(--black);
@@ -227,9 +275,32 @@ function SettingsForm({
           border-color: var(--black);
         }
 
-        .field input[type="checkbox"] {
-          width: 20px;
-          height: 20px;
+        .swatch-picker {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 12px;
+          margin-top: 4px;
+        }
+
+        .swatch {
+          width: 36px;
+          height: 36px;
+          min-width: 36px;
+          min-height: 36px;
+          border-radius: 50%;
+          border: 2px solid var(--gray-200);
+          background: var(--accent);
+          cursor: pointer;
+          transition: transform 0.15s ease, border-color 0.15s ease;
+        }
+
+        .swatch:hover {
+          transform: scale(1.08);
+        }
+
+        .swatch-selected {
+          border-color: var(--black);
+          box-shadow: 0 0 0 2px var(--white), 0 0 0 4px var(--black);
         }
 
         .error {

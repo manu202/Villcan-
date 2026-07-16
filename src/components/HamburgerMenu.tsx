@@ -3,8 +3,42 @@
 import { useState, useCallback, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { Sun, Moon, Monitor } from 'lucide-react';
 import { AuthButton } from './AuthButton';
 import { BranchSelector } from './BranchSelector';
+import { useTheme, type ThemePreference } from '@/contexts/ThemeContext';
+
+const THEME_CYCLE: ThemePreference[] = ['system', 'light', 'dark'];
+
+const THEME_META: Record<ThemePreference, { icon: typeof Sun; label: string }> = {
+  system: { icon: Monitor, label: 'Tema: Automático' },
+  light: { icon: Sun, label: 'Tema: Claro' },
+  dark: { icon: Moon, label: 'Tema: Oscuro' },
+};
+
+function ThemeToggle() {
+  const { theme, setTheme } = useTheme();
+  const { icon: Icon, label } = THEME_META[theme];
+
+  const handleClick = () => {
+    const currentIndex = THEME_CYCLE.indexOf(theme);
+    const next = THEME_CYCLE[(currentIndex + 1) % THEME_CYCLE.length];
+    setTheme(next);
+  };
+
+  return (
+    <button
+      type="button"
+      className="theme-toggle"
+      onClick={handleClick}
+      aria-label={label}
+      title={label}
+    >
+      <Icon size={18} aria-hidden="true" />
+      <span className="theme-toggle-label">{label}</span>
+    </button>
+  );
+}
 
 interface NavItem {
   label: string;
@@ -103,6 +137,7 @@ export function HamburgerMenu() {
         </ul>
 
         <div className="drawer-footer">
+          <ThemeToggle />
           <AuthButton />
         </div>
       </nav>
@@ -259,6 +294,35 @@ export function HamburgerMenu() {
         .drawer-footer {
           padding: 20px;
           border-top: 1px solid var(--gray-200);
+          display: flex;
+          flex-direction: column;
+          gap: 12px;
+        }
+
+        .theme-toggle {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          padding: 10px 12px;
+          background: var(--gray-50);
+          border: 1px solid var(--gray-200);
+          border-radius: 8px;
+          color: var(--gray-600);
+          font-size: 14px;
+          font-weight: 500;
+          width: 100%;
+          transition: all 0.15s ease;
+        }
+
+        .theme-toggle:hover {
+          background: var(--gray-100);
+          color: var(--black);
+        }
+
+        .theme-toggle-label {
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
         }
 
         .user-info {

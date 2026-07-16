@@ -11,6 +11,7 @@ export const DEFAULT_BUSINESS_SETTINGS: BusinessSettings = {
   mandatory_arqueo_enabled: false,
   inventory_enabled: false,
   services_label: 'Servicios',
+  brand_color: 'slate',
   updated_at: '',
   updated_by: null,
 };

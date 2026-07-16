@@ -8,11 +8,12 @@ A mobile-first app for a barbershop to manage cash register movements. The curre
 
 | Layer | Technology |
 |-------|------------|
-| Frontend | Next.js 14 (App Router, PWA) |
+| Frontend | Next.js 16 (App Router, PWA) |
 | Database | Supabase (PostgreSQL) |
 | Auth | Supabase Auth |
 | Deploy | Vercel (free) |
-| Styles | Tailwind CSS |
+| Styles | Tailwind CSS 4 + a semantic CSS-custom-property token layer (see "Theming System" below) |
+| Icons | lucide-react (introduced in the design-tokens-and-dark-mode change; not yet rolled out app-wide) |
 
 ---
 
@@ -93,9 +94,11 @@ gastos_total = Σ(expense) WHERE type = 'gasto'
 
 ### Navigation
 
-- **Hamburger menu** top-left corner (☰)
+- **Hamburger menu** top-left corner (☰), rendered by `src/components/HamburgerMenu.tsx`
 - **Full-screen modules** — each page takes 100% viewport, no bottom bar stealing space
-- **Drawer overlay** — hamburger opens slide-in menu from left with navigation options
+- **Drawer overlay** — hamburger opens a slide-in drawer from the left with navigation links, the branch selector, the theme toggle, and auth controls
+
+There is **no bottom tab bar** — navigation is exclusively the hamburger + drawer described above (an earlier draft of this doc incorrectly described bottom tabs; the app has never shipped that).
 
 ```
 ┌─────────────────────────────┐
@@ -202,13 +205,27 @@ When hamburger open:
 | **Accent** | Grays for hierarchy (`#333`, `#666`, `#999`, `#EEE`) |
 | **Typography** | Sans-serif, clean (Inter or system font) |
 | **Layout** | Generous whitespace, no clutter |
-| **Icons** | Line icons only, no emoji |
-| **Borders/shadows** | Subtle, minimal |
+| **Icons** | Line icons (lucide-react) — introduced for the theme toggle in the drawer; a full icon rollout across pages is a separate, later change |
+| **Borders/shadows** | Subtle, minimal; shadows are light-mode only (see Theming System) |
+
+### Theming System
+
+Introduced by the "design-tokens-and-dark-mode" change. Hand-rolled (no `next-themes` dependency).
+
+**Semantic tokens** (`src/app/globals.css`) layer on top of the raw `--black`/`--white`/`--gray-*` ramp: `--surface`, `--surface-elevated`, `--border`, `--text-primary/secondary/muted`, `--accent(-hover/-foreground/-subtle)`, `--danger(-subtle)`, `--warning(-subtle)`, `--shadow-sm/md/lg`. Light values live on `:root`. Existing pages that don't consume these tokens yet are unaffected — they keep rendering off the raw ramp.
+
+**Dark mode**: dark values live under `[data-theme="dark"]` (explicit override) and are mirrored under `@media (prefers-color-scheme: dark)` scoped to `:root:not([data-theme])` (system-default fallback, no explicit choice made). Elevation in dark mode comes from a lighter surface tint + border, not a shadow (`--shadow-*` resolve to `none`) — shadows read poorly against dark backgrounds.
+
+**Accent presets**: 8 curated brand accents selectable via `business_settings.brand_color` (`slate` default, `emerald`, `blue`, `violet`, `rose`, `amber`, `teal`, `pink`), each a `[data-accent="KEY"]` block defining `--accent/-hover/-foreground/-subtle` for both light and dark, with `--accent-foreground` chosen for AA contrast against `--accent`.
+
+**No-flash mechanism**: a blocking inline script (`next/script strategy="beforeInteractive"`, `src/app/layout.tsx`) reads cached `localStorage.theme` / `localStorage.brand_color` and stamps `data-theme` / `data-accent` on `<html>` before hydration. `ThemeContext` (`src/contexts/ThemeContext.tsx`) exposes the current theme + setter to the app; the toggle lives in the hamburger drawer. Dark/light is a personal, client-only preference (`localStorage`, no server persistence). `brand_color` is business-wide and DB-backed (`business_settings.brand_color`, additive column, admin-editable from `/settings`); `SettingsContext` reconciles the localStorage-cached value with the DB value once it loads (DB wins).
+
+**Toggle component fix**: `src/components/Toggle.tsx` is an accessible custom switch (`role="switch"`, `aria-checked`, Space/Enter keyboard support) that replaced the four native `input[type=checkbox]` fields on `/settings`. Root cause of the old rendering bug: the global `button, a, input, select, textarea { min-height: 44px; min-width: 44px }` rule (kept for touch-target accessibility on real form controls) was stretching native checkboxes past their intended 20×20 size, producing the inconsistent "blue-filled looks-checked" rendering. `Toggle` renders as a `<button>` with its own `.toggle` class, which — as a class selector — outranks the plain-element `button` selector on specificity, so it is never subject to that rule.
 
 ### Mobile-First UI Principles
 
-- Touch targets minimum 44px
-- Bottom tab navigation (easy thumb reach)
+- Touch targets minimum 44px (native form elements; dedicated components like `Toggle` intentionally opt out where a smaller control is the correct affordance — see Theming System)
+- Hamburger + drawer navigation, reachable top-left
 - Forms optimized for thumb typing
 - No horizontal scrolling
 - Cards with ample padding
@@ -217,7 +234,7 @@ When hamburger open:
 ```
 villcan/
 ├── app/
-│   ├── layout.tsx           # Root layout with bottom nav
+│   ├── layout.tsx           # Root layout: hamburger drawer nav + theme-init script
 │   ├── page.tsx              # Dashboard / Caja
 │   ├── movements/
 │   │   ├── page.tsx          # List of movements

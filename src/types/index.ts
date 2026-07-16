@@ -95,6 +95,7 @@ export interface BusinessSettings {
   mandatory_arqueo_enabled: boolean;
   inventory_enabled: boolean;
   services_label: string;
+  brand_color: string;
   updated_at: string;
   updated_by: string | null;
 }
