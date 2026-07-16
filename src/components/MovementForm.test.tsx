@@ -190,3 +190,37 @@ describe('"Cta Bancaria" substring convention guard (REQ-TEST-6, documents a KNO
     expect(includedInGastosFromCaja).toBe(false);
   });
 });
+
+describe('cierre step regression guard (caja-integrity change must NOT touch this, REQ-CAJA-1/2)', () => {
+  beforeEach(() => {
+    contactFromCalls = 0;
+    contactDeferreds = [createDeferred(), createDeferred()];
+    mockUseBranch.mockReturnValue({
+      currentBranch: { id: 'branch-1', name: 'Centro' },
+      isLoading: false,
+    });
+  });
+
+  it('renders the same bare-amount "Monto" step for cierre as before caja-integrity, with no arqueo/count inputs', async () => {
+    render(<MovementForm initialType="cierre" />);
+
+    // Still just a single amount field with the extraction hint - no
+    // per-payment-method count inputs, no discrepancy UI of any kind.
+    expect(screen.getByText('Nuevo Cierre')).toBeTruthy();
+    expect(screen.getByText('Dinero a extraer/depositar')).toBeTruthy();
+    expect(screen.getByPlaceholderText('0')).toBeTruthy();
+    expect(screen.queryByLabelText(/efectivo/i)).toBeNull();
+    expect(screen.queryByText(/discrepanc/i)).toBeNull();
+    expect(screen.getByText('Registrar movimiento')).toBeTruthy();
+  });
+
+  it('submit button stays disabled until an amount is entered, same as every other bare-amount type', () => {
+    render(<MovementForm initialType="cierre" />);
+
+    const submitBtn = screen.getByText('Registrar movimiento') as HTMLButtonElement;
+    expect(submitBtn.disabled).toBe(true);
+
+    fireEvent.change(screen.getByPlaceholderText('0'), { target: { value: '50000' } });
+    expect(submitBtn.disabled).toBe(false);
+  });
+});

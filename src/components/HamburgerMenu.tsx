@@ -18,6 +18,7 @@ const navItems: NavItem[] = [
   { label: 'Contactos', href: '/contacts', icon: '○' },
   { label: 'Servicios', href: '/services', icon: '✂' },
   { label: 'Reportes', href: '/reports', icon: '▦' },
+  { label: 'Cierres de Caja', href: '/closings', icon: '🗄' },
   { label: 'Sucursales', href: '/branches', icon: '◉' },
   { label: 'Configuración', href: '/settings', icon: '⚙' },
 ];

@@ -97,6 +97,39 @@ export interface BusinessSettings {
   updated_by: string | null;
 }
 
+// Cerrar Caja (arqueo) — new, additive, decoupled from the `cierre` movement type.
+export interface CashClosing {
+  id: string;
+  branch_id: string;
+  closed_by: string;
+  period_start: string;
+  closed_at: string;
+  arqueo_enabled: boolean;
+  calculated_efectivo: number;
+  calculated_transferencia: number;
+  calculated_pos: number;
+  calculated_total: number;
+  counted_efectivo: number | null;
+  counted_transferencia: number | null;
+  counted_pos: number | null;
+  discrepancy_efectivo: number | null;
+  discrepancy_transferencia: number | null;
+  discrepancy_pos: number | null;
+  notes: string | null;
+  created_at: string;
+}
+
+// Amounts per payment method, used both for calculated (system) balances
+// and counted (physical) balances during an arqueo.
+export interface ArqueoAmounts {
+  efectivo: number;
+  transferencia: number;
+  pos: number;
+}
+
+// Per-method discrepancy = counted - calculated.
+export type ArqueoDiscrepancy = ArqueoAmounts;
+
 // KPI data structure
 export interface CashBoxKPIs {
   totalIncome: number;
