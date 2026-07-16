@@ -62,6 +62,11 @@ export default function RootLayout({
   return (
     <html lang="es" className={inter.className}>
       <body>
+        <Script
+          id="theme-init"
+          strategy="beforeInteractive"
+          dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }}
+        />
         <ThemeProvider>
           <ToastProvider>
             <BranchProvider>
@@ -73,11 +78,6 @@ export default function RootLayout({
           </ToastProvider>
         </ThemeProvider>
       </body>
-      <Script
-        id="theme-init"
-        strategy="beforeInteractive"
-        dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }}
-      />
     </html>
   );
 }

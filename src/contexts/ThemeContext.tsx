@@ -32,10 +32,14 @@ function applyThemeAttribute(theme: ThemePreference) {
 }
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
-  // Lazy init so the very first client render matches whatever the blocking
-  // inline script (see layout.tsx) already stamped on <html> pre-hydration —
-  // no flash, no hydration mismatch.
-  const [theme, setThemeState] = useState<ThemePreference>(resolveInitialTheme);
+  // Always start from 'system' so the first CLIENT render matches what the
+  // server rendered (server has no access to localStorage). The blocking
+  // inline script in layout.tsx already stamped the real value on <html>
+  // pre-hydration, so there's no visual flash — this state only drives
+  // React's own tree (e.g. the toggle's icon/label), not the CSS. Resolving
+  // the real localStorage value happens in an effect below, which only runs
+  // after hydration completes, avoiding the mismatch entirely.
+  const [theme, setThemeState] = useState<ThemePreference>('system');
 
   const setTheme = useCallback((next: ThemePreference) => {
     setThemeState(next);
@@ -43,7 +47,15 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     applyThemeAttribute(next);
   }, []);
 
-  // Keep <html data-theme> in sync in case something external changed it.
+  // Post-hydration only: pick up the real stored preference and reconcile
+  // <html data-theme> in case something external changed it.
+  useEffect(() => {
+    function syncFromStorage() {
+      setThemeState(resolveInitialTheme());
+    }
+    syncFromStorage();
+  }, []);
+
   useEffect(() => {
     applyThemeAttribute(theme);
   }, [theme]);
