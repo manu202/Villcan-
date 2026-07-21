@@ -48,7 +48,7 @@ export function getMovementTypeLabel(type: MovementType): string {
     servicio: 'Servicio',
     gasto: 'Gasto',
     apertura: 'Apertura',
-    cierre: 'Cierre',
+    cierre: 'Retiro',
   };
   return labels[type];
 }

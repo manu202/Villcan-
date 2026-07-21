@@ -230,7 +230,7 @@ describe('cierre step regression guard (caja-integrity change must NOT touch thi
 
     // Still just a single amount field with the extraction hint - no
     // per-payment-method count inputs, no discrepancy UI of any kind.
-    expect(screen.getByText('Nuevo Cierre')).toBeTruthy();
+    expect(screen.getByText('Nuevo Retiro')).toBeTruthy();
     expect(screen.getByText('Dinero a extraer/depositar')).toBeTruthy();
     expect(screen.getByPlaceholderText('0')).toBeTruthy();
     expect(screen.queryByLabelText(/efectivo/i)).toBeNull();

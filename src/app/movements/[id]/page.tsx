@@ -150,16 +150,18 @@ export default function MovementDetailPage() {
         </section>
       )}
 
-      {/* Apertura / Cierre section */}
+      {/* Apertura / Retiro section */}
       {(movement.type === 'apertura' || movement.type === 'cierre') && (
         <section className="section">
           <h2 className="section-title">
-            {movement.type === 'apertura' ? 'Apertura de caja' : 'Cierre de caja'}
+            {movement.type === 'apertura' ? 'Apertura de caja' : 'Retiro de caja'}
           </h2>
           <div className="info-card">
             <div className="payment-row highlight">
               <span className="payment-label">Monto</span>
-              <span className="payment-value">{formatGuaranies(movement.income)}</span>
+              <span className="payment-value">
+                {formatGuaranies(movement.type === 'apertura' ? movement.income : movement.expense)}
+              </span>
             </div>
           </div>
         </section>

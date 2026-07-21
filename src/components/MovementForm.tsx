@@ -33,7 +33,7 @@ const movementTypes: { value: MovementType; label: string; description: string; 
   { value: 'servicio', label: 'Servicio', description: 'Venta de servicio', icon: Scissors },
   { value: 'gasto', label: 'Gasto', description: 'Egreso de dinero', icon: Receipt },
   { value: 'apertura', label: 'Apertura', description: 'Capital inicial del turno', icon: Unlock },
-  { value: 'cierre', label: 'Cierre', description: 'Extracción de caja', icon: Lock },
+  { value: 'cierre', label: 'Retiro', description: 'Extracción de caja', icon: Lock },
 ];
 
 const paymentMethods: { value: PaymentMethod; label: string; icon: LucideIcon }[] = [
@@ -216,10 +216,15 @@ export function MovementForm({ initialType, showToast }: MovementFormProps) {
       // expense = the amount spent (goes out)
       finalIncome = 0;
       finalExpense = incomeNum;
-    } else {
-      // apertura/cierre: the amount entered IS the income
+    } else if (type === 'apertura') {
+      // apertura: the amount entered is capital coming IN for the shift
       finalIncome = incomeNum;
       finalExpense = 0;
+    } else {
+      // cierre ("Retiro"): cash going OUT of the register (e.g. to deposit at
+      // the bank) — same shape as gasto, not income like apertura.
+      finalIncome = 0;
+      finalExpense = incomeNum;
     }
 
     // Build comment with fuente for gastos
