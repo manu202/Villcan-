@@ -42,7 +42,13 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
       setSettings(fetched);
       applyBrandColor(fetched.brand_color);
     } catch (error) {
-      console.error('Failed to load business settings:', error);
+      // No active session (e.g. /login before signing in, right after logout) is
+      // expected and not a real failure — getBusinessSettings() throws early for
+      // it specifically to skip a doomed request. Only log genuine fetch errors.
+      const isNoSession = error instanceof Error && error.message.includes('No session');
+      if (!isNoSession) {
+        console.error('Failed to load business settings:', error);
+      }
       setSettings(DEFAULT_BUSINESS_SETTINGS);
     } finally {
       setIsLoading(false);

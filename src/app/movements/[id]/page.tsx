@@ -104,11 +104,17 @@ export default function MovementDetailPage() {
                 <span className="payment-label">Montocobrado</span>
                 <span className="payment-value">{formatGuaranies(movement.amount_charged || 0)}</span>
               </div>
+              {/* `income` is stored already net of change/vuelto for efectivo (see
+                  MovementForm.handleSubmit), so it always equals amount_charged for
+                  servicio movements — it is NOT the gross cash handed over. "Recibido"
+                  (what the client actually paid before change) is income + expense;
+                  "Neto" is just income on its own, since it's already the net figure —
+                  subtracting expense again double-counts the vuelto. */}
               {movement.payment_method === 'efectivo' && (
                 <>
                   <div className="payment-row">
                     <span className="payment-label">Recibido</span>
-                    <span className="payment-value">{formatGuaranies(movement.income)}</span>
+                    <span className="payment-value">{formatGuaranies(movement.income + movement.expense)}</span>
                   </div>
                   <div className="payment-row">
                     <span className="payment-label">Vuelto</span>
@@ -119,7 +125,7 @@ export default function MovementDetailPage() {
               <div className="payment-row highlight">
                 <span className="payment-label">Neto</span>
                 <span className="payment-value">
-                  {formatGuaranies(movement.income - movement.expense)}
+                  {formatGuaranies(movement.income)}
                 </span>
               </div>
             </div>

@@ -169,10 +169,23 @@ export default function MovementsPage() {
                       </span>
                     </div>
                     <div className="movement-amount">
-                      <span className={`amount ${m.type === 'gasto' ? 'expense' : ''}`}>
-                        {m.type === 'gasto' ? '-' : '+'}
-                        {formatGuaranies(m.income - m.expense)}
-                      </span>
+                      {/* servicio's `income` is already net of change/vuelto for efectivo
+                          (see MovementForm.handleSubmit) — amount_charged is the true service
+                          value regardless of payment method, so it's the correct net to show
+                          here. Using income - expense for servicio double-subtracts the
+                          already-netted vuelto. For every other type, income and expense are
+                          mutually exclusive, so income - expense (and its natural sign) is
+                          correct on its own, with no separate sign prefix needed. */}
+                      {(() => {
+                        const net = m.type === 'servicio' ? (m.amount_charged || 0) : m.income - m.expense;
+                        const isNegative = net < 0;
+                        return (
+                          <span className={`amount ${isNegative ? 'expense' : ''}`}>
+                            {isNegative ? '-' : '+'}
+                            {formatGuaranies(Math.abs(net))}
+                          </span>
+                        );
+                      })()}
                       <span className="movement-time">
                         {formatDate(m.created_at)} {formatTime(m.created_at)}
                       </span>
