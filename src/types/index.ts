@@ -133,6 +133,17 @@ export interface ArqueoAmounts {
 // Per-method discrepancy = counted - calculated.
 export type ArqueoDiscrepancy = ArqueoAmounts;
 
+export interface ClientError {
+  id: string;
+  message: string;
+  stack: string | null;
+  url: string | null;
+  user_agent: string | null;
+  user_id: string | null;
+  branch_id: string | null;
+  created_at: string;
+}
+
 // KPI data structure
 export interface CashBoxKPIs {
   totalIncome: number;

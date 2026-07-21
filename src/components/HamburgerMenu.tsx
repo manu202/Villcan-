@@ -15,6 +15,7 @@ import {
   Archive,
   Building2,
   Settings,
+  AlertOctagon,
   X,
   type LucideIcon,
 } from 'lucide-react';
@@ -69,6 +70,7 @@ const navItems: NavItem[] = [
   { label: 'Cierres de Caja', href: '/closings', icon: Archive },
   { label: 'Sucursales', href: '/branches', icon: Building2 },
   { label: 'Configuración', href: '/settings', icon: Settings },
+  { label: 'Errores de usuarios', href: '/errors', icon: AlertOctagon },
 ];
 
 export function HamburgerMenu() {

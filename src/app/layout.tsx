@@ -7,6 +7,7 @@ import { BranchProvider } from '@/contexts/BranchContext';
 import { SettingsProvider } from '@/contexts/SettingsContext';
 import { ThemeProvider } from '@/contexts/ThemeContext';
 import { AuthGuard } from '@/components/AuthGuard';
+import { ErrorLogger } from '@/components/ErrorLogger';
 import './globals.css';
 
 // Blocking, pre-hydration theme/accent stamp — avoids a flash of the wrong
@@ -79,6 +80,7 @@ export default function RootLayout({
           <ToastProvider>
             <BranchProvider>
               <SettingsProvider>
+                <ErrorLogger />
                 <AuthGuard>
                   <HamburgerMenu />
                   <main className="main-content">{children}</main>
