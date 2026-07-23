@@ -13,7 +13,6 @@ import {
   Scissors,
   BarChart3,
   Archive,
-  Building2,
   Settings,
   AlertOctagon,
   X,
@@ -68,7 +67,6 @@ const navItems: NavItem[] = [
   { label: 'Servicios', href: '/services', icon: Scissors },
   { label: 'Reportes', href: '/reports', icon: BarChart3 },
   { label: 'Cierres de Caja', href: '/closings', icon: Archive },
-  { label: 'Sucursales', href: '/branches', icon: Building2 },
   { label: 'Configuración', href: '/settings', icon: Settings },
   { label: 'Errores de usuarios', href: '/errors', icon: AlertOctagon },
 ];
