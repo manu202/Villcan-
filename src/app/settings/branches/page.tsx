@@ -1,41 +1,28 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
 import { useBranch } from '@/contexts/BranchContext';
 import { useToast } from '@/contexts/ToastContext';
 import { ConfirmModal } from '@/components/ConfirmModal';
-import type { Branch } from '@/types';
+import type { BranchWithRole } from '@/types';
+
+const ROLE_LABEL: Record<BranchWithRole['user_role'], string> = {
+  admin: 'Administrador',
+  barber: 'Barbero',
+  viewer: 'Visor',
+};
 
 export default function BranchesPage() {
-  const { currentBranch, branches, isLoading } = useBranch();
+  const { currentBranch, branches, isLoading, selectBranch, refreshBranches } = useBranch();
   const isAdminAnywhere = branches.some((b) => b.user_role === 'admin');
-  const [allBranches, setAllBranches] = useState<Branch[]>([]);
-  const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
-  const [editingBranch, setEditingBranch] = useState<Branch | null>(null);
+  const [editingBranch, setEditingBranch] = useState<BranchWithRole | null>(null);
   const [formData, setFormData] = useState({ name: '', address: '' });
   const [saving, setSaving] = useState(false);
   const { showToast } = useToast();
-  const [branchPendingDelete, setBranchPendingDelete] = useState<Branch | null>(null);
-
-  const loadBranches = async () => {
-    const supabase = createClient();
-    const { data } = await supabase
-      .from('branches')
-      .select('*')
-      .order('name');
-    setAllBranches(data || []);
-    setLoading(false);
-  };
-
-  useEffect(() => {
-    const load = async () => {
-      await loadBranches();
-    };
-    load();
-  }, []);
+  const [branchPendingDelete, setBranchPendingDelete] = useState<BranchWithRole | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -55,7 +42,7 @@ export default function BranchesPage() {
         setShowForm(false);
         setEditingBranch(null);
         setFormData({ name: '', address: '' });
-        loadBranches();
+        refreshBranches();
       }
     } else {
       // Create. The new branch's id is generated CLIENT-SIDE (crypto.randomUUID())
@@ -85,13 +72,13 @@ export default function BranchesPage() {
         showToast('Sucursal creada', 'success');
         setShowForm(false);
         setFormData({ name: '', address: '' });
-        loadBranches();
+        refreshBranches();
       }
     }
     setSaving(false);
   };
 
-  const handleEdit = (branch: Branch) => {
+  const handleEdit = (branch: BranchWithRole) => {
     setEditingBranch(branch);
     setFormData({ name: branch.name, address: branch.address || '' });
     setShowForm(true);
@@ -117,7 +104,7 @@ export default function BranchesPage() {
     if (error) showToast(error.message, 'error');
     else {
       showToast('Sucursal eliminada', 'success');
-      loadBranches();
+      refreshBranches();
     }
   };
 
@@ -171,7 +158,7 @@ export default function BranchesPage() {
     );
   }
 
-  if (loading || isLoading) {
+  if (isLoading) {
     return (
       <div className="page">
         <header className="page-header">
@@ -211,6 +198,7 @@ export default function BranchesPage() {
               value={formData.name}
               onChange={(e) => setFormData({ ...formData, name: e.target.value })}
               className="input"
+              autoFocus
               required
             />
             <input
@@ -233,46 +221,57 @@ export default function BranchesPage() {
       )}
 
       <section className="section">
-        {allBranches.length === 0 ? (
-          <p className="page-subtitle">No hay sucursales</p>
-        ) : (
-          <ul className="branch-list">
-            {allBranches.map((branch) => (
+        <ul className="branch-list">
+          {branches.map((branch) => {
+            const isCurrent = currentBranch?.id === branch.id;
+            const canManage = branch.user_role === 'admin';
+            return (
               <li key={branch.id} className="branch-item">
                 <div className="branch-info">
                   <span className="branch-name">{branch.name}</span>
                   {branch.address && (
                     <span className="branch-address">{branch.address}</span>
                   )}
-                  {currentBranch?.id === branch.id && (
-                    <span className="branch-badge">Actual</span>
-                  )}
+                  <div className="branch-tags">
+                    {isCurrent && <span className="branch-badge">Sucursal activa</span>}
+                    <span className="branch-role">Tu rol: {ROLE_LABEL[branch.user_role]}</span>
+                  </div>
                 </div>
                 <div className="branch-actions">
-                  <button
-                    onClick={() => handleEdit(branch)}
-                    className="btn-small"
-                  >
-                    Editar
-                  </button>
-                  {allBranches.length > 1 && (
+                  {!isCurrent && (
                     <button
-                      onClick={() => setBranchPendingDelete(branch)}
-                      className="btn-small btn-danger"
+                      onClick={() => selectBranch(branch)}
+                      className="btn-small"
                     >
-                      Eliminar
+                      Usar esta sucursal
                     </button>
+                  )}
+                  {canManage ? (
+                    <>
+                      <button
+                        onClick={() => handleEdit(branch)}
+                        className="btn-small"
+                      >
+                        Editar
+                      </button>
+                      {branches.length > 1 && (
+                        <button
+                          onClick={() => setBranchPendingDelete(branch)}
+                          className="btn-small btn-danger"
+                        >
+                          Eliminar
+                        </button>
+                      )}
+                    </>
+                  ) : (
+                    <span className="hint">Sin permisos de administrador en esta sucursal</span>
                   )}
                 </div>
               </li>
-            ))}
-          </ul>
-        )}
+            );
+          })}
+        </ul>
       </section>
-
-      <footer className="page-footer">
-        <p className="hint">@{currentBranch?.name || 'Sin sucursal'}</p>
-      </footer>
 
       {branchPendingDelete && (
         <ConfirmModal
@@ -350,6 +349,7 @@ export default function BranchesPage() {
           font-size: 16px;
           font-weight: 600;
           cursor: pointer;
+          min-height: 44px;
           transition: opacity 0.15s ease;
         }
 
@@ -371,6 +371,17 @@ export default function BranchesPage() {
           font-size: 16px;
           font-weight: 600;
           cursor: pointer;
+          min-height: 44px;
+          transition: border-color 0.15s ease;
+        }
+
+        .btn-secondary:hover {
+          border-color: var(--accent-hover);
+        }
+
+        .btn-secondary:focus-visible {
+          outline: 2px solid var(--accent);
+          outline-offset: 2px;
         }
 
         .btn-small {
@@ -427,6 +438,14 @@ export default function BranchesPage() {
           color: var(--text-secondary);
         }
 
+        .branch-tags {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          flex-wrap: wrap;
+          margin-top: 4px;
+        }
+
         .branch-badge {
           display: inline-block;
           padding: 4px 8px;
@@ -435,18 +454,22 @@ export default function BranchesPage() {
           font-size: 11px;
           font-weight: 600;
           border-radius: 4px;
-          margin-top: 4px;
+        }
+
+        .branch-role {
+          font-size: 12px;
+          color: var(--text-secondary);
         }
 
         .branch-actions {
           display: flex;
+          align-items: center;
           gap: 8px;
           flex-wrap: wrap;
         }
 
-        .page-footer {
-          text-align: center;
-          padding: 24px;
+        .branch-actions .btn-danger {
+          margin-left: auto;
         }
 
         .hint {
