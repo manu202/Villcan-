@@ -144,15 +144,8 @@ export interface ClientError {
   created_at: string;
 }
 
-// KPI data structure
-export interface CashBoxKPIs {
-  totalIncome: number;
-  incomeByMethod: {
-    efectivo: number;
-    transferencia: number;
-    pos: number;
-  };
-  totalExpenses: number; // gastos only (not service change)
-  balanceEfectivo: number;
-  balanceGlobal: number;
-}
+// KPI data structures live in src/lib/kpis.ts as PeriodActivity (period-scoped
+// Ingresos/Egresos, driven by the Hoy/Semana/Mes toggle) and RunningBalance
+// (always-current Balance en Efectivo / Balance Global, NOT period-scoped) —
+// split deliberately so the dashboard toggle cannot accidentally affect the
+// running balance. Previously a single merged CashBoxKPIs type lived here.

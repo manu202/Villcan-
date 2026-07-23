@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/client';
 import type { ArqueoAmounts, CashClosing } from '@/types';
+import { calcRunningBalance, type KpiMovement, type RunningBalance } from '@/lib/kpis';
 
 /**
  * Calculates the system's expected cash-box balance per payment method,
@@ -87,4 +88,47 @@ export async function getLastClosing(branchId: string): Promise<CashClosing | nu
 
   const rows = (data || []) as CashClosing[];
   return rows[0] ?? null;
+}
+
+/**
+ * Always-current running cash balance for a branch (Balance en Efectivo /
+ * Balance Global), NOT scoped by any UI period toggle. Aggregates since the
+ * last cash_closing's closed_at, or all-time if the branch has never closed.
+ *
+ * Unlike getCalculatedBalanceSince (used by arqueo/ClosingForm, which
+ * intentionally excludes `cierre`), this DOES include `cierre` — it is the
+ * dashboard's "how much is actually in the register right now" figure, and
+ * a cierre (retiro) physically removes cash from the register.
+ *
+ * Delegates all math to calcRunningBalance (src/lib/kpis.ts) — this function
+ * only fetches rows and picks the lower boundary.
+ */
+export async function getRunningCashBalance(branchId: string): Promise<RunningBalance> {
+  const supabase = createClient();
+  const lastClosing = await getLastClosing(branchId);
+  const since = lastClosing?.closed_at;
+
+  const movementTypes = ['apertura', 'servicio', 'gasto', 'cierre'] as const;
+
+  const results = await Promise.all(
+    movementTypes.map((type) => {
+      let query = supabase
+        .from('movements')
+        .select('type, income, expense, payment_method, comment')
+        .eq('type', type)
+        .eq('branch_id', branchId);
+
+      if (since) {
+        query = query.gte('created_at', since);
+      }
+
+      return query;
+    })
+  );
+
+  const movements: KpiMovement[] = results.flatMap(
+    (r) => (r.data || []) as KpiMovement[]
+  );
+
+  return calcRunningBalance(movements);
 }

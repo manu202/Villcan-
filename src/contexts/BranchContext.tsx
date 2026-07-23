@@ -3,6 +3,7 @@
 import { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
 import type { BranchWithRole } from '@/types';
 import { getUserBranches } from '@/lib/branches';
+import { createClient } from '@/lib/supabase/client';
 
 interface BranchContextValue {
   currentBranch: BranchWithRole | null;
@@ -59,6 +60,22 @@ export function BranchProvider({ children }: { children: ReactNode }) {
       await refreshBranches();
     };
     load();
+  }, [refreshBranches]);
+
+  // The root layout (and this provider) mounts on /login BEFORE the user
+  // signs in, and login navigates with router.push (no full page reload) —
+  // so the one-time mount effect above runs with no session and never
+  // re-fires on its own. Without this, branches stay stuck empty for the
+  // rest of the session after a normal login. Re-fetching on auth state
+  // changes (sign-in, sign-out, token refresh) is the only reliable signal.
+  useEffect(() => {
+    const supabase = createClient();
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(() => {
+      refreshBranches();
+    });
+    return () => {
+      subscription.unsubscribe();
+    };
   }, [refreshBranches]);
 
   const selectBranch = useCallback((branch: BranchWithRole) => {
