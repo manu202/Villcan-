@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useBranch } from '@/contexts/BranchContext';
 import { ClosingForm } from '@/components/ClosingForm';
 
@@ -12,6 +13,7 @@ export default function NewClosingPage() {
     return (
       <div className="page">
         <header className="page-header">
+          <Link href="/closings" className="back-link">← Cierres</Link>
           <h1 className="page-title">Cerrar Caja</h1>
         </header>
         <div className="empty-state">
@@ -23,6 +25,14 @@ export default function NewClosingPage() {
           .page {
             max-width: 480px;
             margin: 0 auto;
+          }
+
+          .back-link {
+            display: inline-block;
+            font-size: 14px;
+            color: var(--text-secondary);
+            text-decoration: none;
+            margin-bottom: 8px;
           }
 
           .page-title {

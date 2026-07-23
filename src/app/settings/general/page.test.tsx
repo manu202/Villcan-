@@ -13,6 +13,11 @@ vi.mock('@/contexts/SettingsContext', () => ({
   useSettings: () => mockUseSettings(),
 }));
 
+const mockShowToast = vi.fn();
+vi.mock('@/contexts/ToastContext', () => ({
+  useToast: () => ({ showToast: mockShowToast }),
+}));
+
 const mockUpdate = vi.fn();
 const mockEq = vi.fn();
 const mockFrom = vi.fn();
@@ -30,6 +35,7 @@ describe('SettingsPage /settings/general (REQ-SETTINGSREORG-2)', () => {
     mockEq.mockReset();
     mockFrom.mockReset();
     mockRefreshSettings.mockReset();
+    mockShowToast.mockReset();
 
     mockEq.mockResolvedValue({ error: null });
     mockUpdate.mockReturnValue({ eq: mockEq });
@@ -169,5 +175,20 @@ describe('SettingsPage /settings/general (REQ-SETTINGSREORG-2)', () => {
       expect.objectContaining({ brand_color: DEFAULT_BUSINESS_SETTINGS.brand_color })
     );
     await waitFor(() => expect(mockRefreshSettings).toHaveBeenCalled());
+    await waitFor(() => expect(mockShowToast).toHaveBeenCalledWith(expect.any(String), 'success'));
+  });
+
+  it('shows an error toast when the save fails', async () => {
+    mockUseBranch.mockReturnValue({
+      branches: [{ id: 'b1', user_role: 'admin' }],
+    });
+    mockEq.mockResolvedValue({ error: { message: 'boom' } });
+
+    render(<SettingsPage />);
+
+    screen.getByText(/guardar/i).click();
+
+    await waitFor(() => expect(mockShowToast).toHaveBeenCalledWith('boom', 'error'));
+    expect(mockRefreshSettings).not.toHaveBeenCalled();
   });
 });

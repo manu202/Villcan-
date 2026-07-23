@@ -1,8 +1,10 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
 import { useBranch } from '@/contexts/BranchContext';
+import { useToast } from '@/contexts/ToastContext';
 import { ConfirmModal } from '@/components/ConfirmModal';
 import type { Branch } from '@/types';
 
@@ -15,8 +17,7 @@ export default function BranchesPage() {
   const [editingBranch, setEditingBranch] = useState<Branch | null>(null);
   const [formData, setFormData] = useState({ name: '', address: '' });
   const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState<string | null>(null);
+  const { showToast } = useToast();
   const [branchPendingDelete, setBranchPendingDelete] = useState<Branch | null>(null);
 
   const loadBranches = async () => {
@@ -39,8 +40,6 @@ export default function BranchesPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
-    setError(null);
-    setSuccess(null);
 
     const supabase = createClient();
 
@@ -50,9 +49,9 @@ export default function BranchesPage() {
         .from('branches')
         .update({ name: formData.name, address: formData.address })
         .eq('id', editingBranch.id);
-      if (error) setError(error.message);
+      if (error) showToast(error.message, 'error');
       else {
-        setSuccess('Sucursal actualizada');
+        showToast('Sucursal actualizada', 'success');
         setShowForm(false);
         setEditingBranch(null);
         setFormData({ name: '', address: '' });
@@ -72,7 +71,7 @@ export default function BranchesPage() {
         .from('branches')
         .insert({ id: newBranchId, name: formData.name, address: formData.address });
 
-      if (error) setError(error.message);
+      if (error) showToast(error.message, 'error');
       else {
         // Self-grant admin access on the branch we just created — required by RLS
         // (branches_select only shows branches the user has a user_branch_access row for).
@@ -81,9 +80,9 @@ export default function BranchesPage() {
           const { error: accessError } = await supabase
             .from('user_branch_access')
             .insert({ user_id: userData.user.id, branch_id: newBranchId, role: 'admin' });
-          if (accessError) setError(accessError.message);
+          if (accessError) showToast(accessError.message, 'error');
         }
-        setSuccess('Sucursal creada');
+        showToast('Sucursal creada', 'success');
         setShowForm(false);
         setFormData({ name: '', address: '' });
         loadBranches();
@@ -115,9 +114,9 @@ export default function BranchesPage() {
       .delete()
       .eq('id', branchId);
 
-    if (error) setError(error.message);
+    if (error) showToast(error.message, 'error');
     else {
-      setSuccess('Sucursal eliminada');
+      showToast('Sucursal eliminada', 'success');
       loadBranches();
     }
   };
@@ -126,6 +125,7 @@ export default function BranchesPage() {
     return (
       <div className="page">
         <header className="page-header">
+          <Link href="/settings" className="back-link">← Configuración</Link>
           <h1 className="page-title">Sucursales</h1>
         </header>
         <div className="empty-state">
@@ -140,6 +140,14 @@ export default function BranchesPage() {
 
           .page-header {
             margin-bottom: 32px;
+          }
+
+          .back-link {
+            display: inline-block;
+            font-size: 14px;
+            color: var(--text-secondary);
+            text-decoration: none;
+            margin-bottom: 8px;
           }
 
           .page-title {
@@ -167,6 +175,7 @@ export default function BranchesPage() {
     return (
       <div className="page">
         <header className="page-header">
+          <Link href="/settings" className="back-link">← Configuración</Link>
           <h1 className="page-title">Sucursales</h1>
         </header>
         <section className="section">
@@ -178,26 +187,17 @@ export default function BranchesPage() {
 
   return (
     <div className="page">
-      <header className="page-header flex-header">
-        <h1 className="page-title">Sucursales</h1>
-        {!showForm && (
-          <button onClick={() => setShowForm(true)} className="btn-add">
-            +Nueva
-          </button>
-        )}
+      <header className="page-header">
+        <Link href="/settings" className="back-link">← Configuración</Link>
+        <div className="flex-header">
+          <h1 className="page-title">Sucursales</h1>
+          {!showForm && (
+            <button onClick={() => setShowForm(true)} className="btn-add">
+              +Nueva
+            </button>
+          )}
+        </div>
       </header>
-
-      {error && (
-        <section className="section">
-          <p className="error-text">{error}</p>
-        </section>
-      )}
-
-      {success && (
-        <section className="section">
-          <p className="success-text">{success}</p>
-        </section>
-      )}
 
       {showForm && (
         <section className="section">
@@ -289,6 +289,14 @@ export default function BranchesPage() {
           margin: 0 auto;
         }
 
+        .back-link {
+          display: inline-block;
+          font-size: 14px;
+          color: var(--text-secondary);
+          text-decoration: none;
+          margin-bottom: 8px;
+        }
+
         .flex-header {
           display: flex;
           justify-content: space-between;
@@ -304,6 +312,17 @@ export default function BranchesPage() {
           font-size: 14px;
           font-weight: 600;
           cursor: pointer;
+          min-height: 44px;
+          transition: opacity 0.15s ease;
+        }
+
+        .btn-add:hover {
+          opacity: 0.85;
+        }
+
+        .btn-add:focus-visible {
+          outline: 2px solid var(--accent);
+          outline-offset: 2px;
         }
 
         .form {
@@ -331,6 +350,16 @@ export default function BranchesPage() {
           font-size: 16px;
           font-weight: 600;
           cursor: pointer;
+          transition: opacity 0.15s ease;
+        }
+
+        .btn-primary:hover {
+          opacity: 0.85;
+        }
+
+        .btn-primary:focus-visible {
+          outline: 2px solid var(--accent);
+          outline-offset: 2px;
         }
 
         .btn-secondary {
@@ -351,29 +380,22 @@ export default function BranchesPage() {
           border-radius: 6px;
           font-size: 13px;
           cursor: pointer;
+          min-height: 44px;
+          transition: border-color 0.15s ease;
+        }
+
+        .btn-small:hover {
+          border-color: var(--accent-hover);
+        }
+
+        .btn-small:focus-visible {
+          outline: 2px solid var(--accent);
+          outline-offset: 2px;
         }
 
         .btn-danger {
           color: #dc2626;
           border-color: #dc2626;
-        }
-
-        .error-text {
-          color: #dc2626;
-          font-size: 14px;
-          text-align: center;
-          padding: 12px;
-          background: #fef2f2;
-          border-radius: 8px;
-        }
-
-        .success-text {
-          color: #16a34a;
-          font-size: 14px;
-          text-align: center;
-          padding: 12px;
-          background: #f0fdf4;
-          border-radius: 8px;
         }
 
         .branch-list {

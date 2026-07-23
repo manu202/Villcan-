@@ -1,8 +1,10 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
 import { useBranch } from '@/contexts/BranchContext';
+import { useToast } from '@/contexts/ToastContext';
 import { ConfirmModal } from '@/components/ConfirmModal';
 import { isLastAdmin } from '@/lib/access';
 import type { UserBranchAccess } from '@/types';
@@ -41,8 +43,7 @@ export default function UsersPage() {
 
   const [rows, setRows] = useState<AccessRow[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState<string | null>(null);
+  const { showToast } = useToast();
 
   const [newEmail, setNewEmail] = useState('');
   const [newRole, setNewRole] = useState<AccessRole>('barber');
@@ -64,7 +65,7 @@ export default function UsersPage() {
       .eq('branch_id', currentBranch.id);
 
     if (loadError) {
-      setError(loadError.message);
+      showToast(loadError.message, 'error');
       setRows([]);
     } else {
       const list = (data || []) as unknown as RawAccessRow[];
@@ -95,8 +96,6 @@ export default function UsersPage() {
     e.preventDefault();
     if (!currentBranch) return;
     setAdding(true);
-    setError(null);
-    setSuccess(null);
 
     const supabase = createClient();
     const { data: profile } = await supabase
@@ -106,13 +105,13 @@ export default function UsersPage() {
       .single();
 
     if (!profile) {
-      setError('Usuario no encontrado');
+      showToast('Usuario no encontrado', 'error');
       setAdding(false);
       return;
     }
 
     if (rows.some((r) => r.user_id === profile.id)) {
-      setError('Este usuario ya tiene acceso a esta sucursal');
+      showToast('Este usuario ya tiene acceso a esta sucursal', 'error');
       setAdding(false);
       return;
     }
@@ -122,9 +121,9 @@ export default function UsersPage() {
       .insert({ user_id: profile.id, branch_id: currentBranch.id, role: newRole });
 
     if (insertError) {
-      setError(insertError.message);
+      showToast(insertError.message, 'error');
     } else {
-      setSuccess(`Usuario ${newEmail.trim()} agregado`);
+      showToast(`Usuario ${newEmail.trim()} agregado`, 'success');
       setNewEmail('');
       setNewRole('barber');
       await loadAccess();
@@ -134,8 +133,6 @@ export default function UsersPage() {
 
   const handleRoleChange = async (row: AccessRow, role: AccessRole) => {
     if (!currentBranch) return;
-    setError(null);
-    setSuccess(null);
     const supabase = createClient();
     const { error: updateError } = await supabase
       .from('user_branch_access')
@@ -143,7 +140,7 @@ export default function UsersPage() {
       .eq('user_id', row.user_id)
       .eq('branch_id', currentBranch.id);
 
-    if (updateError) setError(updateError.message);
+    if (updateError) showToast(updateError.message, 'error');
     else await loadAccess();
   };
 
@@ -151,8 +148,6 @@ export default function UsersPage() {
     if (!rowPendingDelete || !currentBranch) return;
     const target = rowPendingDelete;
     setRowPendingDelete(null);
-    setError(null);
-    setSuccess(null);
 
     const supabase = createClient();
     const { error: deleteError } = await supabase
@@ -161,9 +156,9 @@ export default function UsersPage() {
       .eq('user_id', target.user_id)
       .eq('branch_id', currentBranch.id);
 
-    if (deleteError) setError(deleteError.message);
+    if (deleteError) showToast(deleteError.message, 'error');
     else {
-      setSuccess('Acceso eliminado');
+      showToast('Acceso eliminado', 'success');
       await loadAccess();
     }
   };
@@ -172,6 +167,7 @@ export default function UsersPage() {
     return (
       <div className="page">
         <header className="page-header">
+          <Link href="/settings" className="back-link">← Configuración</Link>
           <h1 className="page-title">Usuarios</h1>
         </header>
         <div className="empty-state">
@@ -186,6 +182,7 @@ export default function UsersPage() {
   return (
     <div className="page">
       <header className="page-header">
+        <Link href="/settings" className="back-link">← Configuración</Link>
         <h1 className="page-title">Usuarios</h1>
         <p className="page-subtitle">@{currentBranch?.name || 'Sin sucursal'}</p>
       </header>
@@ -196,18 +193,6 @@ export default function UsersPage() {
             No sos administrador de esta sucursal. Cambiá a una sucursal que administrés para poder
             gestionar sus usuarios.
           </p>
-        </section>
-      )}
-
-      {error && (
-        <section className="section">
-          <p className="error-text">{error}</p>
-        </section>
-      )}
-
-      {success && (
-        <section className="section">
-          <p className="success-text">{success}</p>
         </section>
       )}
 
@@ -318,6 +303,14 @@ const styles = `
     margin-bottom: 32px;
   }
 
+  .back-link {
+    display: inline-block;
+    font-size: 14px;
+    color: var(--text-secondary);
+    text-decoration: none;
+    margin-bottom: 8px;
+  }
+
   .page-title {
     font-size: 24px;
     font-weight: 700;
@@ -375,6 +368,16 @@ const styles = `
     font-size: 16px;
     font-weight: 600;
     cursor: pointer;
+    transition: opacity 0.15s ease;
+  }
+
+  .btn-primary:hover:not(:disabled) {
+    opacity: 0.85;
+  }
+
+  .btn-primary:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
   }
 
   .btn-primary:disabled {
@@ -390,6 +393,16 @@ const styles = `
     font-size: 13px;
     cursor: pointer;
     min-height: 44px;
+    transition: border-color 0.15s ease;
+  }
+
+  .btn-small:hover:not(:disabled) {
+    border-color: var(--accent-hover);
+  }
+
+  .btn-small:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
   }
 
   .btn-small:disabled {
@@ -400,24 +413,6 @@ const styles = `
   .btn-danger {
     color: #dc2626;
     border-color: #dc2626;
-  }
-
-  .error-text {
-    color: #dc2626;
-    font-size: 14px;
-    text-align: center;
-    padding: 12px;
-    background: #fef2f2;
-    border-radius: 8px;
-  }
-
-  .success-text {
-    color: #16a34a;
-    font-size: 14px;
-    text-align: center;
-    padding: 12px;
-    background: #f0fdf4;
-    border-radius: 8px;
   }
 
   .notice-text {
@@ -473,6 +468,11 @@ const styles = `
     background: var(--surface);
     color: var(--text-primary);
     min-height: 44px;
+  }
+
+  .role-select:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
   }
 
   .role-select:disabled {

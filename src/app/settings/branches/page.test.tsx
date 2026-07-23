@@ -7,6 +7,11 @@ vi.mock('@/contexts/BranchContext', () => ({
   useBranch: () => mockUseBranch(),
 }));
 
+const mockShowToast = vi.fn();
+vi.mock('@/contexts/ToastContext', () => ({
+  useToast: () => ({ showToast: mockShowToast }),
+}));
+
 const mockOrder = vi.fn();
 const mockSelect = vi.fn();
 const mockFrom = vi.fn();
@@ -21,6 +26,7 @@ describe('BranchesPage /settings/branches (REQ-SETTINGSREORG-3, REQ-SETTINGSREOR
     mockOrder.mockReset();
     mockSelect.mockReset();
     mockFrom.mockReset();
+    mockShowToast.mockReset();
 
     mockOrder.mockResolvedValue({ data: [] });
     mockSelect.mockReturnValue({ order: mockOrder });

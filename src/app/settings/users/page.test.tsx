@@ -7,6 +7,11 @@ vi.mock('@/contexts/BranchContext', () => ({
   useBranch: () => mockUseBranch(),
 }));
 
+const mockShowToast = vi.fn();
+vi.mock('@/contexts/ToastContext', () => ({
+  useToast: () => ({ showToast: mockShowToast }),
+}));
+
 const mockUbaEq = vi.fn();
 const mockUbaSelect = vi.fn();
 const mockFrom = vi.fn();
@@ -21,6 +26,7 @@ describe('UsersPage /settings/users (REQ-SETTINGSREORG-4, -8, -9)', () => {
     mockUbaEq.mockReset();
     mockUbaSelect.mockReset();
     mockFrom.mockReset();
+    mockShowToast.mockReset();
 
     mockUbaEq.mockResolvedValue({
       data: [

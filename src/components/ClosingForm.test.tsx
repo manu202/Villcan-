@@ -2,8 +2,10 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { ClosingForm } from './ClosingForm';
 
+const mockPush = vi.fn();
+const mockBack = vi.fn();
 vi.mock('next/navigation', () => ({
-  useRouter: () => ({ push: vi.fn() }),
+  useRouter: () => ({ push: mockPush, back: mockBack }),
 }));
 
 const mockUseBranch = vi.fn();
@@ -47,6 +49,8 @@ describe('ClosingForm', () => {
     mockFrom.mockReset();
     mockGetLastClosing.mockReset();
     mockGetCalculatedBalanceSince.mockReset();
+    mockPush.mockReset();
+    mockBack.mockReset();
 
     mockUseBranch.mockReturnValue({
       currentBranch: { id: 'branch-1', name: 'Centro', user_role: 'admin' },
@@ -96,6 +100,51 @@ describe('ClosingForm', () => {
       expect(payload.closed_by).toBe('user-1');
 
       await waitFor(() => expect(mockShowToast).toHaveBeenCalled());
+    });
+  });
+
+  describe('back navigation and Enter-to-submit', () => {
+    beforeEach(() => {
+      mockUseSettings.mockReturnValue({
+        settings: { mandatory_arqueo_enabled: true },
+      });
+    });
+
+    it('back button calls router.back()', async () => {
+      render(<ClosingForm />);
+
+      await waitFor(() => expect(screen.getByLabelText(/efectivo contado/i)).toBeTruthy());
+
+      fireEvent.click(screen.getByText('←'));
+
+      expect(mockBack).toHaveBeenCalled();
+    });
+
+    it('pressing Enter in a count field submits the form when canSubmit is true', async () => {
+      render(<ClosingForm />);
+
+      await waitFor(() => expect(screen.getByLabelText(/efectivo contado/i)).toBeTruthy());
+
+      fireEvent.change(screen.getByLabelText(/efectivo contado/i), { target: { value: '105000' } });
+      fireEvent.change(screen.getByLabelText(/transferencia contada/i), { target: { value: '50000' } });
+      fireEvent.change(screen.getByLabelText(/pos contado/i), { target: { value: '20000' } });
+
+      const form = screen.getByLabelText(/efectivo contado/i).closest('form');
+      expect(form).not.toBeNull();
+      fireEvent.submit(form as HTMLFormElement);
+
+      await waitFor(() => expect(mockFrom).toHaveBeenCalledWith('cash_closings'));
+    });
+
+    it('submitting the form does nothing when canSubmit is false (counts incomplete)', async () => {
+      render(<ClosingForm />);
+
+      await waitFor(() => expect(screen.getByLabelText(/efectivo contado/i)).toBeTruthy());
+
+      const form = screen.getByLabelText(/efectivo contado/i).closest('form');
+      fireEvent.submit(form as HTMLFormElement);
+
+      expect(mockFrom).not.toHaveBeenCalled();
     });
   });
 

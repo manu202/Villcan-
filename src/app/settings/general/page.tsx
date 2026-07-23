@@ -1,8 +1,10 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
 import { useBranch } from '@/contexts/BranchContext';
 import { useSettings } from '@/contexts/SettingsContext';
+import { useToast } from '@/contexts/ToastContext';
 import { createClient } from '@/lib/supabase/client';
 import { Toggle } from '@/components/Toggle';
 import type { BusinessSettings } from '@/types';
@@ -28,6 +30,7 @@ export default function SettingsPage() {
     return (
       <div className="page">
         <header className="page-header">
+          <Link href="/settings" className="back-link">← Configuración</Link>
           <h1 className="page-title">Configuración</h1>
         </header>
         <div className="empty-state">
@@ -63,7 +66,7 @@ function SettingsForm({
   const [brandColor, setBrandColor] = useState(settings.brand_color);
 
   const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const { showToast } = useToast();
 
   // Optimistic, flash-free preview: cache immediately + stamp <html> so the
   // swatch choice is visible right away, before the DB round-trip settles
@@ -82,7 +85,6 @@ function SettingsForm({
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setSubmitting(true);
-    setError(null);
 
     const supabase = createClient();
     const { error: updateError } = await supabase
@@ -99,18 +101,20 @@ function SettingsForm({
       .eq('id', 1);
 
     if (updateError) {
-      setError(updateError.message);
+      showToast(updateError.message, 'error');
       setSubmitting(false);
       return;
     }
 
     await refreshSettings();
     setSubmitting(false);
+    showToast('Configuración guardada', 'success');
   }
 
   return (
     <div className="page">
       <header className="page-header">
+        <Link href="/settings" className="back-link">← Configuración</Link>
         <h1 className="page-title">Configuración</h1>
       </header>
 
@@ -199,8 +203,6 @@ function SettingsForm({
           </div>
         </div>
 
-        {error && <p className="error">{error}</p>}
-
         <div className="actions">
           <button type="submit" className="submit-btn" disabled={submitting}>
             {submitting ? 'Guardando...' : 'Guardar'}
@@ -216,6 +218,14 @@ function SettingsForm({
 
         .page-header {
           margin-bottom: 32px;
+        }
+
+        .back-link {
+          display: inline-block;
+          font-size: 14px;
+          color: var(--text-secondary);
+          text-decoration: none;
+          margin-bottom: 8px;
         }
 
         .page-title {
@@ -302,14 +312,6 @@ function SettingsForm({
         .swatch-selected {
           border-color: var(--text-primary);
           box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--text-primary);
-        }
-
-        .error {
-          color: #dc2626;
-          font-size: 14px;
-          padding: 12px;
-          background: #fef2f2;
-          border-radius: 8px;
         }
 
         .actions {

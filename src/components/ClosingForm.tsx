@@ -91,7 +91,9 @@ export function ClosingForm() {
     return `${sign}${formatGuaranies(Math.abs(value))}`;
   };
 
-  const handleClose = async () => {
+  const handleClose = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!canSubmit) return;
     setSubmitting(true);
 
     const userId = await getCurrentUserId();
@@ -128,9 +130,12 @@ export function ClosingForm() {
 
   return (
     <div className="page">
-      <header className="page-header">
-        <h1 className="page-title">Cerrar Caja</h1>
-        <p className="page-subtitle">{currentBranch.name}</p>
+      <header className="page-header flex-header">
+        <button type="button" onClick={() => router.back()} className="back-btn">←</button>
+        <div>
+          <h1 className="page-title">Cerrar Caja</h1>
+          <p className="page-subtitle">{currentBranch.name}</p>
+        </div>
       </header>
 
       <section className="section">
@@ -155,75 +160,95 @@ export function ClosingForm() {
         </div>
       </section>
 
-      {arqueoEnabled && (
+      <form onSubmit={handleClose}>
+        {arqueoEnabled && (
+          <section className="section">
+            <h2 className="section-title">Conteo físico</h2>
+
+            <div className="count-field">
+              <label htmlFor="counted_efectivo">Efectivo contado</label>
+              <input
+                id="counted_efectivo"
+                type="text"
+                inputMode="numeric"
+                placeholder="0"
+                value={countedEfectivo}
+                onChange={(e) => setCountedEfectivo(e.target.value)}
+                className="input"
+              />
+              {countedEfectivo !== '' && (
+                <span className="discrepancy">{formatSigned(discrepancy.efectivo)}</span>
+              )}
+            </div>
+
+            <div className="count-field">
+              <label htmlFor="counted_transferencia">Transferencia contada</label>
+              <input
+                id="counted_transferencia"
+                type="text"
+                inputMode="numeric"
+                placeholder="0"
+                value={countedTransferencia}
+                onChange={(e) => setCountedTransferencia(e.target.value)}
+                className="input"
+              />
+              {countedTransferencia !== '' && (
+                <span className="discrepancy">{formatSigned(discrepancy.transferencia)}</span>
+              )}
+            </div>
+
+            <div className="count-field">
+              <label htmlFor="counted_pos">POS contado</label>
+              <input
+                id="counted_pos"
+                type="text"
+                inputMode="numeric"
+                placeholder="0"
+                value={countedPos}
+                onChange={(e) => setCountedPos(e.target.value)}
+                className="input"
+              />
+              {countedPos !== '' && (
+                <span className="discrepancy">{formatSigned(discrepancy.pos)}</span>
+              )}
+            </div>
+          </section>
+        )}
+
         <section className="section">
-          <h2 className="section-title">Conteo físico</h2>
-
-          <div className="count-field">
-            <label htmlFor="counted_efectivo">Efectivo contado</label>
-            <input
-              id="counted_efectivo"
-              type="text"
-              inputMode="numeric"
-              placeholder="0"
-              value={countedEfectivo}
-              onChange={(e) => setCountedEfectivo(e.target.value)}
-              className="input"
-            />
-            {countedEfectivo !== '' && (
-              <span className="discrepancy">{formatSigned(discrepancy.efectivo)}</span>
-            )}
-          </div>
-
-          <div className="count-field">
-            <label htmlFor="counted_transferencia">Transferencia contada</label>
-            <input
-              id="counted_transferencia"
-              type="text"
-              inputMode="numeric"
-              placeholder="0"
-              value={countedTransferencia}
-              onChange={(e) => setCountedTransferencia(e.target.value)}
-              className="input"
-            />
-            {countedTransferencia !== '' && (
-              <span className="discrepancy">{formatSigned(discrepancy.transferencia)}</span>
-            )}
-          </div>
-
-          <div className="count-field">
-            <label htmlFor="counted_pos">POS contado</label>
-            <input
-              id="counted_pos"
-              type="text"
-              inputMode="numeric"
-              placeholder="0"
-              value={countedPos}
-              onChange={(e) => setCountedPos(e.target.value)}
-              className="input"
-            />
-            {countedPos !== '' && (
-              <span className="discrepancy">{formatSigned(discrepancy.pos)}</span>
-            )}
-          </div>
+          <button
+            type="submit"
+            className="btn-primary btn-full"
+            disabled={!canSubmit}
+          >
+            {submitting ? 'Cerrando...' : 'Cerrar Caja'}
+          </button>
         </section>
-      )}
-
-      <section className="section">
-        <button
-          type="button"
-          className="btn-primary btn-full"
-          disabled={!canSubmit}
-          onClick={handleClose}
-        >
-          {submitting ? 'Cerrando...' : 'Cerrar Caja'}
-        </button>
-      </section>
+      </form>
 
       <style>{`
         .page {
           max-width: 480px;
           margin: 0 auto;
+        }
+
+        .flex-header {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+        }
+
+        .back-btn {
+          width: 44px;
+          height: 44px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 24px;
+          background: var(--surface-elevated);
+          border-radius: 8px;
+          color: var(--text-primary);
+          flex-shrink: 0;
         }
 
         .page-title {
@@ -293,6 +318,11 @@ export function ClosingForm() {
           border: 1px solid var(--border);
           border-radius: 8px;
           background: var(--surface);
+        }
+
+        .input:focus {
+          outline: none;
+          border-color: var(--accent);
         }
 
         .discrepancy {

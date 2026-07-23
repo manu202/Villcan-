@@ -6,7 +6,9 @@ import { signOut } from '@/lib/auth';
 export default function LogoutPage() {
   const router = useRouter();
   useEffect(() => {
-    signOut().then(() => router.push('/login'));
+    signOut()
+      .then(() => router.push('/login'))
+      .catch(() => router.push('/login'));
   }, [router]);
   return (
     <div className="logout-page">
