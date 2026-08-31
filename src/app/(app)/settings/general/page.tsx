@@ -153,28 +153,32 @@ function SettingsForm({
       </header>
 
       <form onSubmit={handleSubmit} className="form">
-        <div className="field field-toggle">
-          <span id="commissions_enabled-label">Comisiones</span>
-          <Toggle
-            checked={commissionsEnabled}
-            onChange={setCommissionsEnabled}
-            label="Comisiones"
-          />
-        </div>
+        {vertical === 'barbershop' && (
+          <>
+            <div className="field field-toggle">
+              <span id="commissions_enabled-label">Comisiones</span>
+              <Toggle
+                checked={commissionsEnabled}
+                onChange={setCommissionsEnabled}
+                label="Comisiones"
+              />
+            </div>
 
-        <div className="field">
-          <label htmlFor="default_commission_pct">Comisión por defecto (%)</label>
-          <input
-            id="default_commission_pct"
-            type="number"
-            min="0"
-            max="100"
-            step="0.01"
-            value={defaultCommissionPct}
-            disabled={!commissionsEnabled}
-            onChange={(e) => setDefaultCommissionPct(e.target.value)}
-          />
-        </div>
+            <div className="field">
+              <label htmlFor="default_commission_pct">Comisión por defecto (%)</label>
+              <input
+                id="default_commission_pct"
+                type="number"
+                min="0"
+                max="100"
+                step="0.01"
+                value={defaultCommissionPct}
+                disabled={!commissionsEnabled}
+                onChange={(e) => setDefaultCommissionPct(e.target.value)}
+              />
+            </div>
+          </>
+        )}
 
         <div className="field field-toggle">
           <span id="split_payment_enabled-label">Pago dividido</span>

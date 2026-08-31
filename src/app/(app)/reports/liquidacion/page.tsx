@@ -123,6 +123,32 @@ export default function LiquidacionPage() {
   const totalCommission = rows.reduce((sum, r) => sum + r.commission, 0);
   const staffLabelLower = settings.staff_label.toLowerCase();
 
+  // Liquidación por comisión es un concepto de barbería (cada barbero cobra un
+  // % de lo que factura). Para otros verticales no tiene sentido de negocio,
+  // así que se oculta en vez de borrarse — vuelve a aparecer si la sucursal
+  // activa se reconfigura como 'barbershop'.
+  if (initialized && currentBranch?.vertical !== 'barbershop') {
+    return (
+      <div className="page">
+        <header className="page-header">
+          <Link href="/reports" className="back-link">← Reportes</Link>
+          <h1 className="page-title">Liquidación</h1>
+        </header>
+        <div className="empty-state">
+          <p>No disponible para esta sucursal</p>
+          <p className="page-subtitle">Esta función es específica de barberías.</p>
+        </div>
+        <style>{`
+          .page { max-width: 480px; margin: 0 auto; }
+          .back-link { display: inline-block; font-size: 14px; color: var(--text-secondary); text-decoration: none; margin-bottom: 8px; }
+          .page-title { font-size: 24px; font-weight: 700; }
+          .page-subtitle { font-size: 14px; color: var(--text-secondary); margin-top: 4px; }
+          .empty-state { text-align: center; padding: 48px 24px; color: var(--text-secondary); }
+        `}</style>
+      </div>
+    );
+  }
+
   return (
     <div className="page">
       <header className="page-header">

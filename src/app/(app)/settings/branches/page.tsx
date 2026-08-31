@@ -7,6 +7,7 @@ import { useBranch } from '@/contexts/BranchContext';
 import { useSettings } from '@/contexts/SettingsContext';
 import { useToast } from '@/contexts/ToastContext';
 import { ConfirmModal } from '@/components/ConfirmModal';
+import { Toggle } from '@/components/Toggle';
 import type { BranchWithRole } from '@/types';
 
 export default function BranchesPage() {
@@ -22,7 +23,13 @@ export default function BranchesPage() {
   const isAdminAnywhere = branches.some((b) => b.user_role === 'admin');
   const [showForm, setShowForm] = useState(false);
   const [editingBranch, setEditingBranch] = useState<BranchWithRole | null>(null);
-  const [formData, setFormData] = useState({ name: '', address: '' });
+  const [formData, setFormData] = useState({
+    name: '',
+    address: '',
+    slug: '',
+    whatsapp_number: '',
+    storefront_enabled: false,
+  });
   const [saving, setSaving] = useState(false);
   const { showToast } = useToast();
   const [branchPendingDelete, setBranchPendingDelete] = useState<BranchWithRole | null>(null);
@@ -33,18 +40,31 @@ export default function BranchesPage() {
 
     const supabase = createClient();
 
+    const slug = formData.slug.trim() || null;
+    const whatsappNumber = formData.whatsapp_number.trim() || null;
+    // storefront_enabled requires both slug and whatsapp_number — the RPC and
+    // the public page both need them to resolve/route a real order, so
+    // enabling without them would just produce a dead link.
+    const storefrontEnabled = formData.storefront_enabled && !!slug && !!whatsappNumber;
+
     if (editingBranch) {
       // Update
       const { error } = await supabase
         .from('branches')
-        .update({ name: formData.name, address: formData.address })
+        .update({
+          name: formData.name,
+          address: formData.address,
+          slug,
+          whatsapp_number: whatsappNumber,
+          storefront_enabled: storefrontEnabled,
+        })
         .eq('id', editingBranch.id);
       if (error) showToast(error.message, 'error');
       else {
         showToast('Sucursal actualizada', 'success');
         setShowForm(false);
         setEditingBranch(null);
-        setFormData({ name: '', address: '' });
+        setFormData({ name: '', address: '', slug: '', whatsapp_number: '', storefront_enabled: false });
         refreshBranches();
       }
     } else {
@@ -59,7 +79,14 @@ export default function BranchesPage() {
       const newBranchId = crypto.randomUUID();
       const { error } = await supabase
         .from('branches')
-        .insert({ id: newBranchId, name: formData.name, address: formData.address });
+        .insert({
+          id: newBranchId,
+          name: formData.name,
+          address: formData.address,
+          slug,
+          whatsapp_number: whatsappNumber,
+          storefront_enabled: storefrontEnabled,
+        });
 
       if (error) showToast(error.message, 'error');
       else {
@@ -74,7 +101,7 @@ export default function BranchesPage() {
         }
         showToast('Sucursal creada', 'success');
         setShowForm(false);
-        setFormData({ name: '', address: '' });
+        setFormData({ name: '', address: '', slug: '', whatsapp_number: '', storefront_enabled: false });
         refreshBranches();
       }
     }
@@ -83,14 +110,20 @@ export default function BranchesPage() {
 
   const handleEdit = (branch: BranchWithRole) => {
     setEditingBranch(branch);
-    setFormData({ name: branch.name, address: branch.address || '' });
+    setFormData({
+      name: branch.name,
+      address: branch.address || '',
+      slug: branch.slug || '',
+      whatsapp_number: branch.whatsapp_number || '',
+      storefront_enabled: branch.storefront_enabled ?? false,
+    });
     setShowForm(true);
   };
 
   const handleCancel = () => {
     setShowForm(false);
     setEditingBranch(null);
-    setFormData({ name: '', address: '' });
+    setFormData({ name: '', address: '', slug: '', whatsapp_number: '', storefront_enabled: false });
   };
 
   const handleDeleteConfirmed = async () => {
@@ -211,6 +244,53 @@ export default function BranchesPage() {
               onChange={(e) => setFormData({ ...formData, address: e.target.value })}
               className="input"
             />
+
+            <h3 className="section-subtitle">Tienda web</h3>
+            <input
+              type="text"
+              placeholder="URL de la tienda (ej: mi-negocio)"
+              value={formData.slug}
+              onChange={(e) =>
+                setFormData({
+                  ...formData,
+                  slug: e.target.value
+                    .toLowerCase()
+                    .replace(/[^a-z0-9-]+/g, '-')
+                    .replace(/^-+|-+$/g, ''),
+                })
+              }
+              className="input"
+            />
+            {formData.slug && (
+              <p className="slug-preview">villcan.app/tienda/{formData.slug}</p>
+            )}
+            <input
+              type="tel"
+              placeholder="WhatsApp del negocio (ej: 595981234567)"
+              value={formData.whatsapp_number}
+              onChange={(e) =>
+                setFormData({
+                  ...formData,
+                  whatsapp_number: e.target.value.replace(/[^0-9]/g, ''),
+                })
+              }
+              className="input"
+            />
+            <div className="field-toggle">
+              <span>Tienda activa</span>
+              <Toggle
+                checked={formData.storefront_enabled}
+                onChange={(checked) => setFormData({ ...formData, storefront_enabled: checked })}
+                label="Tienda activa"
+                disabled={!formData.slug || !formData.whatsapp_number}
+              />
+            </div>
+            {(!formData.slug || !formData.whatsapp_number) && (
+              <p className="field-hint">
+                Cargá la URL y el WhatsApp para poder activar la tienda.
+              </p>
+            )}
+
             <div className="btn-row">
               <button type="submit" className="btn-primary" disabled={saving}>
                 {saving ? 'Guardando...' : 'Guardar'}
@@ -238,6 +318,11 @@ export default function BranchesPage() {
                   <div className="branch-tags">
                     {isCurrent && <span className="branch-badge">Sucursal activa</span>}
                     <span className="branch-role">Tu rol: {ROLE_LABEL[branch.user_role]}</span>
+                    {branch.storefront_enabled && branch.slug && (
+                      <span className="branch-badge storefront-badge">
+                        Tienda: /tienda/{branch.slug}
+                      </span>
+                    )}
                   </div>
                 </div>
                 <div className="branch-actions">
@@ -457,6 +542,40 @@ export default function BranchesPage() {
           font-size: 11px;
           font-weight: 600;
           border-radius: 4px;
+        }
+
+        .storefront-badge {
+          background: var(--surface);
+          color: var(--text-secondary);
+          border: 1px solid var(--border);
+        }
+
+        .section-subtitle {
+          font-size: 13px;
+          font-weight: 700;
+          color: var(--text-secondary);
+          text-transform: uppercase;
+          letter-spacing: 0.05em;
+          margin-top: 8px;
+        }
+
+        .slug-preview {
+          font-size: 12px;
+          color: var(--text-secondary);
+          margin-top: -4px;
+        }
+
+        .field-toggle {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          font-size: 14px;
+        }
+
+        .field-hint {
+          font-size: 12px;
+          color: var(--text-muted);
+          margin-top: -8px;
         }
 
         .branch-role {

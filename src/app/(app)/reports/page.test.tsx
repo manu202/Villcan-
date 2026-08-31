@@ -60,7 +60,7 @@ describe('ReportsPage balanceNeto computation (locks existing correct behavior)'
   beforeEach(() => {
     movementsFromCalls = 0;
     mockUseBranch.mockReturnValue({
-      currentBranch: { id: 'branch-1', name: 'Centro' },
+      currentBranch: { id: 'branch-1', name: 'Centro', vertical: 'barbershop' },
       branches: [],
       initialized: true,
     });
@@ -80,7 +80,7 @@ describe('ReportsPage liquidación link uses configurable staff_label (generaliz
   beforeEach(() => {
     movementsFromCalls = 0;
     mockUseBranch.mockReturnValue({
-      currentBranch: { id: 'branch-1', name: 'Centro' },
+      currentBranch: { id: 'branch-1', name: 'Centro', vertical: 'barbershop' },
       branches: [],
       initialized: true,
     });

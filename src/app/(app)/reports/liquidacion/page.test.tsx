@@ -35,7 +35,7 @@ vi.mock('@/lib/supabase/client', () => ({
 describe('LiquidacionPage commission column visibility (REQ-PROFIT-5)', () => {
   beforeEach(() => {
     mockUseBranch.mockReturnValue({
-      currentBranch: { id: 'branch-1', name: 'Centro' },
+      currentBranch: { id: 'branch-1', name: 'Centro', vertical: 'barbershop' },
       initialized: true,
     });
     movementsData = [
@@ -75,7 +75,7 @@ describe('LiquidacionPage commission column visibility (REQ-PROFIT-5)', () => {
 describe('LiquidacionPage titles use configurable staff_label (generalize-verticals)', () => {
   beforeEach(() => {
     mockUseBranch.mockReturnValue({
-      currentBranch: { id: 'branch-1', name: 'Centro' },
+      currentBranch: { id: 'branch-1', name: 'Centro', vertical: 'barbershop' },
       initialized: true,
     });
     movementsData = [

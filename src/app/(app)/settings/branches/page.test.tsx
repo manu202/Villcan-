@@ -19,11 +19,15 @@ vi.mock('@/contexts/SettingsContext', () => ({
   useSettings: () => mockUseSettings(),
 }));
 
+const { insertMock } = vi.hoisted(() => ({
+  insertMock: vi.fn().mockResolvedValue({ error: null }),
+}));
+
 vi.mock('@/lib/supabase/client', () => ({
   createClient: () => ({
     from: vi.fn().mockReturnValue({
       update: vi.fn().mockReturnValue({ eq: vi.fn().mockResolvedValue({ error: null }) }),
-      insert: vi.fn().mockResolvedValue({ error: null }),
+      insert: insertMock,
       delete: vi.fn().mockReturnValue({ eq: vi.fn().mockResolvedValue({ error: null }) }),
     }),
     auth: { getUser: vi.fn().mockResolvedValue({ data: { user: { id: 'u1' } } }) },
@@ -37,6 +41,7 @@ describe('BranchesPage /settings/branches (REQ-SETTINGSREORG-3, REQ-SETTINGSREOR
     mockRefreshBranches.mockReset();
     mockUseSettings.mockReset();
     mockUseSettings.mockReturnValue({ settings: { staff_label: 'Barbero' } });
+    insertMock.mockClear();
   });
 
   it('renders the configured staff_label as the role tag instead of the hardcoded "Barbero"', async () => {
@@ -147,4 +152,65 @@ describe('BranchesPage /settings/branches (REQ-SETTINGSREORG-3, REQ-SETTINGSREOR
     );
   });
 
+  it('submits slug/whatsapp_number/storefront_enabled when creating a branch with the storefront toggled on', async () => {
+    mockUseBranch.mockReturnValue({
+      currentBranch: { id: 'b1', name: 'Centro', user_role: 'admin' },
+      branches: [{ id: 'b1', name: 'Centro', address: null, user_role: 'admin' }],
+      isLoading: false,
+      selectBranch: mockSelectBranch,
+      refreshBranches: mockRefreshBranches,
+    });
+
+    render(<BranchesPage />);
+
+    fireEvent.click(screen.getByText(/\+nueva/i));
+    fireEvent.change(screen.getByPlaceholderText('Nombre'), { target: { value: 'Nueva sucursal' } });
+    fireEvent.change(screen.getByPlaceholderText(/url de la tienda/i), {
+      target: { value: 'Mi Negocio!' },
+    });
+    fireEvent.change(screen.getByPlaceholderText(/whatsapp del negocio/i), {
+      target: { value: '+595 981-234567' },
+    });
+    fireEvent.click(screen.getByRole('switch', { name: /tienda activa/i }));
+    fireEvent.click(screen.getByText('Guardar'));
+
+    await waitFor(() => expect(insertMock).toHaveBeenCalled());
+    expect(insertMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        name: 'Nueva sucursal',
+        // Slug is normalized to a URL-safe lowercase form.
+        slug: 'mi-negocio',
+        // Phone digits only, no separators or leading +.
+        whatsapp_number: '595981234567',
+        storefront_enabled: true,
+      })
+    );
+  });
+
+  it('keeps storefront_enabled false when the toggle is on but slug or whatsapp_number is missing', async () => {
+    mockUseBranch.mockReturnValue({
+      currentBranch: { id: 'b1', name: 'Centro', user_role: 'admin' },
+      branches: [{ id: 'b1', name: 'Centro', address: null, user_role: 'admin' }],
+      isLoading: false,
+      selectBranch: mockSelectBranch,
+      refreshBranches: mockRefreshBranches,
+    });
+
+    render(<BranchesPage />);
+
+    fireEvent.click(screen.getByText(/\+nueva/i));
+    fireEvent.change(screen.getByPlaceholderText('Nombre'), { target: { value: 'Sin whatsapp' } });
+    fireEvent.change(screen.getByPlaceholderText(/url de la tienda/i), {
+      target: { value: 'sin-whatsapp' },
+    });
+    // whatsapp_number left empty on purpose — the toggle is disabled in the UI
+    // for this case, but the submit handler double-checks server-side intent
+    // too rather than trusting stale toggle state.
+    fireEvent.click(screen.getByText('Guardar'));
+
+    await waitFor(() => expect(insertMock).toHaveBeenCalled());
+    expect(insertMock).toHaveBeenCalledWith(
+      expect.objectContaining({ storefront_enabled: false })
+    );
+  });
 });

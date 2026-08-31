@@ -109,6 +109,7 @@ describe('SettingsPage /settings/general (REQ-SETTINGSREORG-2)', () => {
   it('renders the four business-settings toggles as accessible switches reflecting their checked state', () => {
     mockUseBranch.mockReturnValue({
       branches: [{ id: 'b1', user_role: 'admin' }],
+      currentBranch: { id: 'b1', user_role: 'admin', vertical: 'barbershop' },
     });
     mockUseSettings.mockReturnValue({
       settings: {
@@ -179,6 +180,7 @@ describe('SettingsPage /settings/general (REQ-SETTINGSREORG-2)', () => {
   it('toggling a switch flips its aria-checked state', () => {
     mockUseBranch.mockReturnValue({
       branches: [{ id: 'b1', user_role: 'admin' }],
+      currentBranch: { id: 'b1', user_role: 'admin', vertical: 'barbershop' },
     });
 
     render(<SettingsPage />);

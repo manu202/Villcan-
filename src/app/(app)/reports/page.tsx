@@ -230,11 +230,13 @@ export default function ReportsPage() {
         <p className="page-subtitle">Arqueo de caja</p>
       </header>
 
-      <section className="section">
-        <Link href="/reports/liquidacion" className="liquidacion-link">
-          {`Liquidación por ${settings.staff_label.toLowerCase()} ›`}
-        </Link>
-      </section>
+      {currentBranch?.vertical === 'barbershop' && (
+        <section className="section">
+          <Link href="/reports/liquidacion" className="liquidacion-link">
+            {`Liquidación por ${settings.staff_label.toLowerCase()} ›`}
+          </Link>
+        </section>
+      )}
 
       <section className="section">
         <div className="branch-filter">
