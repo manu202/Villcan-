@@ -13,6 +13,7 @@ export const DEFAULT_BUSINESS_SETTINGS: BusinessSettings = {
   services_label: 'Servicios',
   staff_label: 'Personal',
   brand_color: 'slate',
+  business_name: '',
   updated_at: '',
   updated_by: null,
 };

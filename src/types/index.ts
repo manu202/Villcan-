@@ -172,6 +172,10 @@ export interface BusinessSettings {
   services_label: string;
   staff_label: string;
   brand_color: string;
+  // Global business name (store-business-config). Used to compute each
+  // branch's storefront slug server-side via a trigger — see
+  // supabase/migrations/20260831150000_store_business_config.sql.
+  business_name: string;
   updated_at: string;
   updated_by: string | null;
 }

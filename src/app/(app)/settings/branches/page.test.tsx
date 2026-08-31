@@ -152,7 +152,7 @@ describe('BranchesPage /settings/branches (REQ-SETTINGSREORG-3, REQ-SETTINGSREOR
     );
   });
 
-  it('submits slug/whatsapp_number/storefront_enabled when creating a branch with the storefront toggled on', async () => {
+  it('submits only name/address when creating a branch (no slug/whatsapp/storefront fields on this page)', async () => {
     mockUseBranch.mockReturnValue({
       currentBranch: { id: 'b1', name: 'Centro', user_role: 'admin' },
       branches: [{ id: 'b1', name: 'Centro', address: null, user_role: 'admin' }],
@@ -165,29 +165,25 @@ describe('BranchesPage /settings/branches (REQ-SETTINGSREORG-3, REQ-SETTINGSREOR
 
     fireEvent.click(screen.getByText(/\+nueva/i));
     fireEvent.change(screen.getByPlaceholderText('Nombre'), { target: { value: 'Nueva sucursal' } });
-    fireEvent.change(screen.getByPlaceholderText(/url de la tienda/i), {
-      target: { value: 'Mi Negocio!' },
+    fireEvent.change(screen.getByPlaceholderText(/dirección/i), {
+      target: { value: 'Av. Siempre Viva 123' },
     });
-    fireEvent.change(screen.getByPlaceholderText(/whatsapp del negocio/i), {
-      target: { value: '+595 981-234567' },
-    });
-    fireEvent.click(screen.getByRole('switch', { name: /tienda activa/i }));
     fireEvent.click(screen.getByText('Guardar'));
 
     await waitFor(() => expect(insertMock).toHaveBeenCalled());
     expect(insertMock).toHaveBeenCalledWith(
       expect.objectContaining({
         name: 'Nueva sucursal',
-        // Slug is normalized to a URL-safe lowercase form.
-        slug: 'mi-negocio',
-        // Phone digits only, no separators or leading +.
-        whatsapp_number: '595981234567',
-        storefront_enabled: true,
+        address: 'Av. Siempre Viva 123',
       })
     );
+    const insertedPayload = insertMock.mock.calls[0][0];
+    expect(insertedPayload).not.toHaveProperty('slug');
+    expect(insertedPayload).not.toHaveProperty('whatsapp_number');
+    expect(insertedPayload).not.toHaveProperty('storefront_enabled');
   });
 
-  it('keeps storefront_enabled false when the toggle is on but slug or whatsapp_number is missing', async () => {
+  it('does not render storefront fields (URL de la tienda, WhatsApp, Tienda activa)', () => {
     mockUseBranch.mockReturnValue({
       currentBranch: { id: 'b1', name: 'Centro', user_role: 'admin' },
       branches: [{ id: 'b1', name: 'Centro', address: null, user_role: 'admin' }],
@@ -199,18 +195,9 @@ describe('BranchesPage /settings/branches (REQ-SETTINGSREORG-3, REQ-SETTINGSREOR
     render(<BranchesPage />);
 
     fireEvent.click(screen.getByText(/\+nueva/i));
-    fireEvent.change(screen.getByPlaceholderText('Nombre'), { target: { value: 'Sin whatsapp' } });
-    fireEvent.change(screen.getByPlaceholderText(/url de la tienda/i), {
-      target: { value: 'sin-whatsapp' },
-    });
-    // whatsapp_number left empty on purpose — the toggle is disabled in the UI
-    // for this case, but the submit handler double-checks server-side intent
-    // too rather than trusting stale toggle state.
-    fireEvent.click(screen.getByText('Guardar'));
 
-    await waitFor(() => expect(insertMock).toHaveBeenCalled());
-    expect(insertMock).toHaveBeenCalledWith(
-      expect.objectContaining({ storefront_enabled: false })
-    );
+    expect(screen.queryByPlaceholderText(/url de la tienda/i)).toBeNull();
+    expect(screen.queryByPlaceholderText(/whatsapp del negocio/i)).toBeNull();
+    expect(screen.queryByRole('switch', { name: /tienda activa/i })).toBeNull();
   });
 });

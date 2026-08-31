@@ -21,6 +21,11 @@ const CARDS: SettingsCard[] = [
     description: 'Crear, editar y eliminar sucursales.',
   },
   {
+    href: '/settings/store',
+    title: 'Tienda',
+    description: 'Nombre del negocio y WhatsApp por sucursal para la tienda pública.',
+  },
+  {
     href: '/settings/users',
     title: 'Usuarios',
     description: 'Gestionar el acceso de usuarios a la sucursal actual.',

@@ -82,6 +82,7 @@ describe('SettingsContext', () => {
       services_label: 'Cortes',
       staff_label: 'Estilista',
       brand_color: 'emerald',
+      business_name: 'Mi Negocio',
       updated_at: '2026-01-01T00:00:00.000Z',
       updated_by: 'user-1',
     };
