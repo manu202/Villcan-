@@ -1,6 +1,6 @@
 // Pure commission-calculation helpers (REQ-PROFIT-1/2).
 // Commission source is GLOBAL-ONLY: business_settings.default_commission_pct.
-// No per-barber override in this pass (deferred as a future enhancement).
+// No per-staff override in this pass (deferred as a future enhancement).
 
 interface CommissionSettings {
   commissions_enabled: boolean;

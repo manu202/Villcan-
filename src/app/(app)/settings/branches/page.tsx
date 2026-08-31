@@ -4,18 +4,21 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
 import { useBranch } from '@/contexts/BranchContext';
+import { useSettings } from '@/contexts/SettingsContext';
 import { useToast } from '@/contexts/ToastContext';
 import { ConfirmModal } from '@/components/ConfirmModal';
 import type { BranchWithRole } from '@/types';
 
-const ROLE_LABEL: Record<BranchWithRole['user_role'], string> = {
-  admin: 'Administrador',
-  barber: 'Barbero',
-  viewer: 'Visor',
-};
-
 export default function BranchesPage() {
   const { currentBranch, branches, isLoading, selectBranch, refreshBranches } = useBranch();
+  const { settings } = useSettings();
+
+  const ROLE_LABEL: Record<BranchWithRole['user_role'], string> = {
+    admin: 'Administrador',
+    barber: settings.staff_label,
+    viewer: 'Visor',
+  };
+
   const isAdminAnywhere = branches.some((b) => b.user_role === 'admin');
   const [showForm, setShowForm] = useState(false);
   const [editingBranch, setEditingBranch] = useState<BranchWithRole | null>(null);

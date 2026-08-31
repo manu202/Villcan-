@@ -15,12 +15,14 @@ import {
   Archive,
   Settings,
   AlertOctagon,
+  ShoppingBag,
   X,
   type LucideIcon,
 } from 'lucide-react';
 import { AuthButton } from './AuthButton';
 import { BranchSelector } from './BranchSelector';
 import { useTheme, type ThemePreference } from '@/contexts/ThemeContext';
+import { usePendingOrdersCount } from '@/hooks/usePendingOrdersCount';
 
 const THEME_CYCLE: ThemePreference[] = ['system', 'light', 'dark'];
 
@@ -65,6 +67,7 @@ const navItems: NavItem[] = [
   { label: 'Movimientos', href: '/movements', icon: ArrowRightLeft },
   { label: 'Contactos', href: '/contacts', icon: Users },
   { label: 'Servicios', href: '/services', icon: Scissors },
+  { label: 'Pedidos', href: '/orders', icon: ShoppingBag },
   { label: 'Reportes', href: '/reports', icon: BarChart3 },
   { label: 'Cierres de Caja', href: '/closings', icon: Archive },
   { label: 'Configuración', href: '/settings', icon: Settings },
@@ -74,6 +77,7 @@ const navItems: NavItem[] = [
 export function HamburgerMenu() {
   const [isOpen, setIsOpen] = useState(false);
   const pathname = usePathname();
+  const pendingOrdersCount = usePendingOrdersCount();
 
   const closeMenu = useCallback(() => setIsOpen(false), []);
 
@@ -145,6 +149,9 @@ export function HamburgerMenu() {
               >
                 <item.icon size={18} className="nav-icon" aria-hidden="true" />
                 <span className="nav-label">{item.label}</span>
+                {item.href === '/orders' && pendingOrdersCount > 0 && (
+                  <span className="nav-badge">{pendingOrdersCount}</span>
+                )}
               </Link>
             </li>
           ))}
@@ -302,6 +309,21 @@ export function HamburgerMenu() {
         .nav-icon {
           width: 24px;
           flex-shrink: 0;
+        }
+
+        .nav-badge {
+          margin-left: auto;
+          min-width: 20px;
+          height: 20px;
+          padding: 0 6px;
+          border-radius: 10px;
+          background: var(--danger, #DC2626);
+          color: #fff;
+          font-size: 11px;
+          font-weight: 700;
+          display: flex;
+          align-items: center;
+          justify-content: center;
         }
 
         .drawer-footer {

@@ -1,16 +1,17 @@
 // Database types for Villcan - matches Supabase schema
 
-export type UserRole = 'admin' | 'barber';
-
 export type PaymentMethod = 'efectivo' | 'transferencia' | 'pos';
 
 export type MovementType = 'servicio' | 'gasto' | 'apertura' | 'cierre';
 
+export type BusinessVertical = 'barbershop' | 'gastronomy' | 'generic';
+
+// `role` was removed (bug #4 - profiles.role was dead code; the real,
+// per-branch authorization source of truth is UserBranchAccess.role).
 export interface Profile {
   id: string;
   email: string;
   full_name: string;
-  role: UserRole;
   created_at: string;
 }
 
@@ -19,7 +20,17 @@ export interface Branch {
   name: string;
   address: string | null;
   is_active: boolean;
+  vertical: BusinessVertical;
   created_at: string;
+  // Public storefront (public-storefront capability). storefront_enabled
+  // defaults false in the DB — the feature ships OFF per branch, a kill
+  // switch that needs no code revert (see design "Rollout"). Optional here
+  // (not `| null`) because most existing queries select an explicit column
+  // list that predates these columns — only code that actually selects them
+  // (getUserBranches, the storefront page/settings) needs to populate them.
+  slug?: string | null;
+  whatsapp_number?: string | null;
+  storefront_enabled?: boolean;
 }
 
 export interface UserBranchAccess {
@@ -41,6 +52,70 @@ export interface Service {
   created_at: string;
   is_active: boolean;
   branch_id: string | null; // NULL = global
+  // Public storefront catalog metadata (added alongside orders/order_items).
+  // Optional for the same reason as Branch's storefront fields above —
+  // existing services queries select an explicit column list.
+  description?: string | null;
+  image_url?: string | null;
+  category?: string | null;
+  is_available?: boolean;
+}
+
+export type OrderStatus = 'pending' | 'confirmed' | 'completed' | 'cancelled';
+
+export interface Order {
+  id: string;
+  branch_id: string;
+  order_code: string;
+  customer_name: string;
+  customer_phone: string;
+  customer_email: string | null;
+  contact_id: string | null;
+  note: string | null;
+  status: OrderStatus;
+  total: number;
+  whatsapp_message: string;
+  created_at: string;
+}
+
+export interface OrderItem {
+  id: string;
+  order_id: string;
+  service_id: string;
+  name_snapshot: string;
+  unit_price: number;
+  qty: number;
+  line_total: number;
+}
+
+export interface OrderWithItems extends Order {
+  order_items: OrderItem[];
+}
+
+// Input shape for public.create_storefront_order — the client never sends
+// prices; the RPC recalculates unit_price/total server-side from the current
+// `services` rows (spec "Client-supplied price is ignored/rejected").
+export interface StorefrontOrderItemInput {
+  service_id: string;
+  qty: number;
+}
+
+export interface CreateStorefrontOrderInput {
+  p_slug: string;
+  p_customer_name: string;
+  p_customer_phone: string;
+  p_customer_email?: string | null;
+  p_note?: string | null;
+  p_items: StorefrontOrderItemInput[];
+}
+
+export interface CreateStorefrontOrderResult {
+  order_id: string;
+  order_code: string;
+  total: number;
+  whatsapp_number: string | null;
+  whatsapp_message: string;
+  items: Array<{ name: string; qty: number; unit_price: number; line_total: number }>;
 }
 
 export interface Contact {
@@ -95,6 +170,7 @@ export interface BusinessSettings {
   mandatory_arqueo_enabled: boolean;
   inventory_enabled: boolean;
   services_label: string;
+  staff_label: string;
   brand_color: string;
   updated_at: string;
   updated_by: string | null;

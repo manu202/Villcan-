@@ -6,7 +6,7 @@ import { formatGuaranies } from '@/lib/utils';
 import { createClient } from '@/lib/supabase/client';
 import { useBranch } from '@/contexts/BranchContext';
 import { useSettings } from '@/contexts/SettingsContext';
-import { computeLiquidacionByBarber, type LiquidacionRow } from '@/lib/liquidacion';
+import { computeLiquidacionByStaff, type LiquidacionRow } from '@/lib/liquidacion';
 
 type ViewType = 'today' | 'week' | 'month' | 'custom';
 
@@ -110,7 +110,7 @@ export default function LiquidacionPage() {
         };
       });
 
-      setRows(computeLiquidacionByBarber(movementInputs));
+      setRows(computeLiquidacionByStaff(movementInputs));
       setLoading(false);
     };
 
@@ -121,12 +121,13 @@ export default function LiquidacionPage() {
 
   const totalFacturado = rows.reduce((sum, r) => sum + r.facturado, 0);
   const totalCommission = rows.reduce((sum, r) => sum + r.commission, 0);
+  const staffLabelLower = settings.staff_label.toLowerCase();
 
   return (
     <div className="page">
       <header className="page-header">
         <Link href="/reports" className="back-link">← Reportes</Link>
-        <h1 className="page-title">Liquidación por barbero</h1>
+        <h1 className="page-title">{`Liquidación por ${staffLabelLower}`}</h1>
       </header>
 
       <section className="section">
@@ -174,7 +175,7 @@ export default function LiquidacionPage() {
       ) : (
         <section className="section">
           <div className="card">
-            <h2 className="card-title">Por barbero</h2>
+            <h2 className="card-title">{`Por ${staffLabelLower}`}</h2>
             <ul className="breakdown-list">
               {rows.length === 0 ? (
                 <li className="breakdown-empty">Sin servicios en este período</li>

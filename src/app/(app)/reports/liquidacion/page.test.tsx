@@ -44,7 +44,9 @@ describe('LiquidacionPage commission column visibility (REQ-PROFIT-5)', () => {
   });
 
   it('shows the commission amount per barber when commissions_enabled is true', async () => {
-    mockUseSettings.mockReturnValue({ settings: { commissions_enabled: true, default_commission_pct: 15 } });
+    mockUseSettings.mockReturnValue({
+      settings: { commissions_enabled: true, default_commission_pct: 15, staff_label: 'Barbero' },
+    });
 
     render(<LiquidacionPage />);
 
@@ -57,7 +59,9 @@ describe('LiquidacionPage commission column visibility (REQ-PROFIT-5)', () => {
   });
 
   it('hides the commission amount entirely when commissions_enabled is false', async () => {
-    mockUseSettings.mockReturnValue({ settings: { commissions_enabled: false, default_commission_pct: 0 } });
+    mockUseSettings.mockReturnValue({
+      settings: { commissions_enabled: false, default_commission_pct: 0, staff_label: 'Barbero' },
+    });
 
     render(<LiquidacionPage />);
 
@@ -65,5 +69,43 @@ describe('LiquidacionPage commission column visibility (REQ-PROFIT-5)', () => {
 
     expect(screen.getAllByText('₲ 100.000')).toHaveLength(2);
     expect(screen.queryByText('₲ 15.000')).toBeNull();
+  });
+});
+
+describe('LiquidacionPage titles use configurable staff_label (generalize-verticals)', () => {
+  beforeEach(() => {
+    mockUseBranch.mockReturnValue({
+      currentBranch: { id: 'branch-1', name: 'Centro' },
+      initialized: true,
+    });
+    movementsData = [
+      { amount_charged: 100000, commission_pct: 15, user_id: 'u1', user: { full_name: 'Ana' } },
+    ];
+  });
+
+  it('shows the configured staff_label in the page title and card title instead of hardcoded "barbero"', async () => {
+    mockUseSettings.mockReturnValue({
+      settings: { commissions_enabled: false, default_commission_pct: 0, staff_label: 'Mozo' },
+    });
+
+    render(<LiquidacionPage />);
+
+    await waitFor(() => screen.getByText('Ana'));
+
+    expect(screen.getByRole('heading', { name: 'Liquidación por mozo' })).toBeTruthy();
+    expect(screen.getByText('Por mozo')).toBeTruthy();
+  });
+
+  it('shows a different configured staff_label without hardcoding "Mozo" either', async () => {
+    mockUseSettings.mockReturnValue({
+      settings: { commissions_enabled: false, default_commission_pct: 0, staff_label: 'Operador' },
+    });
+
+    render(<LiquidacionPage />);
+
+    await waitFor(() => screen.getByText('Ana'));
+
+    expect(screen.getByRole('heading', { name: 'Liquidación por operador' })).toBeTruthy();
+    expect(screen.getByText('Por operador')).toBeTruthy();
   });
 });

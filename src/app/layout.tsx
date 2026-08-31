@@ -1,12 +1,8 @@
 import type { Metadata, Viewport } from 'next';
 import { Inter } from 'next/font/google';
 import Script from 'next/script';
-import { HamburgerMenu } from '@/components/HamburgerMenu';
 import { ToastProvider } from '@/contexts/ToastContext';
-import { BranchProvider } from '@/contexts/BranchContext';
-import { SettingsProvider } from '@/contexts/SettingsContext';
 import { ThemeProvider } from '@/contexts/ThemeContext';
-import { AuthGuard } from '@/components/AuthGuard';
 import { ErrorLogger } from '@/components/ErrorLogger';
 import './globals.css';
 
@@ -35,8 +31,8 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: 'Villcan — Barbería',
-  description: 'Gestión de caja y movimientos para barbería',
+  title: 'Villcan',
+  description: 'Gestión de caja y movimientos',
   manifest: '/manifest.json',
   appleWebApp: {
     capable: true,
@@ -68,6 +64,11 @@ export default function RootLayout({
   // that as a real mismatch on every load, since it never rendered those
   // attributes itself. Standard pattern for this exact approach (same
   // reason next-themes requires it).
+  //
+  // Session-bound providers (BranchProvider/SettingsProvider/AuthGuard) live
+  // in src/app/(app)/layout.tsx, NOT here — the root layout is shared by the
+  // public storefront ((public)/tienda/[slug]), which has no session and must
+  // not mount them. See design "AuthGuard — el fix".
   return (
     <html lang="es" className={inter.className} suppressHydrationWarning>
       <body>
@@ -78,15 +79,8 @@ export default function RootLayout({
         />
         <ThemeProvider>
           <ToastProvider>
-            <BranchProvider>
-              <SettingsProvider>
-                <ErrorLogger />
-                <AuthGuard>
-                  <HamburgerMenu />
-                  <main className="main-content">{children}</main>
-                </AuthGuard>
-              </SettingsProvider>
-            </BranchProvider>
+            <ErrorLogger />
+            {children}
           </ToastProvider>
         </ThemeProvider>
       </body>

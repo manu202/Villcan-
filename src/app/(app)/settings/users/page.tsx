@@ -4,18 +4,13 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
 import { useBranch } from '@/contexts/BranchContext';
+import { useSettings } from '@/contexts/SettingsContext';
 import { useToast } from '@/contexts/ToastContext';
 import { ConfirmModal } from '@/components/ConfirmModal';
 import { isLastAdmin } from '@/lib/access';
 import type { UserBranchAccess } from '@/types';
 
 type AccessRole = UserBranchAccess['role'];
-
-const ROLE_OPTIONS: { value: AccessRole; label: string }[] = [
-  { value: 'admin', label: 'Administrador' },
-  { value: 'barber', label: 'Barbero' },
-  { value: 'viewer', label: 'Visor' },
-];
 
 interface AccessRow {
   user_id: string;
@@ -37,6 +32,13 @@ interface RawAccessRow {
 
 export default function UsersPage() {
   const { currentBranch, branches, isLoading: branchesLoading } = useBranch();
+  const { settings } = useSettings();
+
+  const ROLE_OPTIONS: { value: AccessRole; label: string }[] = [
+    { value: 'admin', label: 'Administrador' },
+    { value: 'barber', label: settings.staff_label },
+    { value: 'viewer', label: 'Visor' },
+  ];
 
   const isAdminAnywhere = branches.some((b) => b.user_role === 'admin');
   const isAdminOfCurrentBranch = currentBranch?.user_role === 'admin';
@@ -97,38 +99,36 @@ export default function UsersPage() {
     if (!currentBranch) return;
     setAdding(true);
 
-    const supabase = createClient();
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('id')
-      .eq('email', newEmail.trim())
-      .single();
+    try {
+      const response = await fetch('/api/users/invite', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: newEmail.trim(),
+          role: newRole,
+          branch_id: currentBranch.id,
+        }),
+      });
+      const result = await response.json();
 
-    if (!profile) {
-      showToast('Usuario no encontrado', 'error');
+      if (!response.ok) {
+        showToast(result.error || 'No se pudo invitar al usuario', 'error');
+      } else {
+        showToast(
+          result.invited
+            ? `Invitación enviada a ${newEmail.trim()}`
+            : `Usuario ${newEmail.trim()} agregado`,
+          'success'
+        );
+        setNewEmail('');
+        setNewRole('barber');
+        await loadAccess();
+      }
+    } catch {
+      showToast('Error de red al invitar al usuario', 'error');
+    } finally {
       setAdding(false);
-      return;
     }
-
-    if (rows.some((r) => r.user_id === profile.id)) {
-      showToast('Este usuario ya tiene acceso a esta sucursal', 'error');
-      setAdding(false);
-      return;
-    }
-
-    const { error: insertError } = await supabase
-      .from('user_branch_access')
-      .insert({ user_id: profile.id, branch_id: currentBranch.id, role: newRole });
-
-    if (insertError) {
-      showToast(insertError.message, 'error');
-    } else {
-      showToast(`Usuario ${newEmail.trim()} agregado`, 'success');
-      setNewEmail('');
-      setNewRole('barber');
-      await loadAccess();
-    }
-    setAdding(false);
   };
 
   const handleRoleChange = async (row: AccessRow, role: AccessRole) => {
@@ -221,7 +221,7 @@ export default function UsersPage() {
               ))}
             </select>
             <button type="submit" className="btn-primary" disabled={adding}>
-              {adding ? 'Agregando...' : 'Agregar'}
+              {adding ? 'Invitando...' : 'Invitar'}
             </button>
           </form>
         </section>

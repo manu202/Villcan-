@@ -66,6 +66,7 @@ describe('SettingsPage /settings/general (REQ-SETTINGSREORG-2)', () => {
         { id: 'b1', user_role: 'barber' },
         { id: 'b2', user_role: 'admin' },
       ],
+      currentBranch: { id: 'b2', user_role: 'admin', vertical: 'generic' },
     });
 
     render(<SettingsPage />);
@@ -73,6 +74,36 @@ describe('SettingsPage /settings/general (REQ-SETTINGSREORG-2)', () => {
     expect(screen.queryByText(/acceso restringido/i)).toBeNull();
     const label = screen.getByLabelText(/nombre de servicios/i) as HTMLInputElement;
     expect(label.value).toBe(DEFAULT_BUSINESS_SETTINGS.services_label);
+  });
+
+  it('renders a staff_label input pre-populated with the current settings value (generalize-verticals)', () => {
+    mockUseBranch.mockReturnValue({
+      branches: [{ id: 'b1', user_role: 'admin' }],
+      currentBranch: { id: 'b1', user_role: 'admin', vertical: 'generic' },
+    });
+    mockUseSettings.mockReturnValue({
+      settings: { ...DEFAULT_BUSINESS_SETTINGS, staff_label: 'Mozo' },
+      isLoading: false,
+      initialized: true,
+      refreshSettings: mockRefreshSettings,
+    });
+
+    render(<SettingsPage />);
+
+    const input = screen.getByLabelText(/nombre de personal/i) as HTMLInputElement;
+    expect(input.value).toBe('Mozo');
+  });
+
+  it('renders a vertical select pre-populated with the current branch vertical (generalize-verticals)', () => {
+    mockUseBranch.mockReturnValue({
+      branches: [{ id: 'b1', user_role: 'admin' }],
+      currentBranch: { id: 'b1', user_role: 'admin', vertical: 'gastronomy' },
+    });
+
+    render(<SettingsPage />);
+
+    const select = screen.getByLabelText(/rubro/i) as HTMLSelectElement;
+    expect(select.value).toBe('gastronomy');
   });
 
   it('renders the four business-settings toggles as accessible switches reflecting their checked state', () => {

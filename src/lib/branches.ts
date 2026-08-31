@@ -8,6 +8,7 @@ interface UserBranchAccessRow {
     name: string;
     address: string | null;
     is_active: boolean;
+    vertical: BranchWithRole['vertical'];
     created_at: string;
   } | null;
 }
@@ -28,6 +29,7 @@ export async function getUserBranches(): Promise<BranchWithRole[]> {
         name,
         address,
         is_active,
+        vertical,
         created_at
       )
     `)

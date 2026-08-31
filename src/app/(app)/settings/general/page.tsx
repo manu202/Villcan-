@@ -7,7 +7,13 @@ import { useSettings } from '@/contexts/SettingsContext';
 import { useToast } from '@/contexts/ToastContext';
 import { createClient } from '@/lib/supabase/client';
 import { Toggle } from '@/components/Toggle';
-import type { BusinessSettings } from '@/types';
+import type { BusinessSettings, BusinessVertical } from '@/types';
+
+const VERTICAL_OPTIONS: { value: BusinessVertical; label: string }[] = [
+  { value: 'barbershop', label: 'Barbería' },
+  { value: 'gastronomy', label: 'Gastronomía' },
+  { value: 'generic', label: 'General' },
+];
 
 const ACCENT_PRESETS: { key: string; label: string }[] = [
   { key: 'slate', label: 'Pizarra' },
@@ -21,7 +27,7 @@ const ACCENT_PRESETS: { key: string; label: string }[] = [
 ];
 
 export default function SettingsPage() {
-  const { branches } = useBranch();
+  const { branches, currentBranch } = useBranch();
   const { settings, refreshSettings } = useSettings();
 
   const isAdminAnywhere = branches.some((b) => b.user_role === 'admin');
@@ -43,15 +49,27 @@ export default function SettingsPage() {
 
   // Keyed by updated_at: remounts the form whenever settings load/change so its
   // local state re-initializes from the new values, without syncing via an effect.
-  return <SettingsForm key={settings.updated_at} settings={settings} refreshSettings={refreshSettings} />;
+  return (
+    <SettingsForm
+      key={settings.updated_at}
+      settings={settings}
+      refreshSettings={refreshSettings}
+      currentBranchId={currentBranch?.id ?? null}
+      currentVertical={currentBranch?.vertical ?? 'generic'}
+    />
+  );
 }
 
 function SettingsForm({
   settings,
   refreshSettings,
+  currentBranchId,
+  currentVertical,
 }: {
   settings: BusinessSettings;
   refreshSettings: () => Promise<void>;
+  currentBranchId: string | null;
+  currentVertical: BusinessVertical;
 }) {
   const [commissionsEnabled, setCommissionsEnabled] = useState(settings.commissions_enabled);
   const [defaultCommissionPct, setDefaultCommissionPct] = useState(
@@ -63,6 +81,8 @@ function SettingsForm({
   );
   const [inventoryEnabled, setInventoryEnabled] = useState(settings.inventory_enabled);
   const [servicesLabel, setServicesLabel] = useState(settings.services_label);
+  const [staffLabel, setStaffLabel] = useState(settings.staff_label);
+  const [vertical, setVertical] = useState<BusinessVertical>(currentVertical);
   const [brandColor, setBrandColor] = useState(settings.brand_color);
 
   const [submitting, setSubmitting] = useState(false);
@@ -96,6 +116,7 @@ function SettingsForm({
         mandatory_arqueo_enabled: mandatoryArqueoEnabled,
         inventory_enabled: inventoryEnabled,
         services_label: servicesLabel,
+        staff_label: staffLabel,
         brand_color: brandColor,
       })
       .eq('id', 1);
@@ -104,6 +125,19 @@ function SettingsForm({
       showToast(updateError.message, 'error');
       setSubmitting(false);
       return;
+    }
+
+    if (currentBranchId) {
+      const { error: branchError } = await supabase
+        .from('branches')
+        .update({ vertical })
+        .eq('id', currentBranchId);
+
+      if (branchError) {
+        showToast(branchError.message, 'error');
+        setSubmitting(false);
+        return;
+      }
     }
 
     await refreshSettings();
@@ -178,6 +212,32 @@ function SettingsForm({
             onChange={(e) => setServicesLabel(e.target.value)}
             required
           />
+        </div>
+
+        <div className="field">
+          <label htmlFor="staff_label">Nombre de personal</label>
+          <input
+            id="staff_label"
+            type="text"
+            value={staffLabel}
+            onChange={(e) => setStaffLabel(e.target.value)}
+            required
+          />
+        </div>
+
+        <div className="field">
+          <label htmlFor="vertical">Rubro</label>
+          <select
+            id="vertical"
+            value={vertical}
+            onChange={(e) => setVertical(e.target.value as BusinessVertical)}
+          >
+            {VERTICAL_OPTIONS.map((opt) => (
+              <option key={opt.value} value={opt.value}>
+                {opt.label}
+              </option>
+            ))}
+          </select>
         </div>
 
         <div className="field">

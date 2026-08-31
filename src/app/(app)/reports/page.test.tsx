@@ -7,6 +7,11 @@ vi.mock('@/contexts/BranchContext', () => ({
   useBranch: () => mockUseBranch(),
 }));
 
+const mockUseSettings = vi.fn();
+vi.mock('@/contexts/SettingsContext', () => ({
+  useSettings: () => mockUseSettings(),
+}));
+
 // serviceData total income (serviciosAmount) = 100000
 // gastoData total expense (gastosTotal) = 30000
 // Expected: balanceNeto = serviciosAmount - gastosTotal = 70000
@@ -59,6 +64,7 @@ describe('ReportsPage balanceNeto computation (locks existing correct behavior)'
       branches: [],
       initialized: true,
     });
+    mockUseSettings.mockReturnValue({ settings: { staff_label: 'Barbero' } });
   });
 
   it('computes balanceNeto = serviciosAmount - gastosTotal (100000 - 30000 = 70000)', async () => {
@@ -67,5 +73,36 @@ describe('ReportsPage balanceNeto computation (locks existing correct behavior)'
     await waitFor(() => screen.getByText('₲ 70.000'));
 
     expect(screen.getByText('₲ 70.000')).toBeTruthy();
+  });
+});
+
+describe('ReportsPage liquidación link uses configurable staff_label (generalize-verticals)', () => {
+  beforeEach(() => {
+    movementsFromCalls = 0;
+    mockUseBranch.mockReturnValue({
+      currentBranch: { id: 'branch-1', name: 'Centro' },
+      branches: [],
+      initialized: true,
+    });
+  });
+
+  it('shows the configured staff_label in the liquidación link instead of hardcoded "barbero"', async () => {
+    mockUseSettings.mockReturnValue({ settings: { staff_label: 'Mozo' } });
+
+    render(<ReportsPage />);
+
+    await waitFor(() => screen.getByText('₲ 70.000'));
+
+    expect(screen.getByText('Liquidación por mozo ›')).toBeTruthy();
+  });
+
+  it('shows a different configured staff_label without hardcoding "Mozo" either', async () => {
+    mockUseSettings.mockReturnValue({ settings: { staff_label: 'Operador' } });
+
+    render(<ReportsPage />);
+
+    await waitFor(() => screen.getByText('₲ 70.000'));
+
+    expect(screen.getByText('Liquidación por operador ›')).toBeTruthy();
   });
 });

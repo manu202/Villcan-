@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { formatGuaranies } from '@/lib/utils';
 import { createClient } from '@/lib/supabase/client';
 import { useBranch } from '@/contexts/BranchContext';
+import { useSettings } from '@/contexts/SettingsContext';
 import { getDateRange, type ViewType } from '@/lib/dateRange';
 
 interface ServiceSummary {
@@ -25,6 +26,7 @@ interface DailySummary {
 
 export default function ReportsPage() {
   const { currentBranch, initialized } = useBranch();
+  const { settings } = useSettings();
   const [view, setView] = useState<ViewType>('today');
   const [customRange, setCustomRange] = useState({ from: '', to: '' });
   const [selectedBranch, setSelectedBranch] = useState<string | 'all'>('all');
@@ -230,7 +232,7 @@ export default function ReportsPage() {
 
       <section className="section">
         <Link href="/reports/liquidacion" className="liquidacion-link">
-          Liquidación por barbero ›
+          {`Liquidación por ${settings.staff_label.toLowerCase()} ›`}
         </Link>
       </section>
 

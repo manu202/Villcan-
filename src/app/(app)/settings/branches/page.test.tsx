@@ -14,6 +14,11 @@ vi.mock('@/contexts/ToastContext', () => ({
   useToast: () => ({ showToast: mockShowToast }),
 }));
 
+const mockUseSettings = vi.fn();
+vi.mock('@/contexts/SettingsContext', () => ({
+  useSettings: () => mockUseSettings(),
+}));
+
 vi.mock('@/lib/supabase/client', () => ({
   createClient: () => ({
     from: vi.fn().mockReturnValue({
@@ -30,6 +35,44 @@ describe('BranchesPage /settings/branches (REQ-SETTINGSREORG-3, REQ-SETTINGSREOR
     mockShowToast.mockReset();
     mockSelectBranch.mockReset();
     mockRefreshBranches.mockReset();
+    mockUseSettings.mockReset();
+    mockUseSettings.mockReturnValue({ settings: { staff_label: 'Barbero' } });
+  });
+
+  it('renders the configured staff_label as the role tag instead of the hardcoded "Barbero"', async () => {
+    mockUseSettings.mockReturnValue({ settings: { staff_label: 'Mozo' } });
+    mockUseBranch.mockReturnValue({
+      currentBranch: { id: 'b1', name: 'Centro', user_role: 'admin' },
+      branches: [
+        { id: 'b1', name: 'Centro', address: null, user_role: 'admin' },
+        { id: 'b2', name: 'Sucursal Norte', address: null, user_role: 'barber' },
+      ],
+      isLoading: false,
+      selectBranch: mockSelectBranch,
+      refreshBranches: mockRefreshBranches,
+    });
+
+    render(<BranchesPage />);
+
+    expect(screen.getByText('Tu rol: Mozo')).toBeTruthy();
+  });
+
+  it('renders a different configured staff_label without hardcoding "Mozo" either', () => {
+    mockUseSettings.mockReturnValue({ settings: { staff_label: 'Operador' } });
+    mockUseBranch.mockReturnValue({
+      currentBranch: { id: 'b1', name: 'Centro', user_role: 'admin' },
+      branches: [
+        { id: 'b1', name: 'Centro', address: null, user_role: 'admin' },
+        { id: 'b2', name: 'Sucursal Norte', address: null, user_role: 'barber' },
+      ],
+      isLoading: false,
+      selectBranch: mockSelectBranch,
+      refreshBranches: mockRefreshBranches,
+    });
+
+    render(<BranchesPage />);
+
+    expect(screen.getByText('Tu rol: Operador')).toBeTruthy();
   });
 
   it('renders an access-restricted state when the user is not admin anywhere', () => {

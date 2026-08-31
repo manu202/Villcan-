@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { countAdmins, isLastAdmin } from './access';
+import { countAdmins, isLastAdmin, normalizeEmail, emailsMatch } from './access';
 import type { UserBranchAccess } from '@/types';
 
 type Row = Pick<UserBranchAccess, 'user_id' | 'role'>;
@@ -72,5 +72,33 @@ describe('isLastAdmin (REQ-SETTINGSREORG-8)', () => {
   it('target user_id not present in the list -> false', () => {
     const rows: Row[] = [{ user_id: 'u1', role: 'admin' }];
     expect(isLastAdmin(rows, 'u-not-in-list')).toBe(false);
+  });
+});
+
+describe('normalizeEmail (bug #7 - case-insensitive email lookup)', () => {
+  it('lowercases the email', () => {
+    expect(normalizeEmail('Juan@Example.com')).toBe('juan@example.com');
+  });
+
+  it('trims surrounding whitespace', () => {
+    expect(normalizeEmail('  juan@example.com  ')).toBe('juan@example.com');
+  });
+
+  it('trims and lowercases together', () => {
+    expect(normalizeEmail('  Juan@EXAMPLE.com ')).toBe('juan@example.com');
+  });
+});
+
+describe('emailsMatch (bug #7 - case-insensitive email lookup)', () => {
+  it('same email, different case -> true', () => {
+    expect(emailsMatch('Juan@Example.com', 'juan@example.com')).toBe(true);
+  });
+
+  it('same email with extra whitespace -> true', () => {
+    expect(emailsMatch(' juan@example.com', 'juan@example.com ')).toBe(true);
+  });
+
+  it('different emails -> false', () => {
+    expect(emailsMatch('juan@example.com', 'pedro@example.com')).toBe(false);
   });
 });

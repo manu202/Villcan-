@@ -10,6 +10,16 @@ import { Spinner } from './Spinner';
 // pass-through), so this client-side guard is the only thing standing
 // between an unauthenticated visitor and a confusing wander through empty
 // pages instead of a clear prompt to sign in.
+//
+// This list is intentionally NOT the mechanism that keeps the public
+// storefront (/tienda/[slug]) reachable: PUBLIC_PATHS does an exact-match
+// against `pathname`, so a prefix like `/tienda` would never match a
+// dynamic `/tienda/mi-negocio`, and even a prefix check would still leave
+// AuthGuard (and BranchProvider/SettingsProvider) mounted there, firing
+// authenticated queries for an anonymous visitor. The storefront is instead
+// moved OUTSIDE this component's subtree entirely via route groups —
+// `(app)/layout.tsx` mounts AuthGuard, `(public)/layout.tsx` does not. See
+// design "AuthGuard — el fix" (sdd/storefront-whatsapp-orders/design).
 const PUBLIC_PATHS = ['/login', '/logout'];
 
 export function AuthGuard({ children }: { children: React.ReactNode }) {

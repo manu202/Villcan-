@@ -1,4 +1,4 @@
-// Pure aggregation for the "Liquidación por barbero" report (REQ-PROFIT-5).
+// Pure aggregation for the "Liquidación por staff" report (REQ-PROFIT-5).
 import { computeCommissionAmount } from './commission';
 
 export interface LiquidacionMovementInput {
@@ -16,11 +16,12 @@ export interface LiquidacionRow {
 }
 
 /**
- * Groups servicio movements by barber (user_id), summing the amount charged
- * (facturado) and the commission earned per movement (NULL commission_pct
- * treated as 0, via computeCommissionAmount). Sorted by facturado desc.
+ * Groups servicio movements by staff member (user_id), summing the amount
+ * charged (facturado) and the commission earned per movement (NULL
+ * commission_pct treated as 0, via computeCommissionAmount). Sorted by
+ * facturado desc.
  */
-export function computeLiquidacionByBarber(
+export function computeLiquidacionByStaff(
   movements: LiquidacionMovementInput[]
 ): LiquidacionRow[] {
   const byUser = new Map<string, LiquidacionRow>();

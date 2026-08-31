@@ -70,6 +70,19 @@ describe('AuthGuard', () => {
     expect(mockReplace).not.toHaveBeenCalled();
   });
 
+  it('treats /tienda/[slug] as protected if ever rendered inside it (documents why route groups, not PUBLIC_PATHS, keep the storefront public)', async () => {
+    mockPathname = '/tienda/mi-negocio';
+    mockGetSession.mockResolvedValue({ data: { session: null } });
+    render(
+      <AuthGuard>
+        <p>Storefront content</p>
+      </AuthGuard>
+    );
+
+    await waitFor(() => expect(mockReplace).toHaveBeenCalledWith('/login'));
+    expect(screen.queryByText('Storefront content')).toBeNull();
+  });
+
   it('redirects to /login if the session disappears later (e.g. expiry) on a protected route', async () => {
     mockGetSession.mockResolvedValue({ data: { session: { user: { id: 'u1' } } } });
     render(

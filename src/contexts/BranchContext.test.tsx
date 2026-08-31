@@ -31,6 +31,7 @@ const branch: BranchWithRole = {
   name: 'Sucursal Central',
   address: null,
   is_active: true,
+  vertical: 'generic',
   created_at: '2026-01-01',
   user_role: 'admin',
 };

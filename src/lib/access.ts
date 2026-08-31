@@ -24,3 +24,18 @@ export function isLastAdmin(rows: AccessRow[], userId: string): boolean {
   if (!target || target.role !== 'admin') return false;
   return countAdmins(rows) === 1;
 }
+
+// Case-insensitive email lookup (bug #7). Server-side code uses these before
+// querying/inviting so `Juan@Example.com` and `juan@example.com` resolve to
+// the same user, instead of the exact-match `.eq('email', ...)` that used to
+// silently fail to find an existing account.
+
+/** Normalizes an email for case-insensitive comparison/lookup (trim + lowercase). */
+export function normalizeEmail(email: string): string {
+  return email.trim().toLowerCase();
+}
+
+/** True when two emails refer to the same user, ignoring case and surrounding whitespace. */
+export function emailsMatch(a: string, b: string): boolean {
+  return normalizeEmail(a) === normalizeEmail(b);
+}
