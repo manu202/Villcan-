@@ -99,3 +99,11 @@ export function useBranch() {
   }
   return context;
 }
+
+// Safe for components mounted outside (app) (root layout, (public) storefront,
+// the special _not-found route) — returns null instead of throwing when
+// there's no BranchProvider above, rather than requiring every such surface
+// to have a session it may not have.
+export function useBranchOptional() {
+  return useContext(BranchContext);
+}
