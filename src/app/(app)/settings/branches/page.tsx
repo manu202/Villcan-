@@ -276,6 +276,12 @@ export default function BranchesPage() {
               }
               className="input"
             />
+            {(!formData.slug || !formData.whatsapp_number) && (
+              <p className="field-hint">
+                Cargá la URL y el WhatsApp para poder activar la tienda — el
+                interruptor de abajo no se puede tocar hasta completar los dos.
+              </p>
+            )}
             <div className="field-toggle">
               <span>Tienda activa</span>
               <Toggle
@@ -285,9 +291,9 @@ export default function BranchesPage() {
                 disabled={!formData.slug || !formData.whatsapp_number}
               />
             </div>
-            {(!formData.slug || !formData.whatsapp_number) && (
-              <p className="field-hint">
-                Cargá la URL y el WhatsApp para poder activar la tienda.
+            {formData.storefront_enabled && formData.slug && formData.whatsapp_number && (
+              <p className="field-hint field-hint-ok">
+                Al guardar, la tienda queda visible en villcan.app/tienda/{formData.slug}
               </p>
             )}
 
@@ -318,9 +324,11 @@ export default function BranchesPage() {
                   <div className="branch-tags">
                     {isCurrent && <span className="branch-badge">Sucursal activa</span>}
                     <span className="branch-role">Tu rol: {ROLE_LABEL[branch.user_role]}</span>
-                    {branch.storefront_enabled && branch.slug && (
-                      <span className="branch-badge storefront-badge">
-                        Tienda: /tienda/{branch.slug}
+                    {branch.slug && (
+                      <span className={`branch-badge storefront-badge ${branch.storefront_enabled ? 'storefront-active' : ''}`}>
+                        {branch.storefront_enabled
+                          ? `Tienda activa: /tienda/${branch.slug}`
+                          : `Tienda configurada (inactiva): /tienda/${branch.slug}`}
                       </span>
                     )}
                   </div>
@@ -550,6 +558,12 @@ export default function BranchesPage() {
           border: 1px solid var(--border);
         }
 
+        .storefront-badge.storefront-active {
+          background: var(--accent);
+          color: var(--accent-foreground);
+          border-color: var(--accent);
+        }
+
         .section-subtitle {
           font-size: 13px;
           font-weight: 700;
@@ -576,6 +590,11 @@ export default function BranchesPage() {
           font-size: 12px;
           color: var(--text-muted);
           margin-top: -8px;
+        }
+
+        .field-hint-ok {
+          color: var(--text-secondary);
+          font-weight: 600;
         }
 
         .branch-role {
