@@ -80,6 +80,9 @@ export function StorefrontClient({ branch, services }: StorefrontClientProps) {
       p_customer_email: values.email || null,
       p_note: values.note || null,
       p_items: lines.map((line) => ({ service_id: line.service.id, qty: line.qty })),
+      p_payment_method: values.paymentMethod,
+      p_delivery_type: values.deliveryType,
+      p_delivery_address: values.deliveryType === 'delivery' ? values.deliveryAddress : null,
     });
 
     setSubmitting(false);

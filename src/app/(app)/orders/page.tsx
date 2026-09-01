@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState, useRef, useCallback } from 'react';
+import Link from 'next/link';
 import { formatGuaranies } from '@/lib/utils';
 import { createClient } from '@/lib/supabase/client';
 import { useBranch } from '@/contexts/BranchContext';
@@ -75,8 +76,11 @@ export default function OrdersPage() {
 
   return (
     <div className="page">
-      <header className="page-header">
+      <header className="page-header flex-header">
         <h1 className="page-title">Pedidos</h1>
+        <Link href="/orders/new" className="new-order-btn">
+          Nuevo pedido
+        </Link>
       </header>
 
       <div className="status-tabs">
@@ -103,14 +107,15 @@ export default function OrdersPage() {
           <ul className="order-list">
             {visibleOrders.map((order) => (
               <li key={order.id} className="order-item">
-                <div className="order-info">
+                <Link href={`/orders/${order.id}`} className="order-info">
                   <span className="order-code">{order.order_code}</span>
                   <span className="order-customer">{order.customer_name}</span>
                   <span className="order-total">{formatGuaranies(order.total)}</span>
-                </div>
+                </Link>
                 <select
                   value={order.status}
                   onChange={(e) => handleStatusChange(order.id, e.target.value as OrderStatus)}
+                  onClick={(e) => e.stopPropagation()}
                 >
                   {STATUS_OPTIONS.map((status) => (
                     <option key={status} value={status}>
@@ -172,6 +177,23 @@ export default function OrdersPage() {
           display: flex;
           flex-direction: column;
           gap: 2px;
+          text-decoration: none;
+          color: inherit;
+        }
+        .flex-header {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 12px;
+        }
+        .new-order-btn {
+          padding: 10px 16px;
+          background: var(--accent);
+          color: var(--accent-foreground);
+          border-radius: 8px;
+          font-size: 14px;
+          font-weight: 600;
+          text-decoration: none;
         }
         .order-code {
           font-size: 15px;

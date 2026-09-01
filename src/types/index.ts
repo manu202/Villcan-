@@ -63,6 +63,10 @@ export interface Service {
 
 export type OrderStatus = 'pending' | 'confirmed' | 'completed' | 'cancelled';
 
+export type OrderPaymentMethod = 'efectivo' | 'transferencia';
+
+export type OrderDeliveryType = 'pickup' | 'delivery';
+
 export interface Order {
   id: string;
   branch_id: string;
@@ -75,6 +79,9 @@ export interface Order {
   status: OrderStatus;
   total: number;
   whatsapp_message: string;
+  payment_method: OrderPaymentMethod;
+  delivery_type: OrderDeliveryType;
+  delivery_address: string | null;
   created_at: string;
 }
 
@@ -107,6 +114,34 @@ export interface CreateStorefrontOrderInput {
   p_customer_email?: string | null;
   p_note?: string | null;
   p_items: StorefrontOrderItemInput[];
+  p_payment_method: OrderPaymentMethod;
+  p_delivery_type: OrderDeliveryType;
+  p_delivery_address?: string | null;
+}
+
+export interface CreateManualOrderInput {
+  p_branch_id: string;
+  p_customer_name: string;
+  p_customer_phone: string;
+  p_customer_email?: string | null;
+  p_note?: string | null;
+  p_items: StorefrontOrderItemInput[];
+  p_payment_method: OrderPaymentMethod;
+  p_delivery_type: OrderDeliveryType;
+  p_delivery_address?: string | null;
+}
+
+export interface UpdateOrderInput {
+  p_order_id: string;
+  p_customer_name: string;
+  p_customer_phone: string;
+  p_customer_email: string | null;
+  p_note: string | null;
+  p_payment_method: OrderPaymentMethod;
+  p_delivery_type: OrderDeliveryType;
+  p_delivery_address: string | null;
+  p_status: OrderStatus;
+  p_items: StorefrontOrderItemInput[];
 }
 
 export interface CreateStorefrontOrderResult {
@@ -117,6 +152,24 @@ export interface CreateStorefrontOrderResult {
   whatsapp_message: string;
   items: Array<{ name: string; qty: number; unit_price: number; line_total: number }>;
 }
+
+// A short region-only country list for the checkout phone selector — no
+// external phone library needed (product decision: Paraguay default, a
+// handful of neighboring countries, nothing more).
+export interface PhoneCountryOption {
+  code: string; // dial code, e.g. "+595"
+  iso: string; // e.g. "PY"
+  label: string;
+}
+
+export const PHONE_COUNTRY_OPTIONS: PhoneCountryOption[] = [
+  { code: '+595', iso: 'PY', label: 'Paraguay (+595)' },
+  { code: '+54', iso: 'AR', label: 'Argentina (+54)' },
+  { code: '+55', iso: 'BR', label: 'Brasil (+55)' },
+  { code: '+591', iso: 'BO', label: 'Bolivia (+591)' },
+  { code: '+598', iso: 'UY', label: 'Uruguay (+598)' },
+  { code: '+56', iso: 'CL', label: 'Chile (+56)' },
+];
 
 export interface Contact {
   id: string;

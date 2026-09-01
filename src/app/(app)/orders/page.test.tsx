@@ -84,4 +84,27 @@ describe('OrdersPage (REQ: incoming orders panel)', () => {
     await waitFor(() => expect(screen.getByRole('combobox')).toBeTruthy());
     expect((screen.getByRole('combobox') as HTMLSelectElement).disabled).toBe(false);
   });
+
+  it('links each order row to its detail page and shows a "Nuevo pedido" link', async () => {
+    queryResult = Promise.resolve({
+      data: [
+        {
+          id: 'order-1',
+          order_code: 'A1B2C3',
+          customer_name: 'Juan',
+          status: 'pending',
+          total: 40000,
+          created_at: '2026-08-31T10:00:00Z',
+          branch_id: 'branch-1',
+        },
+      ],
+      error: null,
+    });
+
+    render(<OrdersPage />);
+
+    await waitFor(() => expect(screen.getByText('A1B2C3')).toBeTruthy());
+    expect(screen.getByText('A1B2C3').closest('a')?.getAttribute('href')).toBe('/orders/order-1');
+    expect(screen.getByRole('link', { name: /nuevo pedido/i }).getAttribute('href')).toBe('/orders/new');
+  });
 });

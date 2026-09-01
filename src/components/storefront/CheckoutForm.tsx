@@ -1,12 +1,16 @@
 'use client';
 
 import { useState, type FormEvent } from 'react';
+import { PHONE_COUNTRY_OPTIONS, type OrderDeliveryType, type OrderPaymentMethod } from '@/types';
 
 export interface CheckoutFormValues {
   name: string;
   phone: string;
   email: string;
   note: string;
+  paymentMethod: OrderPaymentMethod;
+  deliveryType: OrderDeliveryType;
+  deliveryAddress: string;
 }
 
 interface CheckoutFormProps {
@@ -16,15 +20,29 @@ interface CheckoutFormProps {
   onBack: () => void;
 }
 
+const DEFAULT_COUNTRY_CODE = '+595'; // Paraguay default (product decision).
+
 export function CheckoutForm({ submitting, errorMessage, onSubmit, onBack }: CheckoutFormProps) {
   const [name, setName] = useState('');
+  const [countryCode, setCountryCode] = useState(DEFAULT_COUNTRY_CODE);
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
   const [note, setNote] = useState('');
+  const [paymentMethod, setPaymentMethod] = useState<OrderPaymentMethod>('efectivo');
+  const [deliveryType, setDeliveryType] = useState<OrderDeliveryType>('pickup');
+  const [deliveryAddress, setDeliveryAddress] = useState('');
 
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
-    onSubmit({ name, phone, email, note });
+    onSubmit({
+      name,
+      phone: `${countryCode}${phone}`,
+      email,
+      note,
+      paymentMethod,
+      deliveryType,
+      deliveryAddress,
+    });
   };
 
   return (
@@ -37,14 +55,59 @@ export function CheckoutForm({ submitting, errorMessage, onSubmit, onBack }: Che
         Nombre*
         <input value={name} onChange={(e) => setName(e.target.value)} required minLength={2} />
       </label>
-      <label>
-        Teléfono*
-        <input value={phone} onChange={(e) => setPhone(e.target.value)} required type="tel" />
-      </label>
+      <div className="checkout-phone-row">
+        <label className="checkout-country-label">
+          País
+          <select
+            value={countryCode}
+            onChange={(e) => setCountryCode(e.target.value)}
+          >
+            {PHONE_COUNTRY_OPTIONS.map((option) => (
+              <option key={option.iso} value={option.code}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="checkout-phone-label">
+          Teléfono*
+          <input value={phone} onChange={(e) => setPhone(e.target.value)} required type="tel" />
+        </label>
+      </div>
       <label>
         Email
         <input value={email} onChange={(e) => setEmail(e.target.value)} type="email" />
       </label>
+      <label>
+        Método de pago
+        <select
+          value={paymentMethod}
+          onChange={(e) => setPaymentMethod(e.target.value as OrderPaymentMethod)}
+        >
+          <option value="efectivo">Efectivo</option>
+          <option value="transferencia">Transferencia</option>
+        </select>
+      </label>
+      <label>
+        Entrega
+        <select
+          value={deliveryType}
+          onChange={(e) => setDeliveryType(e.target.value as OrderDeliveryType)}
+        >
+          <option value="pickup">Retirar en el local</option>
+          <option value="delivery">Delivery</option>
+        </select>
+      </label>
+      {deliveryType === 'delivery' && (
+        <label>
+          Dirección de entrega*
+          <input
+            value={deliveryAddress}
+            onChange={(e) => setDeliveryAddress(e.target.value)}
+            required
+          />
+        </label>
+      )}
       <label>
         Nota
         <textarea value={note} onChange={(e) => setNote(e.target.value)} rows={2} />
@@ -80,7 +143,17 @@ export function CheckoutForm({ submitting, errorMessage, onSubmit, onBack }: Che
           font-weight: 600;
           color: var(--text-secondary);
         }
-        input, textarea {
+        .checkout-phone-row {
+          display: flex;
+          gap: 8px;
+        }
+        .checkout-country-label {
+          flex: 0 0 46%;
+        }
+        .checkout-phone-label {
+          flex: 1;
+        }
+        input, textarea, select {
           padding: 10px 12px;
           border: 1px solid var(--border);
           border-radius: 8px;

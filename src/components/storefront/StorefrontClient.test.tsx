@@ -95,4 +95,38 @@ describe('StorefrontClient (REQ: server-validated order creation + WhatsApp hand
     await waitFor(() => expect(screen.getByText(/tienda no disponible/i)).toBeTruthy());
     expect(screen.queryByRole('link', { name: /enviar por whatsapp/i })).toBeNull();
   });
+
+  it('passes payment method and delivery type/address through to create_storefront_order', async () => {
+    mockRpc.mockResolvedValue({
+      data: {
+        order_id: 'o1',
+        order_code: 'A1B2C3',
+        total: 40000,
+        whatsapp_number: '595981123456',
+        whatsapp_message: 'Pedido #A1B2C3',
+        items: [],
+      },
+      error: null,
+    });
+
+    render(<StorefrontClient branch={branch} services={services} />);
+    fireEvent.click(screen.getByRole('button', { name: /agregar/i }));
+    fireEvent.click(screen.getByRole('button', { name: /continuar pedido/i }));
+    fireEvent.change(screen.getByLabelText(/nombre/i), { target: { value: 'Juan Pérez' } });
+    fireEvent.change(screen.getByLabelText(/teléfono/i), { target: { value: '981123456' } });
+    fireEvent.change(screen.getByLabelText(/método de pago/i), { target: { value: 'transferencia' } });
+    fireEvent.change(screen.getByLabelText(/entrega/i), { target: { value: 'delivery' } });
+    fireEvent.change(screen.getByLabelText(/dirección de entrega/i), { target: { value: 'Calle 123' } });
+    fireEvent.click(screen.getByRole('button', { name: /confirmar pedido/i }));
+
+    await waitFor(() => expect(mockRpc).toHaveBeenCalled());
+    expect(mockRpc).toHaveBeenCalledWith(
+      'create_storefront_order',
+      expect.objectContaining({
+        p_payment_method: 'transferencia',
+        p_delivery_type: 'delivery',
+        p_delivery_address: 'Calle 123',
+      })
+    );
+  });
 });
