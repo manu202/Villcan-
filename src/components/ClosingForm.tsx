@@ -9,7 +9,7 @@ import { getCurrentUserId } from '@/lib/auth';
 import { getLastClosing, getCalculatedBalanceSince } from '@/lib/closings';
 import { buildClosingPayload } from '@/lib/arqueo';
 import { createClient } from '@/lib/supabase/client';
-import { formatGuaranies, parseGuaranies } from '@/lib/utils';
+import { formatGuaranies, parseGuaranies, formatDate } from '@/lib/utils';
 import type { ArqueoAmounts } from '@/types';
 
 const FALLBACK_PERIOD_START = '2000-01-01T00:00:00.000Z';
@@ -139,6 +139,9 @@ export function ClosingForm() {
       </header>
 
       <section className="section">
+        <p className="period-label">
+          Período: {periodStart === FALLBACK_PERIOD_START ? 'desde el inicio' : `desde ${formatDate(periodStart)}`} hasta ahora
+        </p>
         <h2 className="section-title">Balance calculado</h2>
         <div className="balance-grid">
           <div className="balance-row">
@@ -260,6 +263,12 @@ export function ClosingForm() {
           font-size: 14px;
           color: var(--text-secondary);
           margin-top: 4px;
+        }
+
+        .period-label {
+          font-size: 13px;
+          color: var(--text-secondary);
+          margin-bottom: 12px;
         }
 
         .section {

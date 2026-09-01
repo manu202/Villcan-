@@ -2,11 +2,11 @@
 // reports). Extracted from src/app/reports/page.tsx so "Semana"/"Mes" mean
 // exactly the same thing everywhere — do not fork this logic per screen.
 
-export type ViewType = 'today' | 'week' | 'month' | 'custom';
+export type ViewType = 'today' | 'week' | 'month' | 'custom' | 'all';
 
 export const getDateRange = (
   view: ViewType,
-  customRange: { from: string; to: string }
+  customRange?: { from: string; to: string }
 ): { start: string; end: string } => {
   const now = new Date();
 
@@ -28,13 +28,16 @@ export const getDateRange = (
       return { start: start.toISOString(), end: end.toISOString() };
     }
     case 'custom': {
-      if (!customRange.from || !customRange.to) {
-        return { start: now.toISOString(), end: now.toISOString() };
+      if (!customRange?.from || !customRange?.to) {
+        return { start: '', end: '' };
       }
       const start = new Date(customRange.from);
       const end = new Date(customRange.to);
       end.setDate(end.getDate() + 1);
       return { start: start.toISOString(), end: end.toISOString() };
     }
+    case 'all':
+    default:
+      return { start: '2000-01-01', end: '2100-01-01' };
   }
 };

@@ -153,13 +153,13 @@ export function HamburgerMenu() {
       {/* Drawer */}
       <nav className={`drawer ${isOpen ? 'open' : ''}`} aria-label="Main navigation">
         <div className="drawer-header">
-          <div className="drawer-header-left">
+          <div className="drawer-header-top">
             <span className="logo">VILLCAN</span>
-            <BranchSelector />
+            <button className="close-btn" onClick={handleClose} aria-label="Cerrar menú">
+              <X size={16} aria-hidden="true" />
+            </button>
           </div>
-          <button className="close-btn" onClick={handleClose} aria-label="Cerrar menú">
-            <X size={16} aria-hidden="true" />
-          </button>
+          <BranchSelector />
         </div>
 
         <ul className="nav-list">
@@ -269,8 +269,14 @@ export function HamburgerMenu() {
         }
 
         .drawer-header {
-          padding: 24px 20px;
+          padding: 20px;
           border-bottom: 1px solid var(--border);
+          display: flex;
+          flex-direction: column;
+          gap: 12px;
+        }
+
+        .drawer-header-top {
           display: flex;
           align-items: center;
           justify-content: space-between;
@@ -279,6 +285,8 @@ export function HamburgerMenu() {
         .close-btn {
           width: 32px;
           height: 32px;
+          min-height: unset;
+          min-width: unset;
           display: flex;
           align-items: center;
           justify-content: center;
@@ -302,16 +310,11 @@ export function HamburgerMenu() {
           letter-spacing: 0.1em;
         }
 
-        .drawer-header-left {
-          display: flex;
-          align-items: center;
-          gap: 12px;
-        }
-
         .nav-list {
           list-style: none;
           padding: 16px 0;
           flex: 1;
+          overflow-y: auto;
         }
 
         .nav-sublist {

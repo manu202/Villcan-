@@ -7,40 +7,7 @@ import { createClient } from '@/lib/supabase/client';
 import { useBranch } from '@/contexts/BranchContext';
 import { useSettings } from '@/contexts/SettingsContext';
 import { computeLiquidacionByStaff, type LiquidacionRow } from '@/lib/liquidacion';
-
-type ViewType = 'today' | 'week' | 'month' | 'custom';
-
-const getDateRange = (view: ViewType, customRange: { from: string; to: string }): { start: string; end: string } => {
-  const now = new Date();
-
-  switch (view) {
-    case 'today': {
-      const start = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-      const end = new Date(start);
-      end.setDate(end.getDate() + 1);
-      return { start: start.toISOString(), end: end.toISOString() };
-    }
-    case 'week': {
-      const start = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 6);
-      const end = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
-      return { start: start.toISOString(), end: end.toISOString() };
-    }
-    case 'month': {
-      const start = new Date(now.getFullYear(), now.getMonth(), 1);
-      const end = new Date(now.getFullYear(), now.getMonth() + 1, 1);
-      return { start: start.toISOString(), end: end.toISOString() };
-    }
-    case 'custom': {
-      if (!customRange.from || !customRange.to) {
-        return { start: now.toISOString(), end: now.toISOString() };
-      }
-      const start = new Date(customRange.from);
-      const end = new Date(customRange.to);
-      end.setDate(end.getDate() + 1);
-      return { start: start.toISOString(), end: end.toISOString() };
-    }
-  }
-};
+import { getDateRange, type ViewType } from '@/lib/dateRange';
 
 interface MovementRow {
   amount_charged: number | null;
@@ -50,7 +17,7 @@ interface MovementRow {
 }
 
 export default function LiquidacionPage() {
-  const { currentBranch, initialized } = useBranch();
+  const { currentBranch, branches, initialized } = useBranch();
   const { settings } = useSettings();
   const [view, setView] = useState<ViewType>('today');
   const [customRange, setCustomRange] = useState({ from: '', to: '' });
@@ -80,6 +47,7 @@ export default function LiquidacionPage() {
       setLoading(true);
       const supabase = createClient();
       const { start, end } = getDateRange(viewRef.current, customRangeRef.current);
+      if (!start || !end) { setLoading(false); return; }
       const branchFilter = selectedBranchRef.current === 'all' ? undefined : selectedBranchRef.current;
 
       let query = supabase
@@ -123,37 +91,11 @@ export default function LiquidacionPage() {
   const totalCommission = rows.reduce((sum, r) => sum + r.commission, 0);
   const staffLabelLower = settings.staff_label.toLowerCase();
 
-  // Liquidación por comisión es un concepto de barbería (cada barbero cobra un
-  // % de lo que factura). Para otros verticales no tiene sentido de negocio,
-  // así que se oculta en vez de borrarse — vuelve a aparecer si la sucursal
-  // activa se reconfigura como 'barbershop'.
-  if (initialized && currentBranch?.vertical !== 'barbershop') {
-    return (
-      <div className="page">
-        <header className="page-header">
-          <Link href="/reports" className="back-link">← Reportes</Link>
-          <h1 className="page-title">Liquidación</h1>
-        </header>
-        <div className="empty-state">
-          <p>No disponible para esta sucursal</p>
-          <p className="page-subtitle">Esta función es específica de barberías.</p>
-        </div>
-        <style>{`
-          .page { max-width: 480px; margin: 0 auto; }
-          .back-link { display: inline-block; font-size: 14px; color: var(--text-secondary); text-decoration: none; margin-bottom: 8px; }
-          .page-title { font-size: 24px; font-weight: 700; }
-          .page-subtitle { font-size: 14px; color: var(--text-secondary); margin-top: 4px; }
-          .empty-state { text-align: center; padding: 48px 24px; color: var(--text-secondary); }
-        `}</style>
-      </div>
-    );
-  }
-
   return (
     <div className="page">
       <header className="page-header">
         <Link href="/reports" className="back-link">← Reportes</Link>
-        <h1 className="page-title">{`Liquidación por ${staffLabelLower}`}</h1>
+        <h1 className="page-title">{`Ventas por ${staffLabelLower}`}</h1>
       </header>
 
       <section className="section">
@@ -164,7 +106,9 @@ export default function LiquidacionPage() {
             className="select"
           >
             <option value="all">Todas las sucursales</option>
-            {currentBranch && <option value={currentBranch.id}>{currentBranch.name}</option>}
+            {branches.map((b) => (
+              <option key={b.id} value={b.id}>{b.name}</option>
+            ))}
           </select>
         </div>
       </section>
@@ -201,7 +145,7 @@ export default function LiquidacionPage() {
       ) : (
         <section className="section">
           <div className="card">
-            <h2 className="card-title">{`Por ${staffLabelLower}`}</h2>
+            <h2 className="card-title">{`Desglose por ${staffLabelLower}`}</h2>
             <ul className="breakdown-list">
               {rows.length === 0 ? (
                 <li className="breakdown-empty">Sin servicios en este período</li>

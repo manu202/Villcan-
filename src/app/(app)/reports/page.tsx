@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useState, useRef } from 'react';
-import Link from 'next/link';
 import { formatGuaranies } from '@/lib/utils';
 import { createClient } from '@/lib/supabase/client';
 import { useBranch } from '@/contexts/BranchContext';
@@ -24,8 +23,31 @@ interface DailySummary {
   total: number;
 }
 
+function getPrevDateRange(view: ViewType): { start: string; end: string } | null {
+  const now = new Date();
+  switch (view) {
+    case 'today': {
+      const start = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1);
+      const end = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      return { start: start.toISOString(), end: end.toISOString() };
+    }
+    case 'week': {
+      const start = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 13);
+      const end = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 6);
+      return { start: start.toISOString(), end: end.toISOString() };
+    }
+    case 'month': {
+      const start = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+      const end = new Date(now.getFullYear(), now.getMonth(), 1);
+      return { start: start.toISOString(), end: end.toISOString() };
+    }
+    default:
+      return null;
+  }
+}
+
 export default function ReportsPage() {
-  const { currentBranch, initialized } = useBranch();
+  const { currentBranch, branches, initialized } = useBranch();
   const { settings } = useSettings();
   const [view, setView] = useState<ViewType>('today');
   const [customRange, setCustomRange] = useState({ from: '', to: '' });
@@ -36,6 +58,7 @@ export default function ReportsPage() {
   const [totalServiciosAmount, setTotalServiciosAmount] = useState(0);
   const [totalGastos, setTotalGastos] = useState(0);
   const [balanceNeto, setBalanceNeto] = useState(0);
+  const [prevServiciosAmount, setPrevServiciosAmount] = useState(0);
 
   const [byService, setByService] = useState<ServiceSummary[]>([]);
   const [byMethod, setByMethod] = useState<MethodSummary[]>([]);
@@ -80,6 +103,13 @@ export default function ReportsPage() {
       setLoading(true);
       const supabase = createClient();
       const { start, end } = getDateRange(viewRef.current, customRangeRef.current);
+
+      // Custom range with incomplete dates — show empty without querying
+      if (!start || !end) {
+        setLoading(false);
+        return;
+      }
+
       const branchFilter = selectedBranchRef.current === 'all'
         ? undefined
         : selectedBranchRef.current;
@@ -102,20 +132,8 @@ export default function ReportsPage() {
 
       if (cancelled) return;
 
-      let methodQuery = supabase
-        .from('movements')
-        .select('amount_charged, income, expense, payment_method')
-        .eq('type', 'servicio')
-        .gte('created_at', start)
-        .lt('created_at', end);
-
-      if (branchFilter) {
-        methodQuery = methodQuery.eq('branch_id', branchFilter);
-      }
-
-      const { data: methodData } = await methodQuery;
-
-      if (cancelled) return;
+      // methodData is a subset of serviceData — reuse instead of a second fetch
+      const methodData = serviceData;
 
       let gastoQuery = supabase
         .from('movements')
@@ -205,10 +223,30 @@ export default function ReportsPage() {
 
       const balanceNeto = serviciosAmount - gastosTotal;
 
+      // Fetch previous period for comparison (skip for custom/all views)
+      const prevRange = getPrevDateRange(viewRef.current);
+      let prevAmount = 0;
+      if (prevRange) {
+        let prevQ = supabase
+          .from('movements')
+          .select('income')
+          .eq('type', 'servicio')
+          .gte('created_at', prevRange.start)
+          .lt('created_at', prevRange.end);
+        if (branchFilter) prevQ = prevQ.eq('branch_id', branchFilter);
+        const { data: prevData } = await prevQ;
+        if (!cancelled && prevData) {
+          prevAmount = prevData.reduce((s: number, m: { income: number | null }) => s + (m.income || 0), 0);
+        }
+      }
+
+      if (cancelled) return;
+
       setTotalServicios(serviciosCount);
       setTotalServiciosAmount(serviciosAmount);
       setTotalGastos(gastosTotal);
       setBalanceNeto(balanceNeto);
+      setPrevServiciosAmount(prevAmount);
       setByService(serviceSummaries);
       setByMethod(methodSummaries);
       setExpenses(expenseList);
@@ -227,16 +265,8 @@ export default function ReportsPage() {
     <div className="page">
       <header className="page-header">
         <h1 className="page-title">Reportes</h1>
-        <p className="page-subtitle">Arqueo de caja</p>
+        <p className="page-subtitle">Análisis de ventas</p>
       </header>
-
-      {currentBranch?.vertical === 'barbershop' && (
-        <section className="section">
-          <Link href="/reports/liquidacion" className="liquidacion-link">
-            {`Liquidación por ${settings.staff_label.toLowerCase()} ›`}
-          </Link>
-        </section>
-      )}
 
       <section className="section">
         <div className="branch-filter">
@@ -246,7 +276,9 @@ export default function ReportsPage() {
             className="select"
           >
             <option value="all">Todas las sucursales</option>
-            {currentBranch && <option value={currentBranch.id}>{currentBranch.name}</option>}
+            {branches.map((b) => (
+              <option key={b.id} value={b.id}>{b.name}</option>
+            ))}
           </select>
         </div>
       </section>
@@ -280,21 +312,26 @@ export default function ReportsPage() {
         </div>
 
         {view === 'custom' && (
-          <div className="custom-range">
-            <input
-              type="date"
-              value={customRange.from}
-              onChange={handleCustomFromChange}
-              placeholder="Desde"
-            />
-            <span className="range-separator">—</span>
-            <input
-              type="date"
-              value={customRange.to}
-              onChange={handleCustomToChange}
-              placeholder="Hasta"
-            />
-          </div>
+          <>
+            <div className="custom-range">
+              <input
+                type="date"
+                value={customRange.from}
+                onChange={handleCustomFromChange}
+                placeholder="Desde"
+              />
+              <span className="range-separator">—</span>
+              <input
+                type="date"
+                value={customRange.to}
+                onChange={handleCustomToChange}
+                placeholder="Hasta"
+              />
+            </div>
+            {(customRange.from || customRange.to) && (!customRange.from || !customRange.to) && (
+              <p className="range-warning">Completá las dos fechas para ver los resultados.</p>
+            )}
+          </>
         )}
       </section>
 
@@ -305,27 +342,41 @@ export default function ReportsPage() {
       ) : (
         <>
           <section className="section">
-            <div className="kpi-grid">
-              <div className="kpi-card">
-                <span className="kpi-label">Total {settings.services_label}</span>
-                <span className="kpi-value">{totalServicios}</span>
-                <span className="kpi-amount">{formatGuaranies(totalServiciosAmount)}</span>
-              </div>
-              <div className="kpi-card">
-                <span className="kpi-label">Total Gastos</span>
-                <span className="kpi-value expense">-</span>
-                <span className="kpi-amount expense">{formatGuaranies(totalGastos)}</span>
-              </div>
-              <div className="kpi-card">
-                <span className="kpi-label">Balance Neto</span>
-                <span className={`kpi-value ${balanceNeto >= 0 ? 'income' : 'expense'}`}>
-                  {balanceNeto >= 0 ? '+' : ''}
-                </span>
-                <span className={`kpi-amount ${balanceNeto >= 0 ? 'income' : 'expense'}`}>
-                  {formatGuaranies(balanceNeto)}
-                </span>
-              </div>
-            </div>
+            {(() => {
+              const ticketPromedio = totalServicios > 0 ? Math.round(totalServiciosAmount / totalServicios) : 0;
+              const canCompare = view !== 'custom' && view !== 'all';
+              const ingresosPct = canCompare && prevServiciosAmount > 0
+                ? Math.round(((totalServiciosAmount - prevServiciosAmount) / prevServiciosAmount) * 100)
+                : null;
+              return (
+                <div className="kpi-grid">
+                  <div className="kpi-card">
+                    <span className="kpi-label">Ingresos</span>
+                    <span className="kpi-value">{totalServicios}</span>
+                    <span className="kpi-amount">{formatGuaranies(totalServiciosAmount)}</span>
+                    {ingresosPct !== null && (
+                      <span className={`kpi-badge ${ingresosPct >= 0 ? 'up' : 'down'}`}>
+                        {ingresosPct >= 0 ? '↑' : '↓'}{Math.abs(ingresosPct)}%
+                      </span>
+                    )}
+                  </div>
+                  <div className="kpi-card">
+                    <span className="kpi-label">Ticket Prom</span>
+                    <span className="kpi-value">{totalServicios > 0 ? '₲' : '—'}</span>
+                    <span className="kpi-amount">{totalServicios > 0 ? formatGuaranies(ticketPromedio) : 'Sin datos'}</span>
+                  </div>
+                  <div className="kpi-card">
+                    <span className="kpi-label">Balance Neto</span>
+                    <span className={`kpi-value ${balanceNeto >= 0 ? 'income' : 'expense'}`}>
+                      {balanceNeto >= 0 ? '+' : '−'}
+                    </span>
+                    <span className={`kpi-amount ${balanceNeto >= 0 ? 'income' : 'expense'}`}>
+                      {formatGuaranies(Math.abs(balanceNeto))}
+                    </span>
+                  </div>
+                </div>
+              );
+            })()}
           </section>
 
           <section className="section">
@@ -386,7 +437,7 @@ export default function ReportsPage() {
           {view === 'week' && dailySummary.length > 0 && (
             <section className="section">
               <div className="card">
-                <h2 className="card-title">Diario por día</h2>
+                <h2 className="card-title">Por día (últimos 7 días)</h2>
                 <ul className="breakdown-list">
                   {dailySummary.map((item) => (
                     <li key={item.day} className="breakdown-row daily">
@@ -415,18 +466,6 @@ export default function ReportsPage() {
           font-size: 14px;
           color: var(--text-secondary);
           margin-top: 4px;
-        }
-
-        .liquidacion-link {
-          display: block;
-          padding: 14px 16px;
-          background: var(--surface-elevated);
-          border: 1px solid var(--border);
-          border-radius: 8px;
-          font-size: 14px;
-          font-weight: 600;
-          color: var(--text-primary);
-          text-decoration: none;
         }
 
         .filter-row {
@@ -490,6 +529,16 @@ export default function ReportsPage() {
           font-size: 18px;
         }
 
+        .range-warning {
+          font-size: 13px;
+          color: var(--text-secondary);
+          margin-top: 8px;
+          padding: 8px 12px;
+          background: var(--surface-elevated);
+          border-radius: 6px;
+          border-left: 3px solid var(--accent);
+        }
+
         .kpi-grid {
           display: grid;
           grid-template-columns: repeat(3, 1fr);
@@ -542,6 +591,24 @@ export default function ReportsPage() {
 
         .kpi-amount.expense {
           color: var(--text-secondary);
+        }
+
+        .kpi-badge {
+          font-size: 10px;
+          font-weight: 700;
+          padding: 2px 6px;
+          border-radius: 100px;
+          margin-top: 6px;
+        }
+
+        .kpi-badge.up {
+          background: #dcfce7;
+          color: #16a34a;
+        }
+
+        .kpi-badge.down {
+          background: #fee2e2;
+          color: #dc2626;
         }
 
         .card {

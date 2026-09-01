@@ -1,6 +1,8 @@
 @import "tailwindcss";
 
 :root {
+  color-scheme: light;
+
   /* Black & White Aesthetic */
   --black: #000000;
   --white: #ffffff;
@@ -53,6 +55,8 @@
    stamped (user preference = "system"), fall back to the OS setting via
    @media, scoped so it never fights an explicit light/dark choice. */
 [data-theme='dark'] {
+  color-scheme: dark;
+
   --surface: #121212;
   --surface-elevated: #1c1c1c;
   --border: #2e2e2e;
@@ -82,6 +86,8 @@
 
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme]) {
+    color-scheme: dark;
+
     --surface: #121212;
     --surface-elevated: #1c1c1c;
     --border: #2e2e2e;
@@ -583,36 +589,47 @@ button {
 
 /* Branch selector */
 .branch-selector {
+  width: 100%;
+  min-width: 0;
+  min-height: unset;
   padding: 8px 12px;
-  border: 1px solid var(--gray-200);
+  border: 1px solid var(--border);
   border-radius: 6px;
   font-size: 14px;
   font-weight: 500;
-  background: var(--white);
+  background: var(--surface-elevated);
+  color: var(--text-primary);
   cursor: pointer;
 }
 
 .branch-selector-loading {
   font-size: 12px;
-  color: var(--gray-400);
+  color: var(--text-muted);
 }
 
 .branch-badge {
-  display: inline-flex;
-  padding: 6px 12px;
-  background: var(--gray-100);
+  display: block;
+  width: 100%;
+  min-height: unset;
+  padding: 8px 12px;
+  background: var(--surface-elevated);
+  border: 1px solid var(--border);
   border-radius: 6px;
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--black);
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-primary);
   cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .branch-badge:hover {
-  background: var(--gray-200);
+  border-color: var(--accent);
 }
 
 .branch-badge-warning {
-  background: #fef3c7;
-  color: #92400e;
+  background: var(--warning-subtle);
+  color: var(--warning);
+  border-color: transparent;
 }

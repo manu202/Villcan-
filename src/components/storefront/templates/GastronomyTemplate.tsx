@@ -70,6 +70,9 @@ export function GastronomyTemplate({ branch, services }: GastronomyTemplateProps
   if (step === 'success' && result && whatsappHref) {
     return (
       <div className="gastro-shell">
+        <nav className="gastro-nav">
+          <span className="gastro-brand-name">{branch.name}</span>
+        </nav>
         <OrderSuccess orderCode={result.order_code} whatsappHref={whatsappHref} />
         <GastroStyles />
       </div>
@@ -79,12 +82,21 @@ export function GastronomyTemplate({ branch, services }: GastronomyTemplateProps
   if (step === 'checkout') {
     return (
       <div className="gastro-shell">
-        <CheckoutForm
-          submitting={submitting}
-          errorMessage={errorMessage}
-          onSubmit={handleSubmit}
-          onBack={backToCatalog}
-        />
+        <nav className="gastro-nav">
+          <span className="gastro-brand-name">{branch.name}</span>
+          <button type="button" className="gastro-cart-btn" onClick={backToCatalog}>
+            ← Volver
+          </button>
+        </nav>
+        <div className="gastro-checkout-page">
+          <div className="gastro-checkout-eyebrow">Confirmá tu pedido</div>
+          <CheckoutForm
+            submitting={submitting}
+            errorMessage={errorMessage}
+            onSubmit={handleSubmit}
+            onBack={backToCatalog}
+          />
+        </div>
         <GastroStyles />
       </div>
     );
@@ -270,7 +282,10 @@ function GastroStyles() {
         background: var(--ink-black);
         color: var(--cream);
         font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-        overflow-x: hidden;
+        /* overflow-x: clip instead of hidden — clip prevents horizontal overflow
+           without creating a new scroll container, so position: sticky on
+           .gastro-nav continues to stick to the viewport correctly. */
+        overflow-x: clip;
       }
       .gastro-grain {
         position: fixed;
@@ -669,6 +684,107 @@ function GastroStyles() {
         opacity: 0.4;
         cursor: not-allowed;
       }
+
+      /* ── Checkout & success inside gastro context ── */
+      .gastro-shell { color-scheme: dark; }
+
+      .gastro-checkout-page {
+        max-width: 540px;
+        margin: 0 auto;
+        padding: 32px 20px 80px;
+      }
+      .gastro-checkout-eyebrow {
+        font-family: var(--font-mono);
+        font-size: 11px;
+        letter-spacing: 3px;
+        text-transform: uppercase;
+        color: var(--amber);
+        margin-bottom: 28px;
+      }
+      .gastro-shell .checkout-form {
+        gap: 16px;
+        padding: 0;
+      }
+      .gastro-shell .checkout-back-btn {
+        color: var(--brass);
+        font-family: var(--font-mono);
+        font-size: 10px;
+        letter-spacing: 1.5px;
+        text-transform: uppercase;
+        min-height: unset;
+      }
+      .gastro-shell .checkout-back-btn:hover { color: var(--amber); }
+      .gastro-shell label {
+        font-family: var(--font-mono);
+        font-size: 10px;
+        letter-spacing: 1.5px;
+        text-transform: uppercase;
+        color: var(--parchment);
+        opacity: 0.75;
+      }
+      .gastro-shell input,
+      .gastro-shell textarea,
+      .gastro-shell select {
+        background: rgba(255, 255, 255, 0.06);
+        border: 1px solid var(--gastro-line);
+        border-radius: 4px;
+        color: var(--cream);
+      }
+      .gastro-shell input:focus,
+      .gastro-shell textarea:focus,
+      .gastro-shell select:focus {
+        outline: none;
+        border-color: var(--ember-bright);
+        background: rgba(255, 255, 255, 0.09);
+      }
+      .gastro-shell .checkout-error { color: #fca5a5; }
+      .gastro-shell .checkout-submit-btn {
+        background: var(--ember-bright);
+        color: var(--ink-black);
+        border-radius: 4px;
+        font-family: var(--font-mono);
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: 1.5px;
+        text-transform: uppercase;
+      }
+      .gastro-shell .checkout-submit-btn:hover:not(:disabled) {
+        background: var(--amber);
+      }
+
+      /* Success page */
+      .gastro-shell .order-success {
+        text-align: center;
+        padding: 80px 24px;
+        max-width: 480px;
+        margin: 0 auto;
+      }
+      .gastro-shell .order-success h2 {
+        font-family: var(--font-display);
+        font-size: clamp(22px, 5vw, 32px);
+        font-weight: 400;
+        color: var(--cream);
+        margin-bottom: 12px;
+      }
+      .gastro-shell .order-success p {
+        font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+        font-size: 14px;
+        color: var(--parchment);
+        opacity: 0.75;
+        margin-bottom: 32px;
+        line-height: 1.6;
+      }
+      .gastro-shell .whatsapp-btn {
+        background: var(--ember-bright);
+        color: var(--ink-black);
+        border-radius: 4px;
+        font-family: var(--font-mono);
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: 1.5px;
+        text-transform: uppercase;
+      }
+      .gastro-shell .whatsapp-btn:hover { background: var(--amber); }
     `}</style>
   );
 }

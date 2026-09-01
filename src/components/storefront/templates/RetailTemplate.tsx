@@ -62,7 +62,12 @@ export function RetailTemplate({ branch, services }: RetailTemplateProps) {
   if (step === 'success' && result && whatsappHref) {
     return (
       <div className="retail-shell">
-        <OrderSuccess orderCode={result.order_code} whatsappHref={whatsappHref} />
+        <header className="retail-header">
+          <h1>{branch.name}</h1>
+        </header>
+        <div className="retail-checkout-page">
+          <OrderSuccess orderCode={result.order_code} whatsappHref={whatsappHref} />
+        </div>
         <RetailStyles />
       </div>
     );
@@ -71,12 +76,19 @@ export function RetailTemplate({ branch, services }: RetailTemplateProps) {
   if (step === 'checkout') {
     return (
       <div className="retail-shell">
-        <CheckoutForm
-          submitting={submitting}
-          errorMessage={errorMessage}
-          onSubmit={handleSubmit}
-          onBack={backToCatalog}
-        />
+        <header className="retail-header">
+          <h1>{branch.name}</h1>
+          <button type="button" className="retail-nav-back" onClick={backToCatalog}>← Volver</button>
+        </header>
+        <div className="retail-checkout-page">
+          <div className="retail-checkout-eyebrow">Finalizá tu compra</div>
+          <CheckoutForm
+            submitting={submitting}
+            errorMessage={errorMessage}
+            onSubmit={handleSubmit}
+            onBack={backToCatalog}
+          />
+        </div>
         <RetailStyles />
       </div>
     );
@@ -491,6 +503,78 @@ function RetailStyles() {
         min-height: 44px;
       }
       .retail-checkout-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+      /* ── Checkout / Success nav ── */
+      .retail-nav-back {
+        background: var(--retail-surface);
+        border: 1px solid var(--retail-border);
+        border-radius: 8px;
+        padding: 8px 14px;
+        font-size: 13px;
+        font-weight: 600;
+        color: var(--retail-text);
+        cursor: pointer;
+      }
+      .retail-checkout-page {
+        max-width: 560px;
+        margin: 0 auto;
+        padding: 0 20px 40px;
+      }
+      .retail-checkout-eyebrow {
+        font-size: 11px;
+        letter-spacing: 2px;
+        text-transform: uppercase;
+        color: var(--retail-text-secondary);
+        text-align: center;
+        padding: 24px 0 4px;
+        font-weight: 600;
+      }
+
+      /* ── CheckoutForm overrides inside retail-shell ── */
+      .retail-shell label {
+        font-size: 12px;
+        font-weight: 600;
+        color: var(--retail-text-secondary);
+        text-transform: none;
+        letter-spacing: 0;
+      }
+      .retail-shell input,
+      .retail-shell textarea,
+      .retail-shell select {
+        background: var(--retail-surface);
+        border: 1px solid var(--retail-border);
+        border-radius: 8px;
+        color: var(--retail-text);
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+      }
+      .retail-shell input:focus,
+      .retail-shell textarea:focus,
+      .retail-shell select:focus {
+        outline: none;
+        border-color: var(--retail-accent);
+      }
+      .retail-shell .checkout-submit-btn {
+        background: var(--retail-accent);
+        color: var(--retail-accent-foreground);
+        border-radius: 10px;
+        font-size: 14px;
+        font-weight: 700;
+        letter-spacing: 0;
+        text-transform: none;
+      }
+
+      /* ── OrderSuccess overrides inside retail-shell ── */
+      .retail-shell .order-success {
+        color: var(--retail-text);
+        background: transparent;
+        padding-top: 32px;
+        text-align: center;
+      }
+      .retail-shell .whatsapp-btn {
+        background: var(--retail-accent);
+        color: var(--retail-accent-foreground);
+        border-radius: 10px;
+      }
     `}</style>
   );
 }

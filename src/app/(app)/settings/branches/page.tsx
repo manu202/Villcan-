@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { ExternalLink, Globe } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { useBranch } from '@/contexts/BranchContext';
 import { useSettings } from '@/contexts/SettingsContext';
@@ -20,10 +22,6 @@ const VERTICAL_LABEL: Record<BusinessVertical, string> = Object.fromEntries(
   VERTICAL_OPTIONS.map((opt) => [opt.value, opt.label])
 ) as Record<BusinessVertical, string>;
 
-// Storefront fields (whatsapp/slug/storefront_enabled) aren't returned by
-// useBranch()'s getUserBranches query (see src/lib/branches.ts) — fetched
-// separately here, same as the old /settings/store page used to do, since
-// that screen's functionality was folded into this one's edit form.
 interface StorefrontRow {
   whatsapp_number: string | null;
   slug: string | null;
@@ -31,6 +29,7 @@ interface StorefrontRow {
 }
 
 export default function BranchesPage() {
+  const router = useRouter();
   const { currentBranch, branches, isLoading, selectBranch, refreshBranches } = useBranch();
   const { settings } = useSettings();
 
@@ -53,12 +52,8 @@ export default function BranchesPage() {
   const [branchPendingDelete, setBranchPendingDelete] = useState<BranchWithRole | null>(null);
 
   const [storefrontData, setStorefrontData] = useState<Record<string, StorefrontRow>>({});
-  // Real host, whatever it is (Vercel's default *.vercel.app domain today, a
-  // custom domain later if one gets configured) — never hardcode one. Read in
-  // an effect, not inline, so SSR's placeholder (no window) doesn't mismatch
-  // what the client renders after hydration.
-  const [storeHost, setStoreHost] = useState('');
-  useEffect(() => setStoreHost(window.location.host), []);
+  const [storeOrigin, setStoreOrigin] = useState('');
+  useEffect(() => setStoreOrigin(window.location.origin), []);
 
   const loadStorefrontData = async () => {
     const supabase = createClient();
@@ -94,7 +89,6 @@ export default function BranchesPage() {
     const supabase = createClient();
 
     if (editingBranch) {
-      // Update
       const { error } = await supabase
         .from('branches')
         .update({
@@ -114,14 +108,7 @@ export default function BranchesPage() {
         loadStorefrontData();
       }
     } else {
-      // Create. The new branch's id is generated CLIENT-SIDE (crypto.randomUUID())
-      // and inserted explicitly, rather than reading it back via .select().single()
-      // (RETURNING). Reason: branches_select's RLS policy (has_branch_access) can't
-      // see the just-inserted row until the self-grant admin access row below
-      // exists — a RETURNING/.select() on the insert would enforce that same
-      // SELECT policy against the brand-new row and fail with "new row violates
-      // row-level security policy for table branches" (verified live against
-      // Supabase; the previous .select('id').single() pattern was broken).
+      // Client-generated id to avoid RLS read-back issue on insert
       const newBranchId = crypto.randomUUID();
       const { error } = await supabase
         .from('branches')
@@ -135,8 +122,6 @@ export default function BranchesPage() {
 
       if (error) showToast(error.message, 'error');
       else {
-        // Self-grant admin access on the branch we just created — required by RLS
-        // (branches_select only shows branches the user has a user_branch_access row for).
         const { data: userData } = await supabase.auth.getUser();
         if (userData.user) {
           const { error: accessError } = await supabase
@@ -177,10 +162,7 @@ export default function BranchesPage() {
     setBranchPendingDelete(null);
 
     const supabase = createClient();
-    const { error } = await supabase
-      .from('branches')
-      .delete()
-      .eq('id', branchId);
+    const { error } = await supabase.from('branches').delete().eq('id', branchId);
 
     if (error) showToast(error.message, 'error');
     else {
@@ -193,48 +175,11 @@ export default function BranchesPage() {
     return (
       <div className="page">
         <header className="page-header">
-          <Link href="/settings" className="back-link">← Configuración</Link>
+          <button type="button" onClick={() => router.back()} className="back-btn">←</button>
           <h1 className="page-title">Sucursales</h1>
         </header>
-        <div className="empty-state">
-          <p>Acceso restringido</p>
-          <p className="page-subtitle">Solo un administrador puede ver esta página.</p>
-        </div>
-        <style>{`
-          .page {
-            max-width: 480px;
-            margin: 0 auto;
-          }
-
-          .page-header {
-            margin-bottom: 32px;
-          }
-
-          .back-link {
-            display: inline-block;
-            font-size: 14px;
-            color: var(--text-secondary);
-            text-decoration: none;
-            margin-bottom: 8px;
-          }
-
-          .page-title {
-            font-size: 24px;
-            font-weight: 700;
-          }
-
-          .page-subtitle {
-            font-size: 14px;
-            color: var(--text-secondary);
-            margin-top: 4px;
-          }
-
-          .empty-state {
-            text-align: center;
-            padding: 48px 24px;
-            color: var(--text-secondary);
-          }
-        `}</style>
+        <p className="page-subtitle">Solo un administrador puede ver esta página.</p>
+        <PageStyles />
       </div>
     );
   }
@@ -242,108 +187,98 @@ export default function BranchesPage() {
   if (isLoading) {
     return (
       <div className="page">
-        <header className="page-header">
-          <Link href="/settings" className="back-link">← Configuración</Link>
+        <header className="page-header flex-header">
+          <button type="button" onClick={() => router.back()} className="back-btn">←</button>
           <h1 className="page-title">Sucursales</h1>
         </header>
-        <section className="section">
-          <p className="page-subtitle">Cargando...</p>
-        </section>
+        <p className="page-subtitle">Cargando...</p>
+        <PageStyles />
       </div>
     );
   }
 
   return (
     <div className="page">
-      <header className="page-header">
-        <Link href="/settings" className="back-link">← Configuración</Link>
-        <div className="flex-header">
-          <h1 className="page-title">Sucursales</h1>
-          {!showForm && (
-            <button onClick={() => setShowForm(true)} className="btn-add">
-              +Nueva
-            </button>
-          )}
-        </div>
+      <header className="page-header flex-header">
+        <button type="button" onClick={() => router.back()} className="back-btn">←</button>
+        <h1 className="page-title">Sucursales</h1>
+        {!showForm && (
+          <button type="button" onClick={() => setShowForm(true)} className="btn-new">
+            + Nueva
+          </button>
+        )}
       </header>
 
       {showForm && (
-        <section className="section">
+        <div className="form-card">
+          <h2 className="form-card-title">
+            {editingBranch ? `Editar ${editingBranch.name}` : 'Nueva sucursal'}
+          </h2>
           <form onSubmit={handleSubmit} className="form">
-            <h2 className="section-title">
-              {editingBranch ? 'Editar' : 'Nueva'} Sucursal
-            </h2>
-            <input
-              type="text"
-              placeholder="Nombre"
-              value={formData.name}
-              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-              className="input"
-              autoFocus
-              required
-            />
-            <input
-              type="text"
-              placeholder="Dirección (opcional)"
-              value={formData.address}
-              onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-              className="input"
-            />
+            <label className="field">
+              <span className="field-label">Nombre</span>
+              <input
+                type="text"
+                placeholder="Nombre de la sucursal"
+                value={formData.name}
+                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                className="input"
+                autoFocus
+                required
+              />
+            </label>
+
+            <label className="field">
+              <span className="field-label">Dirección <span className="optional">(opcional)</span></span>
+              <input
+                type="text"
+                placeholder="Ej: Av. Principal 123"
+                value={formData.address}
+                onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+                className="input"
+              />
+            </label>
 
             <div className="field">
-              <label htmlFor="vertical">Rubro</label>
+              <span className="field-label">Rubro</span>
               <select
-                id="vertical"
                 value={formData.vertical}
-                onChange={(e) =>
-                  setFormData({ ...formData, vertical: e.target.value as BusinessVertical })
-                }
+                onChange={(e) => setFormData({ ...formData, vertical: e.target.value as BusinessVertical })}
                 className="input"
               >
                 {VERTICAL_OPTIONS.map((opt) => (
-                  <option key={opt.value} value={opt.value}>
-                    {opt.label}
-                  </option>
+                  <option key={opt.value} value={opt.value}>{opt.label}</option>
                 ))}
               </select>
-              <p className="field-hint">Define el diseño de la tienda pública de esta sucursal.</p>
+              <span className="field-hint">Define el diseño de la tienda pública de esta sucursal.</span>
             </div>
 
             <div className="field">
-              <label htmlFor="whatsapp">WhatsApp de esta sucursal</label>
+              <span className="field-label">WhatsApp</span>
               <input
-                id="whatsapp"
                 type="tel"
                 value={formData.whatsapp}
                 onChange={(e) => setFormData({ ...formData, whatsapp: e.target.value })}
                 className="input"
                 placeholder="Ej: 595981234567"
               />
-              <p className="field-hint">
-                Al cargarlo, la tienda pública de esta sucursal se activa sola.
-              </p>
+              <span className="field-hint">Al cargarlo, la tienda pública se activa automáticamente.</span>
             </div>
 
-            {editingBranch && (
-              <div className="storefront-info">
-                <span
-                  className={`storefront-badge ${
-                    storefrontData[editingBranch.id]?.storefront_enabled
-                      ? 'storefront-badge-active'
-                      : ''
-                  }`}
-                >
-                  {storefrontData[editingBranch.id]?.storefront_enabled ? 'Tienda activa' : 'Tienda inactiva'}
+            {editingBranch && storefrontData[editingBranch.id]?.slug && (
+              <div className="storefront-preview">
+                <Globe size={13} />
+                <span>
+                  {storeOrigin || 'tu-dominio'}/tienda/{storefrontData[editingBranch.id]?.slug}
                 </span>
-                <p className="slug-preview">
-                  {storefrontData[editingBranch.id]?.slug
-                    ? `${storeHost || 'tu-dominio'}/tienda/${storefrontData[editingBranch.id]?.slug}`
-                    : 'La URL se generará al guardar'}
-                </p>
+                <span className={`status-dot ${storefrontData[editingBranch.id]?.storefront_enabled ? 'active' : ''}`} />
+                <span className="status-text">
+                  {storefrontData[editingBranch.id]?.storefront_enabled ? 'Activa' : 'Inactiva'}
+                </span>
               </div>
             )}
 
-            <div className="btn-row">
+            <div className="form-actions">
               <button type="submit" className="btn-primary" disabled={saving}>
                 {saving ? 'Guardando...' : 'Guardar'}
               </button>
@@ -352,71 +287,72 @@ export default function BranchesPage() {
               </button>
             </div>
           </form>
-        </section>
+        </div>
       )}
 
-      <section className="section">
-        <ul className="branch-list">
-          {branches.map((branch) => {
-            const isCurrent = currentBranch?.id === branch.id;
-            const canManage = branch.user_role === 'admin';
-            return (
-              <li key={branch.id} className="branch-item">
-                <div className="branch-info">
+      <ul className="branch-list">
+        {branches.map((branch) => {
+          const isCurrent = currentBranch?.id === branch.id;
+          const canManage = branch.user_role === 'admin';
+          const sf = storefrontData[branch.id];
+
+          return (
+            <li key={branch.id} className={`branch-card ${isCurrent ? 'branch-card-active' : ''}`}>
+              {isCurrent && <div className="active-indicator">Sucursal activa</div>}
+
+              <div className="branch-main">
+                <div className="branch-name-row">
                   <span className="branch-name">{branch.name}</span>
-                  {branch.address && (
-                    <span className="branch-address">{branch.address}</span>
-                  )}
-                  <div className="branch-tags">
-                    {isCurrent && <span className="branch-badge">Sucursal activa</span>}
-                    <span className="branch-role">Tu rol: {ROLE_LABEL[branch.user_role]}</span>
-                    <span className="vertical-tag">{VERTICAL_LABEL[branch.vertical ?? 'generic']}</span>
-                    <span
-                      className={`storefront-badge ${
-                        storefrontData[branch.id]?.storefront_enabled ? 'storefront-badge-active' : ''
-                      }`}
-                    >
-                      {storefrontData[branch.id]?.storefront_enabled
-                        ? `Tienda: /tienda/${storefrontData[branch.id]?.slug}`
-                        : 'Sin tienda pública'}
-                    </span>
-                  </div>
+                  <span className="vertical-chip">{VERTICAL_LABEL[branch.vertical ?? 'generic']}</span>
                 </div>
+                {branch.address && (
+                  <span className="branch-address">{branch.address}</span>
+                )}
+              </div>
+
+              {sf?.storefront_enabled && sf.slug ? (
+                <a
+                  href={`${storeOrigin}/tienda/${sf.slug}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="storefront-link"
+                >
+                  <Globe size={13} />
+                  <span className="storefront-link-text">{storeOrigin}/tienda/{sf.slug}</span>
+                  <ExternalLink size={11} className="ext-icon" />
+                </a>
+              ) : (
+                <div className="no-storefront">Sin tienda pública</div>
+              )}
+
+              <div className="branch-footer">
+                <span className="role-label">{ROLE_LABEL[branch.user_role]}</span>
                 <div className="branch-actions">
                   {!isCurrent && (
-                    <button
-                      onClick={() => selectBranch(branch)}
-                      className="btn-small"
-                    >
-                      Usar esta sucursal
+                    <button type="button" onClick={() => selectBranch(branch)} className="btn-action">
+                      Usar
                     </button>
                   )}
-                  {canManage ? (
-                    <>
-                      <button
-                        onClick={() => handleEdit(branch)}
-                        className="btn-small"
-                      >
-                        Editar
-                      </button>
-                      {branches.length > 1 && (
-                        <button
-                          onClick={() => setBranchPendingDelete(branch)}
-                          className="btn-small btn-danger"
-                        >
-                          Eliminar
-                        </button>
-                      )}
-                    </>
-                  ) : (
-                    <span className="hint">Sin permisos de administrador en esta sucursal</span>
+                  {canManage && (
+                    <button type="button" onClick={() => handleEdit(branch)} className="btn-action">
+                      Editar
+                    </button>
+                  )}
+                  {canManage && branches.length > 1 && (
+                    <button
+                      type="button"
+                      onClick={() => setBranchPendingDelete(branch)}
+                      className="btn-action btn-action-danger"
+                    >
+                      Eliminar
+                    </button>
                   )}
                 </div>
-              </li>
-            );
-          })}
-        </ul>
-      </section>
+              </div>
+            </li>
+          );
+        })}
+      </ul>
 
       {branchPendingDelete && (
         <ConfirmModal
@@ -427,272 +363,134 @@ export default function BranchesPage() {
         />
       )}
 
-      <style>{`
-        .page {
-          max-width: 480px;
-          margin: 0 auto;
-        }
-
-        .back-link {
-          display: inline-block;
-          font-size: 14px;
-          color: var(--text-secondary);
-          text-decoration: none;
-          margin-bottom: 8px;
-        }
-
-        .flex-header {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-        }
-
-        .btn-add {
-          padding: 10px 16px;
-          background: var(--accent);
-          color: var(--accent-foreground);
-          border: none;
-          border-radius: 8px;
-          font-size: 14px;
-          font-weight: 600;
-          cursor: pointer;
-          min-height: 44px;
-          transition: opacity 0.15s ease;
-        }
-
-        .btn-add:hover {
-          opacity: 0.85;
-        }
-
-        .btn-add:focus-visible {
-          outline: 2px solid var(--accent);
-          outline-offset: 2px;
-        }
-
-        .form {
-          display: flex;
-          flex-direction: column;
-          gap: 12px;
-        }
-
-        .field {
-          display: flex;
-          flex-direction: column;
-          gap: 6px;
-        }
-
-        .field label {
-          font-size: 13px;
-          font-weight: 600;
-          color: var(--text-primary);
-        }
-
-        .field-hint {
-          font-size: 12px;
-          color: var(--text-muted);
-          margin-top: 2px;
-        }
-
-        .vertical-tag {
-          display: inline-block;
-          padding: 4px 8px;
-          background: var(--surface);
-          color: var(--text-secondary);
-          border: 1px solid var(--border);
-          font-size: 11px;
-          font-weight: 600;
-          border-radius: 4px;
-        }
-
-        .storefront-info {
-          display: flex;
-          flex-direction: column;
-          gap: 4px;
-        }
-
-        .storefront-badge {
-          display: inline-block;
-          align-self: flex-start;
-          padding: 4px 8px;
-          background: var(--surface);
-          color: var(--text-secondary);
-          border: 1px solid var(--border);
-          font-size: 11px;
-          font-weight: 600;
-          border-radius: 4px;
-        }
-
-        .storefront-badge-active {
-          background: var(--accent);
-          color: var(--accent-foreground);
-          border-color: var(--accent);
-        }
-
-        .slug-preview {
-          font-size: 12px;
-          color: var(--text-secondary);
-        }
-
-        .btn-row {
-          display: flex;
-          gap: 12px;
-        }
-
-        .btn-row .btn-primary,
-        .btn-row .btn-secondary {
-          flex: 1;
-        }
-
-        .btn-primary {
-          padding: 14px 24px;
-          background: var(--accent);
-          color: var(--accent-foreground);
-          border: none;
-          border-radius: 8px;
-          font-size: 16px;
-          font-weight: 600;
-          cursor: pointer;
-          min-height: 44px;
-          transition: opacity 0.15s ease;
-        }
-
-        .btn-primary:hover {
-          opacity: 0.85;
-        }
-
-        .btn-primary:focus-visible {
-          outline: 2px solid var(--accent);
-          outline-offset: 2px;
-        }
-
-        .btn-secondary {
-          padding: 14px 24px;
-          background: var(--surface);
-          color: var(--text-primary);
-          border: 1px solid var(--border);
-          border-radius: 8px;
-          font-size: 16px;
-          font-weight: 600;
-          cursor: pointer;
-          min-height: 44px;
-          transition: border-color 0.15s ease;
-        }
-
-        .btn-secondary:hover {
-          border-color: var(--accent-hover);
-        }
-
-        .btn-secondary:focus-visible {
-          outline: 2px solid var(--accent);
-          outline-offset: 2px;
-        }
-
-        .btn-small {
-          padding: 8px 12px;
-          background: var(--surface-elevated);
-          border: 1px solid var(--border);
-          border-radius: 6px;
-          font-size: 13px;
-          cursor: pointer;
-          min-height: 44px;
-          transition: border-color 0.15s ease;
-        }
-
-        .btn-small:hover {
-          border-color: var(--accent-hover);
-        }
-
-        .btn-small:focus-visible {
-          outline: 2px solid var(--accent);
-          outline-offset: 2px;
-        }
-
-        .btn-danger {
-          color: #dc2626;
-          border-color: #dc2626;
-        }
-
-        .branch-list {
-          list-style: none;
-        }
-
-        .branch-item {
-          padding: 16px;
-          background: var(--surface-elevated);
-          border-radius: 12px;
-          margin-bottom: 12px;
-        }
-
-        .branch-info {
-          display: flex;
-          flex-direction: column;
-          gap: 4px;
-          margin-bottom: 12px;
-        }
-
-        .branch-name {
-          font-size: 16px;
-          font-weight: 600;
-          color: var(--text-primary);
-        }
-
-        .branch-address {
-          font-size: 13px;
-          color: var(--text-secondary);
-        }
-
-        .branch-tags {
-          display: flex;
-          align-items: center;
-          gap: 8px;
-          flex-wrap: wrap;
-          margin-top: 4px;
-        }
-
-        .branch-badge {
-          display: inline-block;
-          padding: 4px 8px;
-          background: var(--accent);
-          color: var(--accent-foreground);
-          font-size: 11px;
-          font-weight: 600;
-          border-radius: 4px;
-        }
-
-        .branch-role {
-          font-size: 12px;
-          color: var(--text-secondary);
-        }
-
-        .branch-actions {
-          display: flex;
-          align-items: center;
-          gap: 8px;
-          flex-wrap: wrap;
-        }
-
-        .branch-actions .btn-danger {
-          margin-left: auto;
-        }
-
-        .hint {
-          font-size: 12px;
-          color: var(--text-muted);
-        }
-
-        .input {
-          width: 100%;
-          padding: 14px 16px;
-          border: 1px solid var(--border);
-          border-radius: 8px;
-          font-size: 16px;
-        }
-
-        .input:focus {
-          outline: none;
-          border-color: var(--accent);
-        }
-      `}</style>
+      <PageStyles />
     </div>
+  );
+}
+
+function PageStyles() {
+  return (
+    <style>{`
+      .page { max-width: 480px; margin: 0 auto; }
+
+      .flex-header { display: flex; align-items: center; gap: 12px; }
+      .back-btn {
+        width: 40px; height: 40px; min-height: unset; min-width: unset;
+        display: flex; align-items: center; justify-content: center;
+        font-size: 22px; background: var(--surface-elevated);
+        border-radius: 8px; border: none; color: var(--text-primary); cursor: pointer; flex-shrink: 0;
+      }
+      .btn-new {
+        margin-left: auto; padding: 9px 16px; min-height: unset;
+        background: var(--accent); color: var(--accent-foreground);
+        border: none; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer;
+      }
+
+      /* Form card */
+      .form-card {
+        background: var(--surface); border: 1px solid var(--border);
+        border-radius: 12px; padding: 20px; margin-bottom: 20px;
+      }
+      .form-card-title {
+        font-size: 16px; font-weight: 700; color: var(--text-primary); margin-bottom: 16px;
+      }
+      .form { display: flex; flex-direction: column; gap: 14px; }
+      .field { display: flex; flex-direction: column; gap: 6px; }
+      .field-label { font-size: 13px; font-weight: 600; color: var(--text-primary); }
+      .optional { font-weight: 400; color: var(--text-secondary); }
+      .field-hint { font-size: 12px; color: var(--text-secondary); }
+      .input {
+        width: 100%; padding: 11px 14px; border: 1px solid var(--border);
+        border-radius: 8px; font-size: 15px; background: var(--surface);
+        color: var(--text-primary);
+      }
+      .input:focus { outline: none; border-color: var(--accent); }
+
+      .storefront-preview {
+        display: flex; align-items: center; gap: 7px;
+        padding: 10px 12px; background: var(--surface-elevated);
+        border: 1px solid var(--border); border-radius: 8px;
+        font-size: 12px; color: var(--text-secondary);
+      }
+      .status-dot {
+        width: 7px; height: 7px; border-radius: 50%;
+        background: var(--text-secondary); flex-shrink: 0;
+      }
+      .status-dot.active { background: #16a34a; }
+      .status-text { color: var(--text-secondary); font-size: 11px; }
+
+      .form-actions { display: flex; gap: 10px; padding-top: 4px; }
+      .btn-primary {
+        flex: 1; padding: 13px; background: var(--accent); color: var(--accent-foreground);
+        border: none; border-radius: 8px; font-size: 15px; font-weight: 600;
+        cursor: pointer; min-height: 44px;
+      }
+      .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+      .btn-secondary {
+        flex: 1; padding: 13px; background: var(--surface-elevated);
+        color: var(--text-primary); border: 1px solid var(--border);
+        border-radius: 8px; font-size: 15px; font-weight: 600; cursor: pointer; min-height: 44px;
+      }
+
+      /* Branch list */
+      .branch-list { list-style: none; display: flex; flex-direction: column; gap: 10px; }
+
+      .branch-card {
+        background: var(--surface); border: 1px solid var(--border);
+        border-radius: 12px; overflow: hidden;
+      }
+      .branch-card-active { border-color: var(--accent); }
+
+      .active-indicator {
+        background: var(--accent); color: var(--accent-foreground);
+        font-size: 11px; font-weight: 700; letter-spacing: 0.05em;
+        text-transform: uppercase; padding: 6px 16px;
+      }
+
+      .branch-main { padding: 14px 16px 10px; }
+      .branch-name-row {
+        display: flex; align-items: center; gap: 10px; margin-bottom: 4px;
+      }
+      .branch-name { font-size: 16px; font-weight: 700; color: var(--text-primary); }
+      .vertical-chip {
+        font-size: 11px; font-weight: 600; padding: 3px 8px;
+        background: var(--surface-elevated); border: 1px solid var(--border);
+        border-radius: 20px; color: var(--text-secondary); white-space: nowrap;
+      }
+      .branch-address { font-size: 13px; color: var(--text-secondary); }
+
+      .storefront-link {
+        display: flex; align-items: center; gap: 7px;
+        padding: 8px 16px; border-top: 1px solid var(--border);
+        font-size: 13px; color: var(--accent); text-decoration: none;
+        font-weight: 500; overflow: hidden;
+      }
+      .storefront-link:hover { background: var(--surface-elevated); }
+      .storefront-link-text {
+        overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; min-width: 0;
+      }
+      .ext-icon { color: var(--text-secondary); flex-shrink: 0; }
+      .no-storefront {
+        padding: 8px 16px; border-top: 1px solid var(--border);
+        font-size: 12px; color: var(--text-secondary);
+      }
+
+      .branch-footer {
+        display: flex; align-items: center; justify-content: space-between;
+        padding: 10px 16px; border-top: 1px solid var(--border);
+        background: var(--surface-elevated);
+      }
+      .role-label { font-size: 12px; color: var(--text-secondary); }
+      .branch-actions { display: flex; gap: 8px; }
+      .btn-action {
+        padding: 7px 12px; min-height: unset; min-width: unset;
+        background: var(--surface); border: 1px solid var(--border);
+        border-radius: 6px; font-size: 13px; font-weight: 500;
+        color: var(--text-primary); cursor: pointer;
+      }
+      .btn-action:hover { border-color: var(--accent); }
+      .btn-action-danger { color: #dc2626; border-color: rgba(220,38,38,.3); }
+      .btn-action-danger:hover { background: rgba(220,38,38,.06); border-color: #dc2626; }
+    `}</style>
   );
 }

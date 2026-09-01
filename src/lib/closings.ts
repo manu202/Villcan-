@@ -15,10 +15,8 @@ import { calcRunningBalance, type KpiMovement, type RunningBalance } from '@/lib
  * calculated_efectivo = sum(servicio.income where payment_method=efectivo)
  *                      + sum(apertura.income)
  *                      - sum(gasto.expense where comment NOT tagged [Cta Bancaria])
+ *                      - sum(cierre.expense)
  * calculated_transferencia/pos = sum(servicio.income) for that method.
- *
- * Existing `cierre` movements are intentionally excluded from this
- * calculation (known gap carried over from page.tsx, not solved here).
  */
 export async function getCalculatedBalanceSince(
   branchId: string,
@@ -47,9 +45,17 @@ export async function getCalculatedBalanceSince(
     .eq('branch_id', branchId)
     .gte('created_at', periodStart);
 
+  const { data: cierreMovements } = await supabase
+    .from('movements')
+    .select('expense')
+    .eq('type', 'cierre')
+    .eq('branch_id', branchId)
+    .gte('created_at', periodStart);
+
   const services = (serviceMovements || []) as { income: number; payment_method: string | null }[];
   const aperturas = (aperturaMovements || []) as { income: number }[];
   const gastos = (expenseMovements || []) as { expense: number; comment: string | null }[];
+  const cierres = (cierreMovements || []) as { expense: number }[];
 
   const servicioEfectivo = services
     .filter((m) => m.payment_method === 'efectivo')
@@ -65,8 +71,9 @@ export async function getCalculatedBalanceSince(
   const gastosFromCaja = gastos
     .filter((m) => !m.comment?.includes('Cta Bancaria'))
     .reduce((sum, m) => sum + (m.expense || 0), 0);
+  const cierreTotal = cierres.reduce((sum, m) => sum + (m.expense || 0), 0);
 
-  const efectivo = servicioEfectivo + aperturaTotal - gastosFromCaja;
+  const efectivo = servicioEfectivo + aperturaTotal - gastosFromCaja - cierreTotal;
 
   return { efectivo, transferencia, pos };
 }

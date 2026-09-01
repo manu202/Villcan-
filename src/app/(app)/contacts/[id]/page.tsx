@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { useParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import type { Contact, MovementWithDetails } from '@/types';
 import { formatGuaranies, formatDate, getMovementTypeLabel } from '@/lib/utils';
@@ -10,6 +10,7 @@ import { getContactVisitAggregate } from '@/lib/contactAggregates';
 
 export default function ContactDetailPage() {
   const params = useParams();
+  const router = useRouter();
   const contactId = params.id as string;
 
   const [contact, setContact] = useState<Contact | null>(null);
@@ -65,7 +66,7 @@ export default function ContactDetailPage() {
     return (
       <div className="page">
         <header className="page-header flex-header">
-          <Link href="/contacts" className="back-btn">←</Link>
+          <button type="button" onClick={() => router.back()} className="back-btn">←</button>
           <h1 className="page-title">Contacto</h1>
         </header>
         <div className="error-state">{error || 'Contacto no encontrado'}</div>
@@ -79,7 +80,7 @@ export default function ContactDetailPage() {
   return (
     <div className="page">
       <header className="page-header flex-header">
-        <Link href="/contacts" className="back-btn">←</Link>
+        <button type="button" onClick={() => router.back()} className="back-btn">←</button>
         <h1 className="page-title">{contact.full_name}</h1>
         <Link href={`/contacts/${contactId}/edit`} className="edit-btn">Editar</Link>
       </header>

@@ -3,7 +3,17 @@
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
-import { MessageCircle } from 'lucide-react';
+import {
+  MessageCircle,
+  User,
+  Phone,
+  Mail,
+  ChevronRight,
+  Truck,
+  CreditCard,
+  ChevronDown,
+  StickyNote,
+} from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { formatGuaranies } from '@/lib/utils';
 import { useSettings } from '@/contexts/SettingsContext';
@@ -198,7 +208,6 @@ export default function OrderDetailPage() {
       return;
     }
 
-    // Refresh from the server so the view reflects the recalculated total.
     const [orderResult, itemsResult] = await Promise.all([
       supabase.from('orders').select('*').eq('id', order.id).single(),
       supabase.from('order_items').select('*').eq('order_id', order.id),
@@ -353,203 +362,249 @@ export default function OrderDetailPage() {
         </section>
       ) : (
         <>
-          <section className="section">
-            <h2 className="section-title">Cliente</h2>
-            <p>{order.customer_name}</p>
-            <p>{order.customer_phone}</p>
-            {order.customer_email && <p>{order.customer_email}</p>}
-            {order.contact_id ? (
-              <Link href={`/contacts/${order.contact_id}`} className="contact-link">
-                {contact ? `Ver contacto vinculado: ${contact.full_name} →` : 'Ver contacto vinculado →'}
-              </Link>
-            ) : (
-              <p className="no-contact">Sin contacto vinculado</p>
-            )}
-          </section>
+          {/* Status control row */}
+          <div className="order-control-row">
+            <div className="status-pill-wrap">
+              <select
+                className={`status-pill status-${order.status}`}
+                value={order.status}
+                onChange={(e) => handleStatusChange(e.target.value as OrderStatus)}
+                aria-label="Estado del pedido"
+              >
+                {STATUS_OPTIONS.map((s) => (
+                  <option key={s} value={s}>{ORDER_STATUS_LABELS[s]}</option>
+                ))}
+              </select>
+              <ChevronDown size={11} className="status-chevron" aria-hidden="true" />
+            </div>
+            <button type="button" className="whatsapp-btn" onClick={handleNotify}>
+              <MessageCircle size={15} />
+              Notificar
+            </button>
+          </div>
 
-          <section className="section">
-            <h2 className="section-title">Pago y entrega</h2>
-            <p>Pago: {order.payment_method === 'efectivo' ? 'Efectivo' : 'Transferencia'}</p>
-            <p>
-              Entrega:{' '}
-              {order.delivery_type === 'delivery'
-                ? `Delivery — ${order.delivery_address ?? ''}`
-                : 'Retiro en el local'}
-            </p>
-          </section>
+          {/* Cliente */}
+          <div className="detail-card">
+            <div className="detail-card-label">Cliente</div>
+            <div className="detail-card-body">
+              <div className="customer-name">{order.customer_name}</div>
+              {order.customer_phone && (
+                <div className="customer-meta">
+                  <Phone size={13} className="meta-icon" />
+                  <span>{order.customer_phone}</span>
+                </div>
+              )}
+              {order.customer_email && (
+                <div className="customer-meta">
+                  <Mail size={13} className="meta-icon" />
+                  <span>{order.customer_email}</span>
+                </div>
+              )}
+              {order.contact_id && (
+                <Link
+                  href={`/contacts/${order.contact_id}`}
+                  className="contact-pill"
+                >
+                  <User size={13} />
+                  <span>Ver contacto</span>
+                  <ChevronRight size={13} />
+                </Link>
+              )}
+            </div>
+          </div>
 
-          <section className="section">
-            <h2 className="section-title">Items</h2>
-            <ul className="order-item-list">
+          {/* Items */}
+          <div className="detail-card">
+            <div className="detail-card-label">Items</div>
+            <ul className="items-list">
               {items.map((item) => (
-                <li key={item.id} className="order-item-row">
-                  <span>
-                    {item.qty}x {item.name_snapshot}
-                  </span>
-                  <span>{formatGuaranies(item.line_total)}</span>
+                <li key={item.id} className="item-row">
+                  <div className="item-left">
+                    <span className="item-qty">{item.qty}×</span>
+                    <span className="item-name">{item.name_snapshot}</span>
+                  </div>
+                  <span className="item-total">{formatGuaranies(item.line_total)}</span>
                 </li>
               ))}
             </ul>
-            <p className="order-total-row">Total: {formatGuaranies(order.total)}</p>
-          </section>
+            <div className="grand-total-row">
+              <span>Total</span>
+              <strong>{formatGuaranies(order.total)}</strong>
+            </div>
+          </div>
 
-          <section className="section">
-            <h2 className="section-title">Estado</h2>
-            <select
-              value={order.status}
-              onChange={(e) => handleStatusChange(e.target.value as OrderStatus)}
-            >
-              {STATUS_OPTIONS.map((status) => (
-                <option key={status} value={status}>
-                  {ORDER_STATUS_LABELS[status]}
-                </option>
-              ))}
-            </select>
-            <button type="button" className="notify-customer-btn" onClick={handleNotify}>
-              <MessageCircle size={20} />
-              Notificar cliente
-            </button>
-          </section>
+          {/* Entrega & Pago */}
+          <div className="detail-card">
+            <div className="detail-card-label">Entrega & Pago</div>
+            <div className="detail-card-body detail-row-group">
+              <div className="detail-info-row">
+                <Truck size={15} className="info-icon" />
+                <span>
+                  {order.delivery_type === 'delivery'
+                    ? `Delivery${order.delivery_address ? ` — ${order.delivery_address}` : ''}`
+                    : 'Retiro en el local'}
+                </span>
+              </div>
+              <div className="detail-info-row">
+                <CreditCard size={15} className="info-icon" />
+                <span>{order.payment_method === 'efectivo' ? 'Efectivo' : 'Transferencia'}</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Nota */}
+          {order.note && (
+            <div className="detail-card">
+              <div className="detail-card-label">Nota</div>
+              <div className="detail-card-body">
+                <div className="order-note">
+                  <StickyNote size={13} className="info-icon" />
+                  <span>{order.note}</span>
+                </div>
+              </div>
+            </div>
+          )}
         </>
       )}
 
       <style>{`
-        .page {
-          max-width: 480px;
-          margin: 0 auto;
-        }
-        .flex-header {
-          display: flex;
-          align-items: center;
-          gap: 12px;
-        }
+        .page { max-width: 480px; margin: 0 auto; }
+
+        .flex-header { display: flex; align-items: center; gap: 12px; }
         .back-btn {
-          width: 44px;
-          height: 44px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          font-size: 24px;
-          background: var(--surface-elevated);
-          border-radius: 8px;
-          color: var(--text-primary);
-          text-decoration: none;
+          width: 40px; height: 40px; min-height: unset; min-width: unset;
+          display: flex; align-items: center; justify-content: center;
+          font-size: 22px;
+          background: var(--surface-elevated); border-radius: 8px;
+          color: var(--text-primary); text-decoration: none; flex-shrink: 0;
         }
         .edit-btn {
-          margin-left: auto;
-          padding: 8px 16px;
+          margin-left: auto; padding: 8px 14px; min-height: unset;
           background: var(--surface-elevated);
-          border-radius: 8px;
-          border: none;
-          color: var(--text-primary);
-          font-size: 14px;
-          font-weight: 600;
-          cursor: pointer;
+          border-radius: 8px; border: 1px solid var(--border);
+          color: var(--text-primary); font-size: 13px; font-weight: 600; cursor: pointer;
         }
-        .section {
-          margin-bottom: 24px;
+
+        /* Status control row */
+        .order-control-row {
+          display: flex; align-items: center; gap: 10px;
+          margin-bottom: 20px;
         }
-        .section-title {
-          font-size: 12px;
-          font-weight: 600;
-          text-transform: uppercase;
-          letter-spacing: 0.05em;
-          color: var(--text-muted);
-          margin-bottom: 12px;
+        .status-pill-wrap { position: relative; display: flex; align-items: center; flex-shrink: 0; }
+        .status-pill {
+          appearance: none; -webkit-appearance: none;
+          min-height: unset; min-width: unset;
+          padding: 8px 30px 8px 14px;
+          border-radius: 20px; font-size: 13px; font-weight: 600;
+          cursor: pointer; border: 1px solid transparent; width: auto;
         }
-        .contact-link {
-          color: var(--accent);
-          font-size: 14px;
+        .status-chevron { position: absolute; right: 10px; pointer-events: none; opacity: 0.7; }
+
+        .status-pill.status-pending  { background: rgba(217,119,6,.14); color: #92400e; border-color: rgba(217,119,6,.28); }
+        .status-pill.status-confirmed { background: rgba(37,99,235,.12); color: #1e40af; border-color: rgba(37,99,235,.24); }
+        .status-pill.status-completed { background: rgba(22,163,74,.12); color: #166534; border-color: rgba(22,163,74,.24); }
+        .status-pill.status-cancelled { background: rgba(107,114,128,.1); color: #6b7280; border-color: rgba(107,114,128,.2); }
+        [data-theme='dark'] .status-pill.status-pending  { background: rgba(251,191,36,.15); color: #fbbf24; border-color: rgba(251,191,36,.3); }
+        [data-theme='dark'] .status-pill.status-confirmed { background: rgba(96,165,250,.12); color: #60a5fa; border-color: rgba(96,165,250,.25); }
+        [data-theme='dark'] .status-pill.status-completed { background: rgba(74,222,128,.12); color: #4ade80; border-color: rgba(74,222,128,.25); }
+        [data-theme='dark'] .status-pill.status-cancelled { background: rgba(156,163,175,.1); color: #9ca3af; border-color: rgba(156,163,175,.2); }
+
+        .whatsapp-btn {
+          display: flex; align-items: center; gap: 7px;
+          padding: 8px 14px; border: none; border-radius: 20px;
+          background: #25D366; color: #fff;
+          font-size: 13px; font-weight: 600; cursor: pointer;
+          min-height: unset;
         }
-        .no-contact {
+
+        /* Detail cards */
+        .detail-card {
+          background: var(--surface); border: 1px solid var(--border);
+          border-radius: 12px; overflow: hidden; margin-bottom: 12px;
+        }
+        .detail-card-label {
+          padding: 10px 16px 0;
+          font-size: 11px; font-weight: 700; letter-spacing: 0.06em;
+          text-transform: uppercase; color: var(--text-secondary);
+        }
+        .detail-card-body { padding: 10px 16px 14px; }
+
+        /* Customer section */
+        .customer-name { font-size: 17px; font-weight: 700; color: var(--text-primary); margin-bottom: 8px; }
+        .customer-meta {
+          display: flex; align-items: center; gap: 7px;
+          font-size: 14px; color: var(--text-secondary); margin-bottom: 5px;
+        }
+        .meta-icon { color: var(--text-secondary); flex-shrink: 0; }
+        .contact-pill {
+          display: inline-flex; align-items: center; gap: 6px;
+          margin-top: 10px; padding: 8px 12px;
+          background: var(--surface-elevated); border: 1px solid var(--border);
+          border-radius: 8px; text-decoration: none;
+          color: var(--text-primary); font-size: 13px; font-weight: 600;
+        }
+        .contact-pill:hover { border-color: var(--accent); color: var(--accent); }
+
+        /* Items section */
+        .items-list { list-style: none; border-top: 1px solid var(--border); }
+        .item-row {
+          display: flex; justify-content: space-between; align-items: baseline;
+          padding: 11px 16px; border-bottom: 1px solid var(--border);
+          gap: 12px;
+        }
+        .item-left { display: flex; gap: 8px; align-items: baseline; min-width: 0; }
+        .item-qty { font-size: 13px; color: var(--text-secondary); font-weight: 600; flex-shrink: 0; }
+        .item-name { font-size: 14px; color: var(--text-primary); }
+        .item-total { font-size: 14px; font-weight: 600; color: var(--text-primary); white-space: nowrap; font-variant-numeric: tabular-nums; }
+        .grand-total-row {
+          display: flex; justify-content: space-between; align-items: center;
+          padding: 12px 16px;
+          font-size: 15px;
           color: var(--text-secondary);
-          font-size: 14px;
         }
-        .order-item-list {
-          list-style: none;
-          display: flex;
-          flex-direction: column;
-          gap: 8px;
+        .grand-total-row strong { font-size: 17px; font-weight: 700; color: var(--text-primary); }
+
+        /* Delivery & Payment */
+        .detail-row-group { display: flex; flex-direction: column; gap: 8px; }
+        .detail-info-row {
+          display: flex; align-items: center; gap: 9px;
+          font-size: 14px; color: var(--text-primary);
         }
-        .order-item-row {
-          display: flex;
-          justify-content: space-between;
-          font-size: 14px;
+        .info-icon { color: var(--text-secondary); flex-shrink: 0; }
+
+        /* Note */
+        .order-note {
+          display: flex; align-items: flex-start; gap: 9px;
+          font-size: 14px; color: var(--text-secondary); line-height: 1.5;
         }
-        .order-total-row {
-          margin-top: 12px;
-          font-weight: 700;
+
+        /* Edit mode */
+        .section { margin-bottom: 24px; }
+        .section-title {
+          font-size: 12px; font-weight: 600; text-transform: uppercase;
+          letter-spacing: 0.05em; color: var(--text-secondary); margin-bottom: 12px;
         }
         .edit-section label {
-          display: flex;
-          flex-direction: column;
-          gap: 4px;
-          font-size: 13px;
-          font-weight: 600;
-          color: var(--text-secondary);
-          margin-bottom: 12px;
+          display: flex; flex-direction: column; gap: 4px;
+          font-size: 13px; font-weight: 600; color: var(--text-secondary); margin-bottom: 12px;
         }
         .edit-section input, .edit-section select {
-          padding: 10px 12px;
-          border: 1px solid var(--border);
-          border-radius: 8px;
-          font-size: 15px;
+          padding: 10px 12px; border: 1px solid var(--border);
+          border-radius: 8px; font-size: 15px;
         }
         .edit-service-list {
-          list-style: none;
-          display: flex;
-          flex-direction: column;
-          gap: 1px;
-          background: var(--border);
+          list-style: none; display: flex; flex-direction: column;
+          gap: 1px; background: var(--border);
         }
-        .edit-total {
-          margin-top: 12px;
-          font-weight: 700;
-        }
-        .save-error {
-          color: var(--danger, #DC2626);
-          font-size: 14px;
-        }
-        .edit-actions {
-          display: flex;
-          gap: 12px;
-          margin-top: 16px;
-        }
+        .edit-total { margin-top: 12px; font-weight: 700; }
+        .save-error { color: var(--danger, #DC2626); font-size: 14px; }
+        .edit-actions { display: flex; gap: 12px; margin-top: 16px; }
         .cancel-btn, .save-btn {
-          flex: 1;
-          padding: 14px;
-          border-radius: 8px;
-          border: none;
-          font-size: 15px;
-          font-weight: 600;
-          cursor: pointer;
-          min-height: 44px;
+          flex: 1; padding: 14px; border-radius: 8px; border: none;
+          font-size: 15px; font-weight: 600; cursor: pointer; min-height: 44px;
         }
-        .cancel-btn {
-          background: var(--surface-elevated);
-          color: var(--text-primary);
-        }
-        .save-btn {
-          background: var(--accent);
-          color: var(--accent-foreground);
-        }
-        .notify-customer-btn {
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          gap: 8px;
-          width: 100%;
-          margin-top: 12px;
-          padding: 14px;
-          border: none;
-          border-radius: 8px;
-          background: #25D366;
-          color: #fff;
-          font-size: 15px;
-          font-weight: 600;
-          cursor: pointer;
-          min-height: 44px;
-        }
+        .cancel-btn { background: var(--surface-elevated); color: var(--text-primary); }
+        .save-btn { background: var(--accent); color: var(--accent-foreground); }
       `}</style>
     </div>
   );

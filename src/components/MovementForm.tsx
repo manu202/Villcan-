@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import {
-  Scissors,
+  ShoppingCart,
   Receipt,
   Unlock,
   Lock,
@@ -30,11 +30,25 @@ interface MovementFormProps {
 type FormStep = 'type' | 'details';
 
 const movementTypes: { value: MovementType; label: string; description: string; icon: LucideIcon }[] = [
-  { value: 'servicio', label: 'Servicio', description: 'Venta de servicio', icon: Scissors },
+  { value: 'servicio', label: 'Venta', description: 'Cobro de servicio o producto', icon: ShoppingCart },
   { value: 'gasto', label: 'Gasto', description: 'Egreso de dinero', icon: Receipt },
   { value: 'apertura', label: 'Apertura', description: 'Capital inicial del turno', icon: Unlock },
   { value: 'cierre', label: 'Retiro', description: 'Extracción de caja', icon: Lock },
 ];
+
+const MOVEMENT_TITLES: Record<MovementType, string> = {
+  servicio: 'Nueva Venta',
+  gasto: 'Nuevo Gasto',
+  apertura: 'Apertura de Caja',
+  cierre: 'Retiro de Caja',
+};
+
+const SUBMIT_LABELS: Record<MovementType, string> = {
+  servicio: 'Registrar venta',
+  gasto: 'Registrar gasto',
+  apertura: 'Abrir caja',
+  cierre: 'Registrar retiro',
+};
 
 const paymentMethods: { value: PaymentMethod; label: string; icon: LucideIcon }[] = [
   { value: 'efectivo', label: 'Efectivo', icon: Banknote },
@@ -96,14 +110,16 @@ export function MovementForm({ initialType, showToast }: MovementFormProps) {
     ? incomeNum - amountChargedNum
     : 0;
 
-  // Load services from Supabase
+  // Load services from Supabase — branch-specific + global (branch_id IS NULL)
   useEffect(() => {
+    if (!currentBranch) return;
     const loadServices = async () => {
       const supabase = createClient();
       const { data, error } = await supabase
         .from('services')
         .select('id, name, price')
         .eq('is_active', true)
+        .or(`branch_id.eq.${currentBranch.id},branch_id.is.null`)
         .order('name');
 
       if (!error && data) {
@@ -111,7 +127,7 @@ export function MovementForm({ initialType, showToast }: MovementFormProps) {
       }
     };
     loadServices();
-  }, []);
+  }, [currentBranch]);
 
   // Load contacts from Supabase on search
   useEffect(() => {
@@ -447,7 +463,7 @@ export function MovementForm({ initialType, showToast }: MovementFormProps) {
       return !!selectedContact && !!serviceId && !!paymentMethod && parseGuaranies(income) > 0;
     }
     if (type === 'gasto') {
-      return parseGuaranies(income) > 0;
+      return parseGuaranies(income) > 0 && !!fuente;
     }
     return parseGuaranies(income) > 0;
   };
@@ -456,7 +472,7 @@ export function MovementForm({ initialType, showToast }: MovementFormProps) {
     <div className="page">
       <header className="page-header flex-header">
         <button onClick={handleBack} className="back-btn">←</button>
-        <h1 className="page-title">Nuevo {type && movementTypes.find(t => t.value === type)?.label}</h1>
+        <h1 className="page-title">{type ? MOVEMENT_TITLES[type] : 'Nuevo Movimiento'}</h1>
       </header>
 
       <form onSubmit={handleSubmit}>
@@ -464,7 +480,7 @@ export function MovementForm({ initialType, showToast }: MovementFormProps) {
         {type === 'servicio' && (
           <>
             <section className="section">
-              <h2 className="section-title">Cliente</h2>
+              <h2 className="section-title">Cliente <span className="required-mark">*</span></h2>
               {selectedContact ? (
                 <div className="selected-contact">
                   <span className="contact-name">{selectedContact.full_name}</span>
@@ -535,7 +551,6 @@ export function MovementForm({ initialType, showToast }: MovementFormProps) {
                     }}
                     className={`service-btn ${serviceId === s.id ? 'selected' : ''}`}
                   >
-                    <Scissors size={16} className="service-icon" aria-hidden="true" />
                     <span className="service-name">{s.name}</span>
                     <span className="service-price">{formatGuaranies(s.price)}</span>
                   </button>
@@ -614,7 +629,7 @@ export function MovementForm({ initialType, showToast }: MovementFormProps) {
             </section>
 
             <section className="section">
-              <h2 className="section-title">Origen</h2>
+              <h2 className="section-title">Origen <span className="required-mark">*</span></h2>
               <div className="method-grid">
                 {fuentes.map((f) => (
                   <button
@@ -655,7 +670,7 @@ export function MovementForm({ initialType, showToast }: MovementFormProps) {
             disabled={!isValid() || isSubmitting}
             className="btn-primary btn-full"
           >
-            {isSubmitting ? 'Guardando...' : 'Registrar movimiento'}
+            {isSubmitting ? 'Guardando...' : (type ? SUBMIT_LABELS[type] : 'Registrar')}
           </button>
         </section>
       </form>
@@ -700,6 +715,11 @@ export function MovementForm({ initialType, showToast }: MovementFormProps) {
           letter-spacing: 0.05em;
           color: var(--text-muted);
           margin-bottom: 12px;
+        }
+
+        .required-mark {
+          color: var(--accent);
+          font-size: 14px;
         }
 
         .input {

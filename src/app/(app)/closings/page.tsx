@@ -141,7 +141,9 @@ export default function ClosingsHistoryPage() {
                         {c.arqueo_enabled && counted !== null && discrepancy !== null ? (
                           <>
                             <span className="method-counted">{formatGuaranies(counted)}</span>
-                            <span className="method-discrepancy">{formatSigned(discrepancy)}</span>
+                            <span className={`method-discrepancy ${discrepancy > 0 ? 'surplus' : discrepancy < 0 ? 'shortage' : ''}`}>
+                              {formatSigned(discrepancy)}
+                            </span>
                           </>
                         ) : null}
                       </div>
@@ -240,6 +242,9 @@ export default function ClosingsHistoryPage() {
           font-size: 12px;
           color: var(--text-muted);
         }
+
+        .method-discrepancy.surplus { color: #16a34a; }
+        .method-discrepancy.shortage { color: #dc2626; }
       `}</style>
     </div>
   );

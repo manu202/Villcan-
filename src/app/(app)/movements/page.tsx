@@ -10,31 +10,9 @@ import { Spinner } from '@/components/Spinner';
 import { Wallet } from 'lucide-react';
 import { EmptyState } from '@/components/EmptyState';
 import { ErrorState } from '@/components/ErrorState';
+import { getDateRange } from '@/lib/dateRange';
 
 type FilterType = 'today' | 'week' | 'month' | 'all';
-
-const getDateRange = (filter: FilterType): { start: string; end: string } => {
-  const now = new Date();
-  const end = new Date(now);
-  end.setDate(end.getDate() + 1); // tomorrow
-
-  let start: Date;
-  switch (filter) {
-    case 'today':
-      start = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-      break;
-    case 'week':
-      start = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 7);
-      break;
-    case 'month':
-      start = new Date(now.getFullYear(), now.getMonth() - 1, now.getDate());
-      break;
-    case 'all':
-    default:
-      return { start: '2000-01-01', end: '2100-01-01' };
-  }
-  return { start: start.toISOString(), end: end.toISOString() };
-};
 
 const TOTAL_MOVEMENTS = 100; // Maximum requested
 
@@ -106,7 +84,11 @@ export default function MovementsPage() {
         <div>
           <h1 className="page-title">Movimientos</h1>
           {!loading && !error && (
-            <p className="page-subtitle">{movements.length} de {TOTAL_MOVEMENTS} movimientos</p>
+            <p className="page-subtitle">
+            {movements.length >= TOTAL_MOVEMENTS
+              ? `Últimos ${TOTAL_MOVEMENTS} movimientos`
+              : `${movements.length} movimiento${movements.length !== 1 ? 's' : ''}`}
+          </p>
           )}
         </div>
         <Link href="/movements/new" className="btn-add">

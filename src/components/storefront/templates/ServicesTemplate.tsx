@@ -44,7 +44,12 @@ export function ServicesTemplate({ branch, services }: ServicesTemplateProps) {
   if (step === 'success' && result && whatsappHref) {
     return (
       <div className="svc-shell">
-        <OrderSuccess orderCode={result.order_code} whatsappHref={whatsappHref} />
+        <nav className="svc-nav">
+          <span className="svc-nav-brand">{branch.name}</span>
+        </nav>
+        <div className="svc-checkout-page">
+          <OrderSuccess orderCode={result.order_code} whatsappHref={whatsappHref} />
+        </div>
         <ServicesStyles />
       </div>
     );
@@ -53,12 +58,19 @@ export function ServicesTemplate({ branch, services }: ServicesTemplateProps) {
   if (step === 'checkout') {
     return (
       <div className="svc-shell">
-        <CheckoutForm
-          submitting={submitting}
-          errorMessage={errorMessage}
-          onSubmit={handleSubmit}
-          onBack={backToCatalog}
-        />
+        <nav className="svc-nav">
+          <span className="svc-nav-brand">{branch.name}</span>
+          <button type="button" className="svc-nav-back" onClick={backToCatalog}>← Volver</button>
+        </nav>
+        <div className="svc-checkout-page">
+          <div className="svc-checkout-eyebrow">Confirmá tu turno</div>
+          <CheckoutForm
+            submitting={submitting}
+            errorMessage={errorMessage}
+            onSubmit={handleSubmit}
+            onBack={backToCatalog}
+          />
+        </div>
         <ServicesStyles />
       </div>
     );
@@ -384,6 +396,89 @@ function ServicesStyles() {
         min-height: 44px;
       }
       .svc-checkout-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+      /* ── Checkout / Success nav ── */
+      .svc-nav {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 18px 20px;
+        border-bottom: 1px solid var(--svc-border);
+        background: var(--svc-surface);
+      }
+      .svc-nav-brand {
+        font-family: var(--font-serif);
+        font-size: 16px;
+        font-weight: 400;
+        color: var(--svc-ink);
+      }
+      .svc-nav-back {
+        background: none;
+        border: none;
+        font-size: 13px;
+        color: var(--svc-muted);
+        cursor: pointer;
+        padding: 0;
+      }
+      .svc-checkout-page {
+        max-width: 560px;
+        margin: 0 auto;
+        padding: 0 20px 40px;
+      }
+      .svc-checkout-eyebrow {
+        font-size: 11px;
+        letter-spacing: 3px;
+        text-transform: uppercase;
+        color: var(--svc-muted);
+        text-align: center;
+        padding: 28px 0 4px;
+      }
+
+      /* ── CheckoutForm overrides inside svc-shell ── */
+      .svc-shell label {
+        font-size: 10px;
+        letter-spacing: 2px;
+        text-transform: uppercase;
+        color: var(--svc-muted);
+        font-weight: 400;
+      }
+      .svc-shell input,
+      .svc-shell textarea,
+      .svc-shell select {
+        background: var(--svc-surface);
+        border: 1px solid var(--svc-border);
+        border-radius: 4px;
+        color: var(--svc-ink);
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      }
+      .svc-shell input:focus,
+      .svc-shell textarea:focus,
+      .svc-shell select:focus {
+        outline: none;
+        border-color: var(--svc-ink);
+      }
+      .svc-shell .checkout-submit-btn {
+        background: var(--svc-accent);
+        color: var(--svc-accent-foreground);
+        border-radius: 100px;
+        font-size: 12px;
+        letter-spacing: 1.5px;
+        text-transform: uppercase;
+        font-weight: 600;
+      }
+
+      /* ── OrderSuccess overrides inside svc-shell ── */
+      .svc-shell .order-success {
+        color: var(--svc-ink);
+        background: transparent;
+        padding-top: 32px;
+        text-align: center;
+      }
+      .svc-shell .whatsapp-btn {
+        background: var(--svc-accent);
+        color: var(--svc-accent-foreground);
+        border-radius: 100px;
+      }
     `}</style>
   );
 }
