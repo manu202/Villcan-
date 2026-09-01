@@ -159,7 +159,7 @@ export function ServiceForm({ onCancel, onSuccess }: ServiceFormProps) {
             name="name"
             value={form.name}
             onChange={handleChange}
-            placeholder="Corte clásico"
+            placeholder="Nombre"
             className="input"
             autoFocus
           />

@@ -12,23 +12,28 @@ interface SettingsCard {
 const CARDS: SettingsCard[] = [
   {
     href: '/settings/general',
-    title: 'General',
-    description: 'Comisiones, pagos, arqueo, inventario y color de marca.',
+    title: 'Negocio',
+    description: 'Nombre, marca y etiquetas del negocio.',
   },
   {
     href: '/settings/branches',
     title: 'Sucursales',
-    description: 'Crear, editar y eliminar sucursales.',
+    description: 'Crear, editar sucursales y configurar su tienda pública.',
   },
   {
-    href: '/settings/store',
-    title: 'Tienda',
-    description: 'Nombre del negocio y WhatsApp por sucursal para la tienda pública.',
+    href: '/settings/modules',
+    title: 'Módulos',
+    description: 'Comisiones, pagos, arqueo e inventario.',
   },
   {
     href: '/settings/users',
     title: 'Usuarios',
     description: 'Gestionar el acceso de usuarios a la sucursal actual.',
+  },
+  {
+    href: '/errors',
+    title: 'Soporte',
+    description: 'Errores reportados por la app.',
   },
 ];
 

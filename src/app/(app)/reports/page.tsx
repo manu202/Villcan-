@@ -307,7 +307,7 @@ export default function ReportsPage() {
           <section className="section">
             <div className="kpi-grid">
               <div className="kpi-card">
-                <span className="kpi-label">Total Servicios</span>
+                <span className="kpi-label">Total {settings.services_label}</span>
                 <span className="kpi-value">{totalServicios}</span>
                 <span className="kpi-amount">{formatGuaranies(totalServiciosAmount)}</span>
               </div>
@@ -330,7 +330,7 @@ export default function ReportsPage() {
 
           <section className="section">
             <div className="card">
-              <h2 className="card-title">Servicios</h2>
+              <h2 className="card-title">{settings.services_label}</h2>
               <ul className="breakdown-list">
                 {byService.length === 0 ? (
                   <li className="breakdown-empty">Sin servicios en este período</li>

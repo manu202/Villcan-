@@ -38,6 +38,15 @@ vi.mock('@/lib/supabase/client', () => ({
   }),
 }));
 
+describe('ServiceForm name field placeholder (vertical-neutral text)', () => {
+  it('does not use the barbershop-specific "Corte clásico" placeholder', () => {
+    render(<ServiceForm />);
+
+    expect(screen.queryByPlaceholderText('Corte clásico')).toBeNull();
+    expect(screen.getByPlaceholderText('Nombre')).toBeTruthy();
+  });
+});
+
 describe('ServiceForm product fields (description, image_url, category, is_available)', () => {
   beforeEach(() => {
     insertMock.mockClear();
@@ -48,7 +57,7 @@ describe('ServiceForm product fields (description, image_url, category, is_avail
   it('sends description, image_url, category and is_available on submit', async () => {
     render(<ServiceForm />);
 
-    fireEvent.change(screen.getByPlaceholderText('Corte clásico'), { target: { value: 'Corte' } });
+    fireEvent.change(screen.getByPlaceholderText('Nombre'), { target: { value: 'Corte' } });
     fireEvent.change(screen.getByPlaceholderText('35000'), { target: { value: '35000' } });
     fireEvent.change(screen.getByPlaceholderText('Se muestra en la tienda pública debajo del nombre'), {
       target: { value: 'Un corte prolijo' },
@@ -77,7 +86,7 @@ describe('ServiceForm product fields (description, image_url, category, is_avail
   it('sends null for optional product fields when left blank', async () => {
     render(<ServiceForm />);
 
-    fireEvent.change(screen.getByPlaceholderText('Corte clásico'), { target: { value: 'Corte' } });
+    fireEvent.change(screen.getByPlaceholderText('Nombre'), { target: { value: 'Corte' } });
     fireEvent.change(screen.getByPlaceholderText('35000'), { target: { value: '35000' } });
 
     fireEvent.click(screen.getByText('Guardar Servicio'));
@@ -97,7 +106,7 @@ describe('ServiceForm product fields (description, image_url, category, is_avail
   it('sends is_available: false when the Disponible toggle is switched off', async () => {
     render(<ServiceForm />);
 
-    fireEvent.change(screen.getByPlaceholderText('Corte clásico'), { target: { value: 'Corte' } });
+    fireEvent.change(screen.getByPlaceholderText('Nombre'), { target: { value: 'Corte' } });
     fireEvent.change(screen.getByPlaceholderText('35000'), { target: { value: '35000' } });
     fireEvent.click(screen.getByRole('switch', { name: 'Disponible en la tienda pública' }));
 
@@ -118,7 +127,7 @@ describe('ServiceForm product fields (description, image_url, category, is_avail
 
     render(<ServiceForm />);
 
-    fireEvent.change(screen.getByPlaceholderText('Corte clásico'), { target: { value: 'Corte' } });
+    fireEvent.change(screen.getByPlaceholderText('Nombre'), { target: { value: 'Corte' } });
     fireEvent.change(screen.getByPlaceholderText('35000'), { target: { value: '35000' } });
 
     const file = new File(['fake-image-bytes'], 'foto.png', { type: 'image/png' });
@@ -149,7 +158,7 @@ describe('ServiceForm product fields (description, image_url, category, is_avail
 
     render(<ServiceForm />);
 
-    fireEvent.change(screen.getByPlaceholderText('Corte clásico'), { target: { value: 'Corte' } });
+    fireEvent.change(screen.getByPlaceholderText('Nombre'), { target: { value: 'Corte' } });
     fireEvent.change(screen.getByPlaceholderText('35000'), { target: { value: '35000' } });
 
     const file = new File(['fake-image-bytes'], 'foto.png', { type: 'image/png' });

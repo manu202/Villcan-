@@ -6,21 +6,11 @@ import { useBranch } from '@/contexts/BranchContext';
 import { useSettings } from '@/contexts/SettingsContext';
 import { useToast } from '@/contexts/ToastContext';
 import { createClient } from '@/lib/supabase/client';
-import type { BusinessSettings } from '@/types';
+import { Toggle } from '@/components/Toggle';
+import type { BusinessSettings, BusinessVertical } from '@/types';
 
-const ACCENT_PRESETS: { key: string; label: string }[] = [
-  { key: 'slate', label: 'Pizarra' },
-  { key: 'emerald', label: 'Esmeralda' },
-  { key: 'blue', label: 'Azul' },
-  { key: 'violet', label: 'Violeta' },
-  { key: 'rose', label: 'Rosa' },
-  { key: 'amber', label: 'Ámbar' },
-  { key: 'teal', label: 'Verde azulado' },
-  { key: 'pink', label: 'Rosado' },
-];
-
-export default function SettingsPage() {
-  const { branches } = useBranch();
+export default function ModulesPage() {
+  const { branches, currentBranch } = useBranch();
   const { settings, refreshSettings } = useSettings();
 
   const isAdminAnywhere = branches.some((b) => b.user_role === 'admin');
@@ -30,7 +20,7 @@ export default function SettingsPage() {
       <div className="page">
         <header className="page-header">
           <Link href="/settings" className="back-link">← Configuración</Link>
-          <h1 className="page-title">Negocio</h1>
+          <h1 className="page-title">Módulos</h1>
         </header>
         <div className="empty-state">
           <p>Acceso restringido</p>
@@ -43,42 +33,36 @@ export default function SettingsPage() {
   // Keyed by updated_at: remounts the form whenever settings load/change so its
   // local state re-initializes from the new values, without syncing via an effect.
   return (
-    <SettingsForm
+    <ModulesForm
       key={settings.updated_at}
       settings={settings}
       refreshSettings={refreshSettings}
+      currentVertical={currentBranch?.vertical ?? 'generic'}
     />
   );
 }
 
-function SettingsForm({
+function ModulesForm({
   settings,
   refreshSettings,
+  currentVertical,
 }: {
   settings: BusinessSettings;
   refreshSettings: () => Promise<void>;
+  currentVertical: BusinessVertical;
 }) {
-  const [businessName, setBusinessName] = useState(settings.business_name);
-  const [servicesLabel, setServicesLabel] = useState(settings.services_label);
-  const [staffLabel, setStaffLabel] = useState(settings.staff_label);
-  const [brandColor, setBrandColor] = useState(settings.brand_color);
+  const [commissionsEnabled, setCommissionsEnabled] = useState(settings.commissions_enabled);
+  const [defaultCommissionPct, setDefaultCommissionPct] = useState(
+    String(settings.default_commission_pct)
+  );
+  const [splitPaymentEnabled, setSplitPaymentEnabled] = useState(settings.split_payment_enabled);
+  const [mandatoryArqueoEnabled, setMandatoryArqueoEnabled] = useState(
+    settings.mandatory_arqueo_enabled
+  );
+  const [inventoryEnabled, setInventoryEnabled] = useState(settings.inventory_enabled);
 
   const [submitting, setSubmitting] = useState(false);
   const { showToast } = useToast();
-
-  // Optimistic, flash-free preview: cache immediately + stamp <html> so the
-  // swatch choice is visible right away, before the DB round-trip settles
-  // (REQ-THEME-5). SettingsContext.refreshSettings() reconciles with the DB
-  // value (source of truth) after a successful save.
-  function selectBrandColor(key: string) {
-    setBrandColor(key);
-    try {
-      window.localStorage.setItem('brand_color', key);
-    } catch {
-      // non-fatal — DB remains source of truth
-    }
-    document.documentElement.setAttribute('data-accent', key);
-  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -88,10 +72,11 @@ function SettingsForm({
     const { error: updateError } = await supabase
       .from('business_settings')
       .update({
-        business_name: businessName,
-        services_label: servicesLabel,
-        staff_label: staffLabel,
-        brand_color: brandColor,
+        commissions_enabled: commissionsEnabled,
+        default_commission_pct: parseFloat(defaultCommissionPct) || 0,
+        split_payment_enabled: splitPaymentEnabled,
+        mandatory_arqueo_enabled: mandatoryArqueoEnabled,
+        inventory_enabled: inventoryEnabled,
       })
       .eq('id', 1);
 
@@ -110,66 +95,67 @@ function SettingsForm({
     <div className="page">
       <header className="page-header">
         <Link href="/settings" className="back-link">← Configuración</Link>
-        <h1 className="page-title">Negocio</h1>
+        <h1 className="page-title">Módulos</h1>
       </header>
 
       <form onSubmit={handleSubmit} className="form">
-        <div className="field">
-          <label htmlFor="business_name">Nombre del negocio</label>
-          <input
-            id="business_name"
-            type="text"
-            value={businessName}
-            onChange={(e) => setBusinessName(e.target.value)}
-            placeholder="Ej: Barbería El Toque"
-            required
-          />
-        </div>
-
-        <div className="field">
-          <label htmlFor="services_label">Nombre de servicios</label>
-          <input
-            id="services_label"
-            type="text"
-            value={servicesLabel}
-            onChange={(e) => setServicesLabel(e.target.value)}
-            required
-          />
-        </div>
-
-        <div className="field">
-          <label htmlFor="staff_label">Nombre de personal</label>
-          <input
-            id="staff_label"
-            type="text"
-            value={staffLabel}
-            onChange={(e) => setStaffLabel(e.target.value)}
-            required
-          />
-        </div>
-
-        <div className="field">
-          <span id="brand_color-label">Color de marca</span>
-          <div
-            className="swatch-picker"
-            role="radiogroup"
-            aria-labelledby="brand_color-label"
-          >
-            {ACCENT_PRESETS.map((preset) => (
-              <button
-                key={preset.key}
-                type="button"
-                role="radio"
-                aria-checked={brandColor === preset.key}
-                aria-label={preset.label}
-                title={preset.label}
-                data-accent={preset.key}
-                className={`swatch ${brandColor === preset.key ? 'swatch-selected' : ''}`}
-                onClick={() => selectBrandColor(preset.key)}
+        {currentVertical === 'barbershop' && (
+          <>
+            <div className="field field-toggle">
+              <span id="commissions_enabled-label">Comisiones</span>
+              <Toggle
+                checked={commissionsEnabled}
+                onChange={setCommissionsEnabled}
+                label="Comisiones"
               />
-            ))}
-          </div>
+            </div>
+            <p className="field-hint">Calcula y descuenta un % de comisión en cada servicio cobrado.</p>
+
+            <div className="field">
+              <label htmlFor="default_commission_pct">Comisión por defecto (%)</label>
+              <input
+                id="default_commission_pct"
+                type="number"
+                min="0"
+                max="100"
+                step="0.01"
+                value={defaultCommissionPct}
+                disabled={!commissionsEnabled}
+                onChange={(e) => setDefaultCommissionPct(e.target.value)}
+              />
+            </div>
+          </>
+        )}
+
+        <div className="field field-toggle">
+          <span id="split_payment_enabled-label">Pago dividido</span>
+          <Toggle
+            checked={splitPaymentEnabled}
+            onChange={setSplitPaymentEnabled}
+            label="Pago dividido"
+          />
         </div>
+        <p className="field-hint">Permite cobrar un movimiento combinando más de un método de pago.</p>
+
+        <div className="field field-toggle">
+          <span id="mandatory_arqueo_enabled-label">Arqueo obligatorio</span>
+          <Toggle
+            checked={mandatoryArqueoEnabled}
+            onChange={setMandatoryArqueoEnabled}
+            label="Arqueo obligatorio"
+          />
+        </div>
+        <p className="field-hint">Exige cerrar caja (arqueo) antes de poder abrir una nueva.</p>
+
+        <div className="field field-toggle">
+          <span id="inventory_enabled-label">Inventario</span>
+          <Toggle
+            checked={inventoryEnabled}
+            onChange={setInventoryEnabled}
+            label="Inventario"
+          />
+        </div>
+        <p className="field-hint">Habilita el control de stock de productos y servicios.</p>
 
         <div className="actions">
           <button type="submit" className="submit-btn" disabled={submitting}>
@@ -216,19 +202,21 @@ function SettingsForm({
         .form {
           display: flex;
           flex-direction: column;
-          gap: 20px;
+          gap: 8px;
         }
 
         .field {
           display: flex;
           flex-direction: column;
           gap: 8px;
+          margin-top: 12px;
         }
 
         .field-toggle {
           flex-direction: row;
           align-items: center;
           justify-content: space-between;
+          margin-top: 20px;
         }
 
         .field label,
@@ -238,7 +226,12 @@ function SettingsForm({
           color: var(--text-primary);
         }
 
-        .field input[type="text"],
+        .field-hint {
+          font-size: 12px;
+          color: var(--text-secondary);
+          margin: 0;
+        }
+
         .field input[type="number"] {
           padding: 12px 16px;
           font-size: 16px;
@@ -248,44 +241,15 @@ function SettingsForm({
           color: var(--text-primary);
         }
 
-        .field input[type="text"]:focus,
         .field input[type="number"]:focus {
           outline: none;
           border-color: var(--accent);
         }
 
-        .swatch-picker {
-          display: flex;
-          flex-wrap: wrap;
-          gap: 12px;
-          margin-top: 4px;
-        }
-
-        .swatch {
-          width: 36px;
-          height: 36px;
-          min-width: 36px;
-          min-height: 36px;
-          border-radius: 50%;
-          border: 2px solid var(--border);
-          background: var(--accent);
-          cursor: pointer;
-          transition: transform 0.15s ease, border-color 0.15s ease;
-        }
-
-        .swatch:hover {
-          transform: scale(1.08);
-        }
-
-        .swatch-selected {
-          border-color: var(--text-primary);
-          box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--text-primary);
-        }
-
         .actions {
           display: flex;
           gap: 12px;
-          margin-top: 8px;
+          margin-top: 24px;
         }
 
         .submit-btn {

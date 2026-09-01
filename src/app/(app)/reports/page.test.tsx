@@ -64,7 +64,7 @@ describe('ReportsPage balanceNeto computation (locks existing correct behavior)'
       branches: [],
       initialized: true,
     });
-    mockUseSettings.mockReturnValue({ settings: { staff_label: 'Barbero' } });
+    mockUseSettings.mockReturnValue({ settings: { staff_label: 'Barbero', services_label: 'Servicios' } });
   });
 
   it('computes balanceNeto = serviciosAmount - gastosTotal (100000 - 30000 = 70000)', async () => {
@@ -104,5 +104,39 @@ describe('ReportsPage liquidación link uses configurable staff_label (generaliz
     await waitFor(() => screen.getByText('₲ 70.000'));
 
     expect(screen.getByText('Liquidación por operador ›')).toBeTruthy();
+  });
+});
+
+describe('ReportsPage KPI/card labels use configurable services_label instead of hardcoded "Servicios"', () => {
+  beforeEach(() => {
+    movementsFromCalls = 0;
+    mockUseBranch.mockReturnValue({
+      currentBranch: { id: 'branch-1', name: 'Centro', vertical: 'barbershop' },
+      branches: [],
+      initialized: true,
+    });
+  });
+
+  it('uses services_label in the "Total {label}" KPI and the breakdown card title', async () => {
+    mockUseSettings.mockReturnValue({ settings: { staff_label: 'Barbero', services_label: 'Menú' } });
+
+    render(<ReportsPage />);
+
+    await waitFor(() => screen.getByText('₲ 70.000'));
+
+    expect(screen.getByText('Total Menú')).toBeTruthy();
+    expect(screen.getByRole('heading', { name: 'Menú' })).toBeTruthy();
+    expect(screen.queryByText('Total Servicios')).toBeNull();
+  });
+
+  it('falls back to the default label "Servicios" when settings say so', async () => {
+    mockUseSettings.mockReturnValue({ settings: { staff_label: 'Barbero', services_label: 'Servicios' } });
+
+    render(<ReportsPage />);
+
+    await waitFor(() => screen.getByText('₲ 70.000'));
+
+    expect(screen.getByText('Total Servicios')).toBeTruthy();
+    expect(screen.getByRole('heading', { name: 'Servicios' })).toBeTruthy();
   });
 });

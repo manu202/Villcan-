@@ -19,17 +19,22 @@ vi.mock('@/contexts/SettingsContext', () => ({
   useSettings: () => mockUseSettings(),
 }));
 
-const { insertMock } = vi.hoisted(() => ({
+const { insertMock, updateMock, eqMock, selectMock, fromMock } = vi.hoisted(() => ({
   insertMock: vi.fn().mockResolvedValue({ error: null }),
+  updateMock: vi.fn().mockReturnValue({ eq: vi.fn().mockResolvedValue({ error: null }) }),
+  eqMock: vi.fn().mockResolvedValue({ error: null }),
+  selectMock: vi.fn(),
+  fromMock: vi.fn(),
 }));
+
+const STOREFRONT_ROWS = [
+  { id: 'b1', whatsapp_number: '595981111111', slug: 'mi-negocio-centro', storefront_enabled: true },
+  { id: 'b2', whatsapp_number: null, slug: null, storefront_enabled: false },
+];
 
 vi.mock('@/lib/supabase/client', () => ({
   createClient: () => ({
-    from: vi.fn().mockReturnValue({
-      update: vi.fn().mockReturnValue({ eq: vi.fn().mockResolvedValue({ error: null }) }),
-      insert: insertMock,
-      delete: vi.fn().mockReturnValue({ eq: vi.fn().mockResolvedValue({ error: null }) }),
-    }),
+    from: (...args: unknown[]) => fromMock(...args),
     auth: { getUser: vi.fn().mockResolvedValue({ data: { user: { id: 'u1' } } }) },
   }),
 }));
@@ -42,6 +47,24 @@ describe('BranchesPage /settings/branches (REQ-SETTINGSREORG-3, REQ-SETTINGSREOR
     mockUseSettings.mockReset();
     mockUseSettings.mockReturnValue({ settings: { staff_label: 'Barbero' } });
     insertMock.mockClear();
+    updateMock.mockClear();
+    updateMock.mockReturnValue({ eq: eqMock });
+    eqMock.mockClear();
+    eqMock.mockResolvedValue({ error: null });
+    selectMock.mockReset();
+    selectMock.mockResolvedValue({ data: STOREFRONT_ROWS, error: null });
+    fromMock.mockReset();
+    fromMock.mockImplementation((table: string) => {
+      if (table === 'branches') {
+        return {
+          select: selectMock,
+          update: updateMock,
+          insert: insertMock,
+          delete: vi.fn().mockReturnValue({ eq: vi.fn().mockResolvedValue({ error: null }) }),
+        };
+      }
+      return { insert: insertMock };
+    });
   });
 
   it('renders the configured staff_label as the role tag instead of the hardcoded "Barbero"', async () => {
@@ -152,7 +175,7 @@ describe('BranchesPage /settings/branches (REQ-SETTINGSREORG-3, REQ-SETTINGSREOR
     );
   });
 
-  it('submits only name/address when creating a branch (no slug/whatsapp/storefront fields on this page)', async () => {
+  it('submits only name/address when creating a branch (no vertical/whatsapp fields on create)', async () => {
     mockUseBranch.mockReturnValue({
       currentBranch: { id: 'b1', name: 'Centro', user_role: 'admin' },
       branches: [{ id: 'b1', name: 'Centro', address: null, user_role: 'admin' }],
@@ -164,6 +187,11 @@ describe('BranchesPage /settings/branches (REQ-SETTINGSREORG-3, REQ-SETTINGSREOR
     render(<BranchesPage />);
 
     fireEvent.click(screen.getByText(/\+nueva/i));
+
+    // The vertical/WhatsApp fields only appear when editing an existing branch.
+    expect(screen.queryByLabelText(/rubro/i)).toBeNull();
+    expect(screen.queryByLabelText(/whatsapp/i)).toBeNull();
+
     fireEvent.change(screen.getByPlaceholderText('Nombre'), { target: { value: 'Nueva sucursal' } });
     fireEvent.change(screen.getByPlaceholderText(/dirección/i), {
       target: { value: 'Av. Siempre Viva 123' },
@@ -178,15 +206,16 @@ describe('BranchesPage /settings/branches (REQ-SETTINGSREORG-3, REQ-SETTINGSREOR
       })
     );
     const insertedPayload = insertMock.mock.calls[0][0];
-    expect(insertedPayload).not.toHaveProperty('slug');
+    expect(insertedPayload).not.toHaveProperty('vertical');
     expect(insertedPayload).not.toHaveProperty('whatsapp_number');
-    expect(insertedPayload).not.toHaveProperty('storefront_enabled');
   });
 
-  it('does not render storefront fields (URL de la tienda, WhatsApp, Tienda activa)', () => {
+  it('shows Rubro and WhatsApp fields, plus the storefront badge and slug preview, when editing a branch', async () => {
     mockUseBranch.mockReturnValue({
       currentBranch: { id: 'b1', name: 'Centro', user_role: 'admin' },
-      branches: [{ id: 'b1', name: 'Centro', address: null, user_role: 'admin' }],
+      branches: [
+        { id: 'b1', name: 'Centro', address: null, user_role: 'admin', vertical: 'gastronomy' },
+      ],
       isLoading: false,
       selectBranch: mockSelectBranch,
       refreshBranches: mockRefreshBranches,
@@ -194,10 +223,74 @@ describe('BranchesPage /settings/branches (REQ-SETTINGSREORG-3, REQ-SETTINGSREOR
 
     render(<BranchesPage />);
 
-    fireEvent.click(screen.getByText(/\+nueva/i));
+    await waitFor(() => expect(selectMock).toHaveBeenCalled());
 
-    expect(screen.queryByPlaceholderText(/url de la tienda/i)).toBeNull();
-    expect(screen.queryByPlaceholderText(/whatsapp del negocio/i)).toBeNull();
-    expect(screen.queryByRole('switch', { name: /tienda activa/i })).toBeNull();
+    fireEvent.click(screen.getByText('Editar'));
+
+    const vertical = screen.getByLabelText(/rubro/i) as HTMLSelectElement;
+    expect(vertical.value).toBe('gastronomy');
+
+    const whatsapp = screen.getByLabelText(/whatsapp/i) as HTMLInputElement;
+    expect(whatsapp.value).toBe('595981111111');
+
+    expect(screen.getByText('Activa')).toBeTruthy();
+    expect(screen.getByText(/\/tienda\/mi-negocio-centro$/)).toBeTruthy();
+  });
+
+  it('saving an edited branch sends name, address, vertical and whatsapp_number together', async () => {
+    mockUseBranch.mockReturnValue({
+      currentBranch: { id: 'b1', name: 'Centro', user_role: 'admin' },
+      branches: [
+        { id: 'b1', name: 'Centro', address: null, user_role: 'admin', vertical: 'generic' },
+      ],
+      isLoading: false,
+      selectBranch: mockSelectBranch,
+      refreshBranches: mockRefreshBranches,
+    });
+
+    render(<BranchesPage />);
+
+    await waitFor(() => expect(selectMock).toHaveBeenCalled());
+
+    fireEvent.click(screen.getByText('Editar'));
+
+    fireEvent.change(screen.getByLabelText(/rubro/i), { target: { value: 'barbershop' } });
+    fireEvent.change(screen.getByLabelText(/whatsapp/i), { target: { value: '595987654321' } });
+
+    fireEvent.click(screen.getByText('Guardar'));
+
+    await waitFor(() =>
+      expect(updateMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          name: 'Centro',
+          vertical: 'barbershop',
+          whatsapp_number: '595987654321',
+        })
+      )
+    );
+    expect(eqMock).toHaveBeenCalledWith('id', 'b1');
+  });
+
+  it('shows a placeholder message when the branch has no slug yet', async () => {
+    mockUseBranch.mockReturnValue({
+      currentBranch: { id: 'b1', name: 'Centro', user_role: 'admin' },
+      branches: [
+        { id: 'b1', name: 'Centro', address: null, user_role: 'admin' },
+        { id: 'b2', name: 'Sucursal Norte', address: null, user_role: 'admin' },
+      ],
+      isLoading: false,
+      selectBranch: mockSelectBranch,
+      refreshBranches: mockRefreshBranches,
+    });
+
+    render(<BranchesPage />);
+
+    await waitFor(() => expect(selectMock).toHaveBeenCalled());
+
+    const northItem = screen.getByText('Sucursal Norte').closest('li')!;
+    fireEvent.click(within(northItem).getByText('Editar'));
+
+    expect(screen.getByText('La URL se generará al guardar')).toBeTruthy();
+    expect(screen.getByText('Inactiva')).toBeTruthy();
   });
 });

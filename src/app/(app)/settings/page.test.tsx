@@ -20,10 +20,10 @@ describe('SettingsPage hub (REQ-SETTINGSREORG-1)', () => {
     render(<SettingsPage />);
 
     expect(screen.getByText(/acceso restringido/i)).toBeTruthy();
-    expect(screen.queryByRole('link', { name: /general/i })).toBeNull();
+    expect(screen.queryByRole('link', { name: /negocio/i })).toBeNull();
   });
 
-  it('renders 3 navigable cards (General, Sucursales, Usuarios) when admin on at least one branch', () => {
+  it('renders navigable cards (Negocio, Sucursales, Módulos, Usuarios, Soporte) when admin on at least one branch', () => {
     mockUseBranch.mockReturnValue({
       branches: [
         { id: 'b1', user_role: 'barber' },
@@ -35,14 +35,30 @@ describe('SettingsPage hub (REQ-SETTINGSREORG-1)', () => {
 
     expect(screen.queryByText(/acceso restringido/i)).toBeNull();
 
-    const general = screen.getByRole('link', { name: /general/i });
-    expect(general.getAttribute('href')).toBe('/settings/general');
+    const negocio = screen.getByRole('link', { name: /negocio/i });
+    expect(negocio.getAttribute('href')).toBe('/settings/general');
 
     const branches = screen.getByRole('link', { name: /sucursales/i });
     expect(branches.getAttribute('href')).toBe('/settings/branches');
 
+    const modules = screen.getByRole('link', { name: /módulos/i });
+    expect(modules.getAttribute('href')).toBe('/settings/modules');
+
     const users = screen.getByRole('link', { name: /usuarios/i });
     expect(users.getAttribute('href')).toBe('/settings/users');
+
+    const support = screen.getByRole('link', { name: /soporte/i });
+    expect(support.getAttribute('href')).toBe('/errors');
+  });
+
+  it('does not render a "Tienda" card (store screen folded into Sucursales)', () => {
+    mockUseBranch.mockReturnValue({
+      branches: [{ id: 'b1', user_role: 'admin' }],
+    });
+
+    render(<SettingsPage />);
+
+    expect(screen.queryByRole('link', { name: /^tienda$/i })).toBeNull();
   });
 
   it('does not render the settings form inline (moved to /settings/general)', () => {

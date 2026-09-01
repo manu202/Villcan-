@@ -1,13 +1,29 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
 import { useBranch } from '@/contexts/BranchContext';
 import { useSettings } from '@/contexts/SettingsContext';
 import { useToast } from '@/contexts/ToastContext';
 import { ConfirmModal } from '@/components/ConfirmModal';
-import type { BranchWithRole } from '@/types';
+import type { BranchWithRole, BusinessVertical } from '@/types';
+
+const VERTICAL_OPTIONS: { value: BusinessVertical; label: string }[] = [
+  { value: 'barbershop', label: 'Barbería' },
+  { value: 'gastronomy', label: 'Gastronomía' },
+  { value: 'generic', label: 'General' },
+];
+
+// Storefront fields (whatsapp/slug/storefront_enabled) aren't returned by
+// useBranch()'s getUserBranches query (see src/lib/branches.ts) — fetched
+// separately here, same as the old /settings/store page used to do, since
+// that screen's functionality was folded into this one's edit form.
+interface StorefrontRow {
+  whatsapp_number: string | null;
+  slug: string | null;
+  storefront_enabled: boolean;
+}
 
 export default function BranchesPage() {
   const { currentBranch, branches, isLoading, selectBranch, refreshBranches } = useBranch();
@@ -21,10 +37,50 @@ export default function BranchesPage() {
   const isAdminAnywhere = branches.some((b) => b.user_role === 'admin');
   const [showForm, setShowForm] = useState(false);
   const [editingBranch, setEditingBranch] = useState<BranchWithRole | null>(null);
-  const [formData, setFormData] = useState({ name: '', address: '' });
+  const [formData, setFormData] = useState({
+    name: '',
+    address: '',
+    vertical: 'generic' as BusinessVertical,
+    whatsapp: '',
+  });
   const [saving, setSaving] = useState(false);
   const { showToast } = useToast();
   const [branchPendingDelete, setBranchPendingDelete] = useState<BranchWithRole | null>(null);
+
+  const [storefrontData, setStorefrontData] = useState<Record<string, StorefrontRow>>({});
+  // Real host, whatever it is (Vercel's default *.vercel.app domain today, a
+  // custom domain later if one gets configured) — never hardcode one. Read in
+  // an effect, not inline, so SSR's placeholder (no window) doesn't mismatch
+  // what the client renders after hydration.
+  const [storeHost, setStoreHost] = useState('');
+  useEffect(() => setStoreHost(window.location.host), []);
+
+  const loadStorefrontData = async () => {
+    const supabase = createClient();
+    const { data, error } = await supabase
+      .from('branches')
+      .select('id, whatsapp_number, slug, storefront_enabled');
+
+    if (!error && data) {
+      setStorefrontData(
+        Object.fromEntries(
+          (data as Array<{ id: string } & StorefrontRow>).map((b) => [
+            b.id,
+            {
+              whatsapp_number: b.whatsapp_number,
+              slug: b.slug,
+              storefront_enabled: b.storefront_enabled,
+            },
+          ])
+        )
+      );
+    }
+  };
+
+  useEffect(() => {
+    loadStorefrontData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -36,15 +92,21 @@ export default function BranchesPage() {
       // Update
       const { error } = await supabase
         .from('branches')
-        .update({ name: formData.name, address: formData.address })
+        .update({
+          name: formData.name,
+          address: formData.address,
+          vertical: formData.vertical,
+          whatsapp_number: formData.whatsapp.trim() || null,
+        })
         .eq('id', editingBranch.id);
       if (error) showToast(error.message, 'error');
       else {
         showToast('Sucursal actualizada', 'success');
         setShowForm(false);
         setEditingBranch(null);
-        setFormData({ name: '', address: '' });
+        setFormData({ name: '', address: '', vertical: 'generic', whatsapp: '' });
         refreshBranches();
+        loadStorefrontData();
       }
     } else {
       // Create. The new branch's id is generated CLIENT-SIDE (crypto.randomUUID())
@@ -73,7 +135,7 @@ export default function BranchesPage() {
         }
         showToast('Sucursal creada', 'success');
         setShowForm(false);
-        setFormData({ name: '', address: '' });
+        setFormData({ name: '', address: '', vertical: 'generic', whatsapp: '' });
         refreshBranches();
       }
     }
@@ -82,14 +144,19 @@ export default function BranchesPage() {
 
   const handleEdit = (branch: BranchWithRole) => {
     setEditingBranch(branch);
-    setFormData({ name: branch.name, address: branch.address || '' });
+    setFormData({
+      name: branch.name,
+      address: branch.address || '',
+      vertical: branch.vertical ?? 'generic',
+      whatsapp: storefrontData[branch.id]?.whatsapp_number || '',
+    });
     setShowForm(true);
   };
 
   const handleCancel = () => {
     setShowForm(false);
     setEditingBranch(null);
-    setFormData({ name: '', address: '' });
+    setFormData({ name: '', address: '', vertical: 'generic', whatsapp: '' });
   };
 
   const handleDeleteConfirmed = async () => {
@@ -210,6 +277,58 @@ export default function BranchesPage() {
               onChange={(e) => setFormData({ ...formData, address: e.target.value })}
               className="input"
             />
+
+            {editingBranch && (
+              <>
+                <div className="field">
+                  <label htmlFor="vertical">Rubro</label>
+                  <select
+                    id="vertical"
+                    value={formData.vertical}
+                    onChange={(e) =>
+                      setFormData({ ...formData, vertical: e.target.value as BusinessVertical })
+                    }
+                    className="input"
+                  >
+                    {VERTICAL_OPTIONS.map((opt) => (
+                      <option key={opt.value} value={opt.value}>
+                        {opt.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="field">
+                  <label htmlFor="whatsapp">WhatsApp</label>
+                  <input
+                    id="whatsapp"
+                    type="tel"
+                    value={formData.whatsapp}
+                    onChange={(e) => setFormData({ ...formData, whatsapp: e.target.value })}
+                    className="input"
+                    placeholder="Ej: 595981234567"
+                  />
+                </div>
+
+                <div className="storefront-info">
+                  <span
+                    className={`storefront-badge ${
+                      storefrontData[editingBranch.id]?.storefront_enabled
+                        ? 'storefront-badge-active'
+                        : ''
+                    }`}
+                  >
+                    {storefrontData[editingBranch.id]?.storefront_enabled ? 'Activa' : 'Inactiva'}
+                  </span>
+                  <p className="slug-preview">
+                    {storefrontData[editingBranch.id]?.slug
+                      ? `${storeHost || 'tu-dominio'}/tienda/${storefrontData[editingBranch.id]?.slug}`
+                      : 'La URL se generará al guardar'}
+                  </p>
+                </div>
+              </>
+            )}
+
             <div className="btn-row">
               <button type="submit" className="btn-primary" disabled={saving}>
                 {saving ? 'Guardando...' : 'Guardar'}
@@ -330,6 +449,47 @@ export default function BranchesPage() {
           display: flex;
           flex-direction: column;
           gap: 12px;
+        }
+
+        .field {
+          display: flex;
+          flex-direction: column;
+          gap: 6px;
+        }
+
+        .field label {
+          font-size: 13px;
+          font-weight: 600;
+          color: var(--text-primary);
+        }
+
+        .storefront-info {
+          display: flex;
+          flex-direction: column;
+          gap: 4px;
+        }
+
+        .storefront-badge {
+          display: inline-block;
+          align-self: flex-start;
+          padding: 4px 8px;
+          background: var(--surface);
+          color: var(--text-secondary);
+          border: 1px solid var(--border);
+          font-size: 11px;
+          font-weight: 600;
+          border-radius: 4px;
+        }
+
+        .storefront-badge-active {
+          background: var(--accent);
+          color: var(--accent-foreground);
+          border-color: var(--accent);
+        }
+
+        .slug-preview {
+          font-size: 12px;
+          color: var(--text-secondary);
         }
 
         .btn-row {

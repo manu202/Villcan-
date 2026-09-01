@@ -29,7 +29,7 @@ vi.mock('@/lib/supabase/client', () => ({
 
 const mockRefreshSettings = vi.fn();
 
-describe('SettingsPage /settings/general (REQ-SETTINGSREORG-2)', () => {
+describe('SettingsPage /settings/general — "Negocio" (REQ-SETTINGSREORG-2)', () => {
   beforeEach(() => {
     mockUpdate.mockReset();
     mockEq.mockReset();
@@ -42,7 +42,7 @@ describe('SettingsPage /settings/general (REQ-SETTINGSREORG-2)', () => {
     mockFrom.mockReturnValue({ update: mockUpdate });
 
     mockUseSettings.mockReturnValue({
-      settings: DEFAULT_BUSINESS_SETTINGS,
+      settings: { ...DEFAULT_BUSINESS_SETTINGS, business_name: 'Mi Negocio' },
       isLoading: false,
       initialized: true,
       refreshSettings: mockRefreshSettings,
@@ -56,8 +56,18 @@ describe('SettingsPage /settings/general (REQ-SETTINGSREORG-2)', () => {
 
     render(<SettingsPage />);
 
-    expect(screen.queryByRole('switch', { name: /comisiones/i })).toBeNull();
+    expect(screen.queryByLabelText(/nombre del negocio/i)).toBeNull();
     expect(screen.getByText(/acceso restringido/i)).toBeTruthy();
+  });
+
+  it('titles the page "Negocio"', () => {
+    mockUseBranch.mockReturnValue({
+      branches: [{ id: 'b1', user_role: 'admin' }],
+    });
+
+    render(<SettingsPage />);
+
+    expect(screen.getByRole('heading', { name: 'Negocio' })).toBeTruthy();
   });
 
   it('renders the full form pre-populated when the user is admin on at least one branch', () => {
@@ -66,20 +76,20 @@ describe('SettingsPage /settings/general (REQ-SETTINGSREORG-2)', () => {
         { id: 'b1', user_role: 'barber' },
         { id: 'b2', user_role: 'admin' },
       ],
-      currentBranch: { id: 'b2', user_role: 'admin', vertical: 'generic' },
     });
 
     render(<SettingsPage />);
 
     expect(screen.queryByText(/acceso restringido/i)).toBeNull();
-    const label = screen.getByLabelText(/nombre de servicios/i) as HTMLInputElement;
-    expect(label.value).toBe(DEFAULT_BUSINESS_SETTINGS.services_label);
+    const businessName = screen.getByLabelText(/nombre del negocio/i) as HTMLInputElement;
+    expect(businessName.value).toBe('Mi Negocio');
+    const servicesLabel = screen.getByLabelText(/nombre de servicios/i) as HTMLInputElement;
+    expect(servicesLabel.value).toBe(DEFAULT_BUSINESS_SETTINGS.services_label);
   });
 
   it('renders a staff_label input pre-populated with the current settings value (generalize-verticals)', () => {
     mockUseBranch.mockReturnValue({
       branches: [{ id: 'b1', user_role: 'admin' }],
-      currentBranch: { id: 'b1', user_role: 'admin', vertical: 'generic' },
     });
     mockUseSettings.mockReturnValue({
       settings: { ...DEFAULT_BUSINESS_SETTINGS, staff_label: 'Mozo' },
@@ -94,50 +104,27 @@ describe('SettingsPage /settings/general (REQ-SETTINGSREORG-2)', () => {
     expect(input.value).toBe('Mozo');
   });
 
-  it('renders a vertical select pre-populated with the current branch vertical (generalize-verticals)', () => {
+  it('does NOT render the Rubro (vertical) select — that lives on /settings/branches now', () => {
     mockUseBranch.mockReturnValue({
       branches: [{ id: 'b1', user_role: 'admin' }],
-      currentBranch: { id: 'b1', user_role: 'admin', vertical: 'gastronomy' },
     });
 
     render(<SettingsPage />);
 
-    const select = screen.getByLabelText(/rubro/i) as HTMLSelectElement;
-    expect(select.value).toBe('gastronomy');
+    expect(screen.queryByLabelText(/rubro/i)).toBeNull();
   });
 
-  it('renders the four business-settings toggles as accessible switches reflecting their checked state', () => {
+  it('does NOT render the module toggles (commissions/split payment/arqueo/inventory) — moved to /settings/modules', () => {
     mockUseBranch.mockReturnValue({
       branches: [{ id: 'b1', user_role: 'admin' }],
-      currentBranch: { id: 'b1', user_role: 'admin', vertical: 'barbershop' },
-    });
-    mockUseSettings.mockReturnValue({
-      settings: {
-        ...DEFAULT_BUSINESS_SETTINGS,
-        commissions_enabled: true,
-        split_payment_enabled: false,
-        mandatory_arqueo_enabled: true,
-        inventory_enabled: false,
-      },
-      isLoading: false,
-      initialized: true,
-      refreshSettings: mockRefreshSettings,
     });
 
     render(<SettingsPage />);
 
-    expect(screen.getByRole('switch', { name: /comisiones/i }).getAttribute('aria-checked')).toBe(
-      'true'
-    );
-    expect(
-      screen.getByRole('switch', { name: /pago dividido/i }).getAttribute('aria-checked')
-    ).toBe('false');
-    expect(
-      screen.getByRole('switch', { name: /arqueo obligatorio/i }).getAttribute('aria-checked')
-    ).toBe('true');
-    expect(screen.getByRole('switch', { name: /inventario/i }).getAttribute('aria-checked')).toBe(
-      'false'
-    );
+    expect(screen.queryByRole('switch', { name: /comisiones/i })).toBeNull();
+    expect(screen.queryByRole('switch', { name: /pago dividido/i })).toBeNull();
+    expect(screen.queryByRole('switch', { name: /arqueo obligatorio/i })).toBeNull();
+    expect(screen.queryByRole('switch', { name: /inventario/i })).toBeNull();
   });
 
   it('renders a brand_color swatch radiogroup with the current preset checked', () => {
@@ -177,23 +164,7 @@ describe('SettingsPage /settings/general (REQ-SETTINGSREORG-2)', () => {
     expect(violetSwatch.getAttribute('aria-checked')).toBe('true');
   });
 
-  it('toggling a switch flips its aria-checked state', () => {
-    mockUseBranch.mockReturnValue({
-      branches: [{ id: 'b1', user_role: 'admin' }],
-      currentBranch: { id: 'b1', user_role: 'admin', vertical: 'barbershop' },
-    });
-
-    render(<SettingsPage />);
-
-    const commissionsSwitch = screen.getByRole('switch', { name: /comisiones/i });
-    expect(commissionsSwitch.getAttribute('aria-checked')).toBe('false');
-
-    fireEvent.click(commissionsSwitch);
-
-    expect(commissionsSwitch.getAttribute('aria-checked')).toBe('true');
-  });
-
-  it('saving calls business_settings.update(...).eq(id, 1) with brand_color included, then refreshSettings()', async () => {
+  it('saving calls business_settings.update(...).eq(id, 1) with business_name and brand_color, then refreshSettings()', async () => {
     mockUseBranch.mockReturnValue({
       branches: [{ id: 'b1', user_role: 'admin' }],
     });
@@ -205,8 +176,14 @@ describe('SettingsPage /settings/general (REQ-SETTINGSREORG-2)', () => {
     await waitFor(() => expect(mockFrom).toHaveBeenCalledWith('business_settings'));
     expect(mockEq).toHaveBeenCalledWith('id', 1);
     expect(mockUpdate).toHaveBeenCalledWith(
-      expect.objectContaining({ brand_color: DEFAULT_BUSINESS_SETTINGS.brand_color })
+      expect.objectContaining({
+        business_name: 'Mi Negocio',
+        brand_color: DEFAULT_BUSINESS_SETTINGS.brand_color,
+      })
     );
+    const savedPayload = mockUpdate.mock.calls[0][0];
+    expect(savedPayload).not.toHaveProperty('commissions_enabled');
+    expect(savedPayload).not.toHaveProperty('vertical');
     await waitFor(() => expect(mockRefreshSettings).toHaveBeenCalled());
     await waitFor(() => expect(mockShowToast).toHaveBeenCalledWith(expect.any(String), 'success'));
   });

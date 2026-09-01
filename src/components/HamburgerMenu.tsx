@@ -14,7 +14,6 @@ import {
   BarChart3,
   Archive,
   Settings,
-  AlertOctagon,
   ShoppingBag,
   X,
   type LucideIcon,
@@ -63,15 +62,28 @@ interface NavItem {
   icon: LucideIcon;
 }
 
-const BASE_NAV_ITEMS: NavItem[] = [
+interface NavSection {
+  label: string;
+  items: NavItem[];
+}
+
+// "Errores de usuarios" (/errors) intentionally has no entry here anymore —
+// it moved into Configuración (see /settings CARDS, "Soporte"). The route
+// itself still exists, only the menu link was removed.
+const OPERACION_ITEMS: NavItem[] = [
   { label: 'Caja', href: '/', icon: LayoutDashboard },
   { label: 'Movimientos', href: '/movements', icon: ArrowRightLeft },
-  { label: 'Contactos', href: '/contacts', icon: Users },
   { label: 'Pedidos', href: '/orders', icon: ShoppingBag },
+  { label: 'Contactos', href: '/contacts', icon: Users },
+];
+
+const ANALISIS_ITEMS: NavItem[] = [
   { label: 'Reportes', href: '/reports', icon: BarChart3 },
   { label: 'Cierres de Caja', href: '/closings', icon: Archive },
+];
+
+const CONFIGURACION_ITEMS: NavItem[] = [
   { label: 'Configuración', href: '/settings', icon: Settings },
-  { label: 'Errores de usuarios', href: '/errors', icon: AlertOctagon },
 ];
 
 export function HamburgerMenu() {
@@ -83,10 +95,11 @@ export function HamburgerMenu() {
   // "Servicios" is a barbershop-specific default — business_settings.services_label
   // lets other verticals (restaurant, retail) rename this module (e.g. "Productos",
   // "Menú"). Icon is a neutral `Package` instead of `Scissors` for the same reason.
-  const navItems: NavItem[] = [
-    ...BASE_NAV_ITEMS.slice(0, 3),
-    { label: settings.services_label, href: '/services', icon: Package },
-    ...BASE_NAV_ITEMS.slice(3),
+  const navSections: NavSection[] = [
+    { label: 'OPERACIÓN', items: OPERACION_ITEMS },
+    { label: 'CATÁLOGO', items: [{ label: settings.services_label, href: '/services', icon: Package }] },
+    { label: 'ANÁLISIS', items: ANALISIS_ITEMS },
+    { label: 'CONFIGURACIÓN', items: CONFIGURACION_ITEMS },
   ];
 
   const closeMenu = useCallback(() => setIsOpen(false), []);
@@ -150,19 +163,26 @@ export function HamburgerMenu() {
         </div>
 
         <ul className="nav-list">
-          {navItems.map((item) => (
-            <li key={item.href}>
-              <Link
-                href={item.href}
-                className={`nav-link ${pathname === item.href ? 'active' : ''}`}
-                onClick={handleClose}
-              >
-                <item.icon size={18} className="nav-icon" aria-hidden="true" />
-                <span className="nav-label">{item.label}</span>
-                {item.href === '/orders' && pendingOrdersCount > 0 && (
-                  <span className="nav-badge">{pendingOrdersCount}</span>
-                )}
-              </Link>
+          {navSections.map((section) => (
+            <li key={section.label}>
+              <div className="menu-section-label">{section.label}</div>
+              <ul className="nav-sublist">
+                {section.items.map((item) => (
+                  <li key={item.href}>
+                    <Link
+                      href={item.href}
+                      className={`nav-link ${pathname === item.href ? 'active' : ''}`}
+                      onClick={handleClose}
+                    >
+                      <item.icon size={18} className="nav-icon" aria-hidden="true" />
+                      <span className="nav-label">{item.label}</span>
+                      {item.href === '/orders' && pendingOrdersCount > 0 && (
+                        <span className="nav-badge">{pendingOrdersCount}</span>
+                      )}
+                    </Link>
+                  </li>
+                ))}
+              </ul>
             </li>
           ))}
         </ul>
@@ -292,6 +312,18 @@ export function HamburgerMenu() {
           list-style: none;
           padding: 16px 0;
           flex: 1;
+        }
+
+        .nav-sublist {
+          list-style: none;
+        }
+
+        .menu-section-label {
+          padding: 12px 20px 4px;
+          font-size: 11px;
+          font-weight: 700;
+          letter-spacing: 0.08em;
+          color: var(--text-muted, var(--text-secondary));
         }
 
         .nav-link {
