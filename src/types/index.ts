@@ -4,7 +4,7 @@ export type PaymentMethod = 'efectivo' | 'transferencia' | 'pos';
 
 export type MovementType = 'servicio' | 'gasto' | 'apertura' | 'cierre';
 
-export type BusinessVertical = 'barbershop' | 'gastronomy' | 'generic';
+export type BusinessVertical = 'barbershop' | 'gastronomy' | 'retail' | 'generic';
 
 // `role` was removed (bug #4 - profiles.role was dead code; the real,
 // per-branch authorization source of truth is UserBranchAccess.role).

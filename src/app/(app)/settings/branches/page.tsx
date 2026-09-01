@@ -12,6 +12,7 @@ import type { BranchWithRole, BusinessVertical } from '@/types';
 const VERTICAL_OPTIONS: { value: BusinessVertical; label: string }[] = [
   { value: 'barbershop', label: 'Barbería' },
   { value: 'gastronomy', label: 'Gastronomía' },
+  { value: 'retail', label: 'Venta de productos' },
   { value: 'generic', label: 'General' },
 ];
 
