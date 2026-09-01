@@ -5,10 +5,12 @@ import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { Toggle } from '@/components/Toggle';
+import { useBranch } from '@/contexts/BranchContext';
 
 export default function ServiceEditPage() {
   const params = useParams();
   const router = useRouter();
+  const { currentBranch } = useBranch();
   const serviceId = params.id as string;
 
   const [name, setName] = useState('');
@@ -18,6 +20,7 @@ export default function ServiceEditPage() {
   const [imageUrl, setImageUrl] = useState('');
   const [category, setCategory] = useState('');
   const [isAvailable, setIsAvailable] = useState(true);
+  const [isGlobal, setIsGlobal] = useState(false);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -31,7 +34,7 @@ export default function ServiceEditPage() {
       const supabase = createClient();
       const { data, error } = await supabase
         .from('services')
-        .select('id, name, price, cost, description, image_url, category, is_available')
+        .select('id, name, price, cost, description, image_url, category, is_available, branch_id')
         .eq('id', serviceId)
         .single();
 
@@ -48,6 +51,7 @@ export default function ServiceEditPage() {
       setImageUrl(data.image_url ?? '');
       setCategory(data.category ?? '');
       setIsAvailable(data.is_available ?? true);
+      setIsGlobal(data.branch_id === null);
       setLoading(false);
     }
 
@@ -83,6 +87,8 @@ export default function ServiceEditPage() {
     setError(null);
 
     const supabase = createClient();
+    const branchId = isGlobal ? null : (currentBranch?.id ?? null);
+
     const { error } = await supabase
       .from('services')
       .update({
@@ -93,6 +99,7 @@ export default function ServiceEditPage() {
         image_url: imageUrl.trim() || null,
         category: category.trim() || null,
         is_available: isAvailable,
+        branch_id: branchId,
       })
       .eq('id', serviceId);
 
@@ -207,6 +214,15 @@ export default function ServiceEditPage() {
             checked={isAvailable}
             onChange={setIsAvailable}
             label="Disponible en la tienda pública"
+          />
+        </div>
+
+        <div className="field toggle-row">
+          <span className="toggle-row-label">Global</span>
+          <Toggle
+            checked={isGlobal}
+            onChange={setIsGlobal}
+            label="Servicio global (todas las sucursales)"
           />
         </div>
 
