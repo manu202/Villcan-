@@ -1,3 +1,5 @@
+import type { Order } from '@/types';
+
 // Pure helpers for the public storefront (public-storefront capability).
 // `formatGs`/`formatOrderMessage` mirror public.format_gs / the message
 // built inside create_storefront_order (supabase/migrations/20260831140000_storefront.sql)
@@ -70,4 +72,37 @@ export function formatOrderMessage(input: FormatOrderMessageInput): string {
 export function buildWhatsAppLink(whatsappNumber: string, message: string): string {
   const digitsOnly = whatsappNumber.replace(/\D/g, '');
   return `https://wa.me/${digitsOnly}?text=${encodeURIComponent(message)}`;
+}
+
+/**
+ * Builds the "Notificar cliente" WhatsApp message text for an order's
+ * CURRENT status (order-notify-customer capability). Pure — no side effects,
+ * no I/O — so the staff-facing /orders and /orders/[id] pages can call it
+ * directly for the "Notificar cliente" button, which sends the customer a
+ * ready-made status update via `buildWhatsAppLink(order.customer_phone, ...)`.
+ *
+ * `businessName` is only used in the `pending` message; when blank (matches
+ * the tone of the RPC-built order message, which never leaves a dangling
+ * "en ." when a field is missing) it's omitted entirely rather than leaving
+ * an awkward "en ." in the text.
+ */
+export function buildStatusNotificationMessage(order: Order, businessName: string): string {
+  const name = order.customer_name;
+  const code = order.order_code;
+  const business = businessName.trim();
+
+  switch (order.status) {
+    case 'pending': {
+      const suffix = business ? ` en ${business}` : '';
+      return `Hola ${name}! Recibimos tu pedido #${code}${suffix} y lo estamos procesando. Te avisamos apenas lo confirmemos.`;
+    }
+    case 'confirmed':
+      return `Hola ${name}! Tu pedido #${code} fue confirmado y ya lo estamos preparando.`;
+    case 'completed':
+      return order.delivery_type === 'pickup'
+        ? `Hola ${name}! Tu pedido #${code} ya está listo. Podés pasar a retirarlo cuando quieras.`
+        : `Hola ${name}! Tu pedido #${code} salió en camino. En breve lo recibís.`;
+    case 'cancelled':
+      return `Hola ${name}, tu pedido #${code} fue cancelado. Cualquier consulta, escribinos.`;
+  }
 }

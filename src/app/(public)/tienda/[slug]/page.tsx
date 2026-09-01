@@ -1,6 +1,8 @@
 import type { Metadata } from 'next';
 import { createClient } from '@/lib/supabase/server';
-import { StorefrontClient } from '@/components/storefront/StorefrontClient';
+import { GastronomyTemplate } from '@/components/storefront/templates/GastronomyTemplate';
+import { RetailTemplate } from '@/components/storefront/templates/RetailTemplate';
+import { ServicesTemplate } from '@/components/storefront/templates/ServicesTemplate';
 import type { Branch, Service } from '@/types';
 
 export const revalidate = 60;
@@ -78,31 +80,17 @@ export default async function StorefrontPage({ params }: StorefrontPageProps) {
 
   const services = await getCatalog(branch.id);
 
-  return (
-    <div className="storefront-page">
-      <header className="storefront-header">
-        <h1>{branch.name}</h1>
-      </header>
-      <StorefrontClient branch={branch} services={services} />
+  // Each business vertical gets a purpose-built template — same shared cart
+  // hook underneath (see useStorefrontCart), only the presentation differs
+  // (see spec.md "Plantillas por rubro"). barbershop and any unrecognized/
+  // future vertical value fall back to ServicesTemplate.
+  if (branch.vertical === 'gastronomy') {
+    return <GastronomyTemplate branch={branch} services={services} />;
+  }
 
-      <style>{`
-        .storefront-page {
-          max-width: 480px;
-          margin: 0 auto;
-          min-height: 100vh;
-          display: flex;
-          flex-direction: column;
-        }
-        .storefront-header {
-          padding: 24px 20px;
-          border-bottom: 1px solid var(--border);
-        }
-        .storefront-header h1 {
-          font-size: 20px;
-          font-weight: 700;
-          color: var(--text-primary);
-        }
-      `}</style>
-    </div>
-  );
+  if (branch.vertical === 'retail') {
+    return <RetailTemplate branch={branch} services={services} />;
+  }
+
+  return <ServicesTemplate branch={branch} services={services} />;
 }

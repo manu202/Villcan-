@@ -2,11 +2,14 @@
 
 import { useEffect, useState, useRef, useCallback } from 'react';
 import Link from 'next/link';
+import { MessageCircle } from 'lucide-react';
 import { formatGuaranies } from '@/lib/utils';
 import { createClient } from '@/lib/supabase/client';
 import { useBranch } from '@/contexts/BranchContext';
+import { useSettings } from '@/contexts/SettingsContext';
 import { ErrorState } from '@/components/ErrorState';
 import { EmptyState } from '@/components/EmptyState';
+import { buildStatusNotificationMessage, buildWhatsAppLink } from '@/lib/storefront';
 import { ORDER_STATUS_LABELS, type Order, type OrderStatus } from '@/types';
 
 const STATUS_TABS: Array<{ value: OrderStatus | 'all'; label: string }> = [
@@ -23,6 +26,7 @@ const POLL_INTERVAL_MS = 30_000;
 
 export default function OrdersPage() {
   const { currentBranch, initialized } = useBranch();
+  const { settings } = useSettings();
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
@@ -74,6 +78,12 @@ export default function OrdersPage() {
 
   const visibleOrders = orders.filter((o) => statusFilter === 'all' || o.status === statusFilter);
 
+  const handleNotify = (order: Order) => {
+    const message = buildStatusNotificationMessage(order, settings.business_name);
+    const link = buildWhatsAppLink(order.customer_phone, message);
+    window.open(link, '_blank');
+  };
+
   return (
     <div className="page">
       <header className="page-header flex-header">
@@ -112,17 +122,27 @@ export default function OrdersPage() {
                   <span className="order-customer">{order.customer_name}</span>
                   <span className="order-total">{formatGuaranies(order.total)}</span>
                 </Link>
-                <select
-                  value={order.status}
-                  onChange={(e) => handleStatusChange(order.id, e.target.value as OrderStatus)}
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  {STATUS_OPTIONS.map((status) => (
-                    <option key={status} value={status}>
-                      {ORDER_STATUS_LABELS[status]}
-                    </option>
-                  ))}
-                </select>
+                <div className="order-actions" onClick={(e) => e.stopPropagation()}>
+                  <select
+                    value={order.status}
+                    onChange={(e) => handleStatusChange(order.id, e.target.value as OrderStatus)}
+                  >
+                    {STATUS_OPTIONS.map((status) => (
+                      <option key={status} value={status}>
+                        {ORDER_STATUS_LABELS[status]}
+                      </option>
+                    ))}
+                  </select>
+                  <button
+                    type="button"
+                    className="notify-btn"
+                    aria-label="Notificar cliente"
+                    title="Notificar cliente"
+                    onClick={() => handleNotify(order)}
+                  >
+                    <MessageCircle size={18} />
+                  </button>
+                </div>
               </li>
             ))}
           </ul>
@@ -208,6 +228,25 @@ export default function OrdersPage() {
           font-size: 14px;
           font-weight: 600;
           color: var(--text-primary);
+        }
+        .order-actions {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+        }
+        .notify-btn {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          width: 32px;
+          height: 32px;
+          padding: 0;
+          border: none;
+          border-radius: 8px;
+          background: var(--surface-elevated);
+          color: var(--text-primary);
+          cursor: pointer;
+          flex-shrink: 0;
         }
       `}</style>
     </div>

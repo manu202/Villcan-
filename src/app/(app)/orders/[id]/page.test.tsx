@@ -6,6 +6,10 @@ vi.mock('next/navigation', () => ({
   useParams: () => ({ id: 'order-1' }),
 }));
 
+vi.mock('@/contexts/SettingsContext', () => ({
+  useSettings: () => ({ settings: { business_name: 'Villcan Centro' } }),
+}));
+
 const mockRpc = vi.fn();
 
 const order = {
@@ -98,5 +102,24 @@ describe('OrderDetailPage (REQ: order detail + full edit)', () => {
       p_order_id: 'order-1',
       p_items: expect.arrayContaining([expect.objectContaining({ service_id: 's1' })]),
     })));
+  });
+
+  it('"Notificar cliente" opens a wa.me link built from the customer phone and current status (REQ: order-notify-customer)', async () => {
+    render(<OrderDetailPage />);
+    await waitFor(() => expect(screen.getByText('Juan Pérez')).toBeTruthy());
+
+    const openSpy = vi.spyOn(window, 'open').mockImplementation(() => null);
+
+    fireEvent.click(screen.getByRole('button', { name: /notificar cliente/i }));
+
+    expect(openSpy).toHaveBeenCalledWith(
+      'https://wa.me/595981123456?text=' +
+        encodeURIComponent(
+          'Hola Juan Pérez! Recibimos tu pedido #A1B2C3 en Villcan Centro y lo estamos procesando. Te avisamos apenas lo confirmemos.'
+        ),
+      '_blank'
+    );
+
+    openSpy.mockRestore();
   });
 });

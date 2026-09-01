@@ -1,107 +1,40 @@
 'use client';
 
-import { useMemo, useState } from 'react';
-import { createClient } from '@/lib/supabase/client';
-import { buildWhatsAppLink } from '@/lib/storefront';
 import { ServiceCard } from './ServiceCard';
-import { CartSheet, type CartLine } from './CartSheet';
-import { CheckoutForm, type CheckoutFormValues } from './CheckoutForm';
+import { CartSheet } from './CartSheet';
+import { CheckoutForm } from './CheckoutForm';
 import { OrderSuccess } from './OrderSuccess';
-import type { Branch, CreateStorefrontOrderResult, Service } from '@/types';
+import { useStorefrontCart } from './useStorefrontCart';
+import type { Branch, Service } from '@/types';
 
 interface StorefrontClientProps {
   branch: Branch;
   services: Service[];
 }
 
-type Step = 'catalog' | 'checkout' | 'success';
-
-// PostgREST surfaces the RPC's `raise exception ... using errcode` as
-// error.code — mapped here to user-facing Spanish copy (spec "Server-validated
-// order creation"). Anything else (network error, unknown code) falls back to
-// a generic message, never a silent success.
-const ERROR_COPY: Record<string, string> = {
-  VC400: 'Revisá los datos ingresados.',
-  VC404: 'Tienda no disponible.',
-  VC409: 'Uno de los servicios ya no está disponible. Actualizá la página.',
-  VC429: 'Demasiados pedidos, esperá un minuto antes de intentar de nuevo.',
-};
-
-function copyForError(error: { code?: string; message?: string } | null): string {
-  if (!error) return 'Ocurrió un error. Intentá de nuevo.';
-  return ERROR_COPY[error.code ?? ''] ?? 'Ocurrió un error. Intentá de nuevo.';
-}
-
+// Generic/fallback presentation for the shared cart hook — used directly by
+// the barbershop/generic "services" template style. Gastronomy and retail
+// verticals get their own richer presentations in
+// src/components/storefront/templates/, all built on the same hook.
 export function StorefrontClient({ branch, services }: StorefrontClientProps) {
-  const [cart, setCart] = useState<Record<string, number>>({});
-  const [step, setStep] = useState<Step>('catalog');
-  const [submitting, setSubmitting] = useState(false);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [result, setResult] = useState<CreateStorefrontOrderResult | null>(null);
+  const {
+    cart,
+    lines,
+    step,
+    submitting,
+    errorMessage,
+    result,
+    whatsappHref,
+    addToCart,
+    increment,
+    decrement,
+    goToCheckout,
+    backToCatalog,
+    handleSubmit,
+  } = useStorefrontCart(branch, services);
 
-  const lines: CartLine[] = useMemo(
-    () =>
-      services
-        .filter((s) => (cart[s.id] ?? 0) > 0)
-        .map((s) => ({ service: s, qty: cart[s.id] })),
-    [services, cart]
-  );
-
-  const addToCart = (service: Service) => {
-    setCart((prev) => ({ ...prev, [service.id]: (prev[service.id] ?? 0) + 1 }));
-  };
-
-  const increment = (serviceId: string) => {
-    setCart((prev) => ({ ...prev, [serviceId]: (prev[serviceId] ?? 0) + 1 }));
-  };
-
-  const decrement = (serviceId: string) => {
-    setCart((prev) => {
-      const next = { ...prev };
-      const qty = (next[serviceId] ?? 0) - 1;
-      if (qty <= 0) {
-        delete next[serviceId];
-      } else {
-        next[serviceId] = qty;
-      }
-      return next;
-    });
-  };
-
-  const handleSubmit = async (values: CheckoutFormValues) => {
-    setSubmitting(true);
-    setErrorMessage(null);
-
-    const supabase = createClient();
-    const { data, error } = await supabase.rpc('create_storefront_order', {
-      p_slug: branch.slug,
-      p_customer_name: values.name,
-      p_customer_phone: values.phone,
-      p_customer_email: values.email || null,
-      p_note: values.note || null,
-      p_items: lines.map((line) => ({ service_id: line.service.id, qty: line.qty })),
-      p_payment_method: values.paymentMethod,
-      p_delivery_type: values.deliveryType,
-      p_delivery_address: values.deliveryType === 'delivery' ? values.deliveryAddress : null,
-    });
-
-    setSubmitting(false);
-
-    // Only on confirmed success do we move to the success step and build the
-    // WhatsApp link — a failed RPC call never implies an order exists (spec
-    // "No link on failure").
-    if (error || !data) {
-      setErrorMessage(copyForError(error));
-      return;
-    }
-
-    setResult(data as CreateStorefrontOrderResult);
-    setStep('success');
-  };
-
-  if (step === 'success' && result) {
-    const href = buildWhatsAppLink(result.whatsapp_number ?? '', result.whatsapp_message);
-    return <OrderSuccess orderCode={result.order_code} whatsappHref={href} />;
+  if (step === 'success' && result && whatsappHref) {
+    return <OrderSuccess orderCode={result.order_code} whatsappHref={whatsappHref} />;
   }
 
   if (step === 'checkout') {
@@ -110,7 +43,7 @@ export function StorefrontClient({ branch, services }: StorefrontClientProps) {
         submitting={submitting}
         errorMessage={errorMessage}
         onSubmit={handleSubmit}
-        onBack={() => setStep('catalog')}
+        onBack={backToCatalog}
       />
     );
   }
@@ -131,7 +64,7 @@ export function StorefrontClient({ branch, services }: StorefrontClientProps) {
         lines={lines}
         onIncrement={increment}
         onDecrement={decrement}
-        onCheckout={() => setStep('checkout')}
+        onCheckout={goToCheckout}
       />
 
       <style>{`

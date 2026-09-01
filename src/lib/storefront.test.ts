@@ -1,5 +1,27 @@
 import { describe, it, expect } from 'vitest';
-import { formatGs, formatOrderMessage, buildWhatsAppLink } from './storefront';
+import { formatGs, formatOrderMessage, buildWhatsAppLink, buildStatusNotificationMessage } from './storefront';
+import type { Order } from '@/types';
+
+function makeOrder(overrides: Partial<Order> = {}): Order {
+  return {
+    id: 'order-1',
+    branch_id: 'branch-1',
+    order_code: 'A1B2C3',
+    customer_name: 'Juan',
+    customer_phone: '0981123456',
+    customer_email: null,
+    contact_id: null,
+    note: null,
+    status: 'pending',
+    total: 40000,
+    whatsapp_message: 'msg',
+    payment_method: 'efectivo',
+    delivery_type: 'pickup',
+    delivery_address: null,
+    created_at: '2026-08-31T10:00:00Z',
+    ...overrides,
+  };
+}
 
 describe('formatGs (REQ: WhatsApp message thousands separator)', () => {
   it('formats a large amount with dot thousands separators', () => {
@@ -70,5 +92,64 @@ describe('buildWhatsAppLink (REQ: WhatsApp order handoff — link only after con
   it('strips non-digit characters from the number (different input, different path)', () => {
     const href = buildWhatsAppLink('+595 981-123456', 'Pedido #A1');
     expect(href).toBe('https://wa.me/595981123456?text=Pedido%20%23A1');
+  });
+
+  it('works the same for a customer phone number (does not assume it is the business number)', () => {
+    const href = buildWhatsAppLink('0981123456', 'Hola!');
+    expect(href).toBe('https://wa.me/0981123456?text=Hola!');
+  });
+});
+
+describe('buildStatusNotificationMessage (REQ: order-notify-customer — WhatsApp status update text)', () => {
+  it('builds the pending message with the business name', () => {
+    const order = makeOrder({ status: 'pending', customer_name: 'Juan', order_code: 'A1B2C3' });
+    expect(buildStatusNotificationMessage(order, 'Villcan Centro')).toBe(
+      'Hola Juan! Recibimos tu pedido #A1B2C3 en Villcan Centro y lo estamos procesando. Te avisamos apenas lo confirmemos.'
+    );
+  });
+
+  it('omits "en {businessName}" entirely when the business name is blank (no dangling "en .")', () => {
+    const order = makeOrder({ status: 'pending', customer_name: 'Juan', order_code: 'A1B2C3' });
+    expect(buildStatusNotificationMessage(order, '')).toBe(
+      'Hola Juan! Recibimos tu pedido #A1B2C3 y lo estamos procesando. Te avisamos apenas lo confirmemos.'
+    );
+  });
+
+  it('builds the confirmed message', () => {
+    const order = makeOrder({ status: 'confirmed', customer_name: 'Ana', order_code: 'X9Y8Z7' });
+    expect(buildStatusNotificationMessage(order, 'Villcan Centro')).toBe(
+      'Hola Ana! Tu pedido #X9Y8Z7 fue confirmado y ya lo estamos preparando.'
+    );
+  });
+
+  it('builds the completed message for pickup orders', () => {
+    const order = makeOrder({
+      status: 'completed',
+      delivery_type: 'pickup',
+      customer_name: 'Juan',
+      order_code: 'A1B2C3',
+    });
+    expect(buildStatusNotificationMessage(order, 'Villcan Centro')).toBe(
+      'Hola Juan! Tu pedido #A1B2C3 ya está listo. Podés pasar a retirarlo cuando quieras.'
+    );
+  });
+
+  it('builds the completed message for delivery orders (different data path)', () => {
+    const order = makeOrder({
+      status: 'completed',
+      delivery_type: 'delivery',
+      customer_name: 'Ana',
+      order_code: 'X9Y8Z7',
+    });
+    expect(buildStatusNotificationMessage(order, 'Villcan Centro')).toBe(
+      'Hola Ana! Tu pedido #X9Y8Z7 salió en camino. En breve lo recibís.'
+    );
+  });
+
+  it('builds the cancelled message', () => {
+    const order = makeOrder({ status: 'cancelled', customer_name: 'Juan', order_code: 'A1B2C3' });
+    expect(buildStatusNotificationMessage(order, 'Villcan Centro')).toBe(
+      'Hola Juan, tu pedido #A1B2C3 fue cancelado. Cualquier consulta, escribinos.'
+    );
   });
 });

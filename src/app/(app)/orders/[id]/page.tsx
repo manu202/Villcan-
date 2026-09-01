@@ -3,10 +3,13 @@
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
+import { MessageCircle } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { formatGuaranies } from '@/lib/utils';
+import { useSettings } from '@/contexts/SettingsContext';
 import { ServiceCard } from '@/components/storefront/ServiceCard';
 import { CartSheet, type CartLine } from '@/components/storefront/CartSheet';
+import { buildStatusNotificationMessage, buildWhatsAppLink } from '@/lib/storefront';
 import {
   ORDER_STATUS_LABELS,
   type Contact,
@@ -47,6 +50,7 @@ interface EditState {
 export default function OrderDetailPage() {
   const params = useParams();
   const orderId = params.id as string;
+  const { settings } = useSettings();
 
   const [order, setOrder] = useState<Order | null>(null);
   const [items, setItems] = useState<OrderItem[]>([]);
@@ -210,6 +214,13 @@ export default function OrderDetailPage() {
     const supabase = createClient();
     setOrder({ ...order, status });
     await supabase.from('orders').update({ status }).eq('id', order.id);
+  };
+
+  const handleNotify = () => {
+    if (!order) return;
+    const message = buildStatusNotificationMessage(order, settings.business_name);
+    const link = buildWhatsAppLink(order.customer_phone, message);
+    window.open(link, '_blank');
   };
 
   if (loading) {
@@ -394,6 +405,10 @@ export default function OrderDetailPage() {
                 </option>
               ))}
             </select>
+            <button type="button" className="notify-customer-btn" onClick={handleNotify}>
+              <MessageCircle size={20} />
+              Notificar cliente
+            </button>
           </section>
         </>
       )}
@@ -517,6 +532,23 @@ export default function OrderDetailPage() {
         .save-btn {
           background: var(--accent);
           color: var(--accent-foreground);
+        }
+        .notify-customer-btn {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 8px;
+          width: 100%;
+          margin-top: 12px;
+          padding: 14px;
+          border: none;
+          border-radius: 8px;
+          background: #25D366;
+          color: #fff;
+          font-size: 15px;
+          font-weight: 600;
+          cursor: pointer;
+          min-height: 44px;
         }
       `}</style>
     </div>

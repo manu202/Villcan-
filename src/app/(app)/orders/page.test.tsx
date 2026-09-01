@@ -1,10 +1,14 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import OrdersPage from './page';
 
 const mockUseBranch = vi.fn();
 vi.mock('@/contexts/BranchContext', () => ({
   useBranch: () => mockUseBranch(),
+}));
+
+vi.mock('@/contexts/SettingsContext', () => ({
+  useSettings: () => ({ settings: { business_name: 'Villcan Centro' } }),
 }));
 
 const eqCalls: Array<[string, unknown]> = [];
@@ -106,5 +110,39 @@ describe('OrdersPage (REQ: incoming orders panel)', () => {
     await waitFor(() => expect(screen.getByText('A1B2C3')).toBeTruthy());
     expect(screen.getByText('A1B2C3').closest('a')?.getAttribute('href')).toBe('/orders/order-1');
     expect(screen.getByRole('link', { name: /nuevo pedido/i }).getAttribute('href')).toBe('/orders/new');
+  });
+
+  it('"Notificar cliente" opens a wa.me link built from the customer phone and current status (REQ: order-notify-customer)', async () => {
+    queryResult = Promise.resolve({
+      data: [
+        {
+          id: 'order-1',
+          order_code: 'A1B2C3',
+          customer_name: 'Juan',
+          customer_phone: '0981123456',
+          status: 'confirmed',
+          delivery_type: 'pickup',
+          total: 40000,
+          created_at: '2026-08-31T10:00:00Z',
+          branch_id: 'branch-1',
+        },
+      ],
+      error: null,
+    });
+
+    const openSpy = vi.spyOn(window, 'open').mockImplementation(() => null);
+
+    render(<OrdersPage />);
+
+    await waitFor(() => expect(screen.getByText('A1B2C3')).toBeTruthy());
+    fireEvent.click(screen.getByRole('button', { name: /notificar cliente/i }));
+
+    expect(openSpy).toHaveBeenCalledWith(
+      'https://wa.me/0981123456?text=' +
+        encodeURIComponent('Hola Juan! Tu pedido #A1B2C3 fue confirmado y ya lo estamos preparando.'),
+      '_blank'
+    );
+
+    openSpy.mockRestore();
   });
 });
