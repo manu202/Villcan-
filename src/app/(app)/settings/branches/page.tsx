@@ -16,6 +16,10 @@ const VERTICAL_OPTIONS: { value: BusinessVertical; label: string }[] = [
   { value: 'generic', label: 'General' },
 ];
 
+const VERTICAL_LABEL: Record<BusinessVertical, string> = Object.fromEntries(
+  VERTICAL_OPTIONS.map((opt) => [opt.value, opt.label])
+) as Record<BusinessVertical, string>;
+
 // Storefront fields (whatsapp/slug/storefront_enabled) aren't returned by
 // useBranch()'s getUserBranches query (see src/lib/branches.ts) — fetched
 // separately here, same as the old /settings/store page used to do, since
@@ -121,7 +125,13 @@ export default function BranchesPage() {
       const newBranchId = crypto.randomUUID();
       const { error } = await supabase
         .from('branches')
-        .insert({ id: newBranchId, name: formData.name, address: formData.address });
+        .insert({
+          id: newBranchId,
+          name: formData.name,
+          address: formData.address,
+          vertical: formData.vertical,
+          whatsapp_number: formData.whatsapp.trim() || null,
+        });
 
       if (error) showToast(error.message, 'error');
       else {
@@ -138,6 +148,7 @@ export default function BranchesPage() {
         setShowForm(false);
         setFormData({ name: '', address: '', vertical: 'generic', whatsapp: '' });
         refreshBranches();
+        loadStorefrontData();
       }
     }
     setSaving(false);
@@ -279,55 +290,57 @@ export default function BranchesPage() {
               className="input"
             />
 
+            <div className="field">
+              <label htmlFor="vertical">Rubro</label>
+              <select
+                id="vertical"
+                value={formData.vertical}
+                onChange={(e) =>
+                  setFormData({ ...formData, vertical: e.target.value as BusinessVertical })
+                }
+                className="input"
+              >
+                {VERTICAL_OPTIONS.map((opt) => (
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </option>
+                ))}
+              </select>
+              <p className="field-hint">Define el diseño de la tienda pública de esta sucursal.</p>
+            </div>
+
+            <div className="field">
+              <label htmlFor="whatsapp">WhatsApp de esta sucursal</label>
+              <input
+                id="whatsapp"
+                type="tel"
+                value={formData.whatsapp}
+                onChange={(e) => setFormData({ ...formData, whatsapp: e.target.value })}
+                className="input"
+                placeholder="Ej: 595981234567"
+              />
+              <p className="field-hint">
+                Al cargarlo, la tienda pública de esta sucursal se activa sola.
+              </p>
+            </div>
+
             {editingBranch && (
-              <>
-                <div className="field">
-                  <label htmlFor="vertical">Rubro</label>
-                  <select
-                    id="vertical"
-                    value={formData.vertical}
-                    onChange={(e) =>
-                      setFormData({ ...formData, vertical: e.target.value as BusinessVertical })
-                    }
-                    className="input"
-                  >
-                    {VERTICAL_OPTIONS.map((opt) => (
-                      <option key={opt.value} value={opt.value}>
-                        {opt.label}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div className="field">
-                  <label htmlFor="whatsapp">WhatsApp</label>
-                  <input
-                    id="whatsapp"
-                    type="tel"
-                    value={formData.whatsapp}
-                    onChange={(e) => setFormData({ ...formData, whatsapp: e.target.value })}
-                    className="input"
-                    placeholder="Ej: 595981234567"
-                  />
-                </div>
-
-                <div className="storefront-info">
-                  <span
-                    className={`storefront-badge ${
-                      storefrontData[editingBranch.id]?.storefront_enabled
-                        ? 'storefront-badge-active'
-                        : ''
-                    }`}
-                  >
-                    {storefrontData[editingBranch.id]?.storefront_enabled ? 'Activa' : 'Inactiva'}
-                  </span>
-                  <p className="slug-preview">
-                    {storefrontData[editingBranch.id]?.slug
-                      ? `${storeHost || 'tu-dominio'}/tienda/${storefrontData[editingBranch.id]?.slug}`
-                      : 'La URL se generará al guardar'}
-                  </p>
-                </div>
-              </>
+              <div className="storefront-info">
+                <span
+                  className={`storefront-badge ${
+                    storefrontData[editingBranch.id]?.storefront_enabled
+                      ? 'storefront-badge-active'
+                      : ''
+                  }`}
+                >
+                  {storefrontData[editingBranch.id]?.storefront_enabled ? 'Tienda activa' : 'Tienda inactiva'}
+                </span>
+                <p className="slug-preview">
+                  {storefrontData[editingBranch.id]?.slug
+                    ? `${storeHost || 'tu-dominio'}/tienda/${storefrontData[editingBranch.id]?.slug}`
+                    : 'La URL se generará al guardar'}
+                </p>
+              </div>
             )}
 
             <div className="btn-row">
@@ -357,6 +370,16 @@ export default function BranchesPage() {
                   <div className="branch-tags">
                     {isCurrent && <span className="branch-badge">Sucursal activa</span>}
                     <span className="branch-role">Tu rol: {ROLE_LABEL[branch.user_role]}</span>
+                    <span className="vertical-tag">{VERTICAL_LABEL[branch.vertical ?? 'generic']}</span>
+                    <span
+                      className={`storefront-badge ${
+                        storefrontData[branch.id]?.storefront_enabled ? 'storefront-badge-active' : ''
+                      }`}
+                    >
+                      {storefrontData[branch.id]?.storefront_enabled
+                        ? `Tienda: /tienda/${storefrontData[branch.id]?.slug}`
+                        : 'Sin tienda pública'}
+                    </span>
                   </div>
                 </div>
                 <div className="branch-actions">
@@ -462,6 +485,23 @@ export default function BranchesPage() {
           font-size: 13px;
           font-weight: 600;
           color: var(--text-primary);
+        }
+
+        .field-hint {
+          font-size: 12px;
+          color: var(--text-muted);
+          margin-top: 2px;
+        }
+
+        .vertical-tag {
+          display: inline-block;
+          padding: 4px 8px;
+          background: var(--surface);
+          color: var(--text-secondary);
+          border: 1px solid var(--border);
+          font-size: 11px;
+          font-weight: 600;
+          border-radius: 4px;
         }
 
         .storefront-info {

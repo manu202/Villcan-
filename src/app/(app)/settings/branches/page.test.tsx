@@ -175,7 +175,7 @@ describe('BranchesPage /settings/branches (REQ-SETTINGSREORG-3, REQ-SETTINGSREOR
     );
   });
 
-  it('submits only name/address when creating a branch (no vertical/whatsapp fields on create)', async () => {
+  it('shows Rubro and WhatsApp on create too, and submits them with name/address', async () => {
     mockUseBranch.mockReturnValue({
       currentBranch: { id: 'b1', name: 'Centro', user_role: 'admin' },
       branches: [{ id: 'b1', name: 'Centro', address: null, user_role: 'admin' }],
@@ -188,14 +188,14 @@ describe('BranchesPage /settings/branches (REQ-SETTINGSREORG-3, REQ-SETTINGSREOR
 
     fireEvent.click(screen.getByText(/\+nueva/i));
 
-    // The vertical/WhatsApp fields only appear when editing an existing branch.
-    expect(screen.queryByLabelText(/rubro/i)).toBeNull();
-    expect(screen.queryByLabelText(/whatsapp/i)).toBeNull();
-
+    // Rubro/WhatsApp are available from creation now — no more "save blind,
+    // then edit to configure the store" two-step dance.
     fireEvent.change(screen.getByPlaceholderText('Nombre'), { target: { value: 'Nueva sucursal' } });
     fireEvent.change(screen.getByPlaceholderText(/dirección/i), {
       target: { value: 'Av. Siempre Viva 123' },
     });
+    fireEvent.change(screen.getByLabelText(/rubro/i), { target: { value: 'gastronomy' } });
+    fireEvent.change(screen.getByLabelText(/whatsapp/i), { target: { value: '595981111111' } });
     fireEvent.click(screen.getByText('Guardar'));
 
     await waitFor(() => expect(insertMock).toHaveBeenCalled());
@@ -203,11 +203,10 @@ describe('BranchesPage /settings/branches (REQ-SETTINGSREORG-3, REQ-SETTINGSREOR
       expect.objectContaining({
         name: 'Nueva sucursal',
         address: 'Av. Siempre Viva 123',
+        vertical: 'gastronomy',
+        whatsapp_number: '595981111111',
       })
     );
-    const insertedPayload = insertMock.mock.calls[0][0];
-    expect(insertedPayload).not.toHaveProperty('vertical');
-    expect(insertedPayload).not.toHaveProperty('whatsapp_number');
   });
 
   it('shows Rubro and WhatsApp fields, plus the storefront badge and slug preview, when editing a branch', async () => {
@@ -233,8 +232,11 @@ describe('BranchesPage /settings/branches (REQ-SETTINGSREORG-3, REQ-SETTINGSREOR
     const whatsapp = screen.getByLabelText(/whatsapp/i) as HTMLInputElement;
     expect(whatsapp.value).toBe('595981111111');
 
-    expect(screen.getByText('Activa')).toBeTruthy();
-    expect(screen.getByText(/\/tienda\/mi-negocio-centro$/)).toBeTruthy();
+    expect(screen.getByText('Tienda activa')).toBeTruthy();
+    // The branch-list card below the form shows a similar "Tienda: /tienda/..."
+    // badge for the same branch — scope to the form's own slug-preview line so
+    // this doesn't match two elements.
+    expect(screen.getByText((_, el) => el?.className === 'slug-preview' && /\/tienda\/mi-negocio-centro$/.test(el.textContent ?? ''))).toBeTruthy();
   });
 
   it('saving an edited branch sends name, address, vertical and whatsapp_number together', async () => {
@@ -291,6 +293,6 @@ describe('BranchesPage /settings/branches (REQ-SETTINGSREORG-3, REQ-SETTINGSREOR
     fireEvent.click(within(northItem).getByText('Editar'));
 
     expect(screen.getByText('La URL se generará al guardar')).toBeTruthy();
-    expect(screen.getByText('Inactiva')).toBeTruthy();
+    expect(screen.getByText('Tienda inactiva')).toBeTruthy();
   });
 });
