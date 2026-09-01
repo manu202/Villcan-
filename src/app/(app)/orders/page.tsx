@@ -4,7 +4,6 @@ import { useEffect, useState, useRef, useCallback } from 'react';
 import { formatGuaranies } from '@/lib/utils';
 import { createClient } from '@/lib/supabase/client';
 import { useBranch } from '@/contexts/BranchContext';
-import { useBranchRole } from '@/hooks/useBranchRole';
 import { ErrorState } from '@/components/ErrorState';
 import { EmptyState } from '@/components/EmptyState';
 import type { Order, OrderStatus } from '@/types';
@@ -23,7 +22,6 @@ const POLL_INTERVAL_MS = 30_000;
 
 export default function OrdersPage() {
   const { currentBranch, initialized } = useBranch();
-  const { canWrite } = useBranchRole();
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
@@ -112,7 +110,6 @@ export default function OrdersPage() {
                 </div>
                 <select
                   value={order.status}
-                  disabled={!canWrite}
                   onChange={(e) => handleStatusChange(order.id, e.target.value as OrderStatus)}
                 >
                   {STATUS_OPTIONS.map((status) => (

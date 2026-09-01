@@ -8,7 +8,7 @@ describe('countAdmins (REQ-SETTINGSREORG-8)', () => {
   it('zero admins -> 0', () => {
     const rows: Row[] = [
       { user_id: 'u1', role: 'barber' },
-      { user_id: 'u2', role: 'viewer' },
+      { user_id: 'u2', role: 'barber' },
     ];
     expect(countAdmins(rows)).toBe(0);
   });
@@ -39,7 +39,7 @@ describe('isLastAdmin (REQ-SETTINGSREORG-8)', () => {
   it('zero admins in the branch -> false for anyone (nothing to protect)', () => {
     const rows: Row[] = [
       { user_id: 'u1', role: 'barber' },
-      { user_id: 'u2', role: 'viewer' },
+      { user_id: 'u2', role: 'barber' },
     ];
     expect(isLastAdmin(rows, 'u1')).toBe(false);
   });

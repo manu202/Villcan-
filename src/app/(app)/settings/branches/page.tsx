@@ -16,7 +16,6 @@ export default function BranchesPage() {
   const ROLE_LABEL: Record<BranchWithRole['user_role'], string> = {
     admin: 'Administrador',
     barber: settings.staff_label,
-    viewer: 'Visor',
   };
 
   const isAdminAnywhere = branches.some((b) => b.user_role === 'admin');

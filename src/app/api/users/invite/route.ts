@@ -7,7 +7,7 @@ export const runtime = 'nodejs';
 
 interface InviteRequestBody {
   email: string;
-  role: 'admin' | 'barber' | 'viewer';
+  role: 'admin' | 'barber';
   branch_id: string;
 }
 

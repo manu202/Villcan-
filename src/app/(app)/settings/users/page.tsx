@@ -37,7 +37,6 @@ export default function UsersPage() {
   const ROLE_OPTIONS: { value: AccessRole; label: string }[] = [
     { value: 'admin', label: 'Administrador' },
     { value: 'barber', label: settings.staff_label },
-    { value: 'viewer', label: 'Visor' },
   ];
 
   const isAdminAnywhere = branches.some((b) => b.user_role === 'admin');

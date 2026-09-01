@@ -119,7 +119,7 @@ describe('POST /api/users/invite', () => {
 
     const { POST } = await import('./route');
     const response = await POST(
-      makeRequest({ email: 'Existing@Example.com', role: 'viewer', branch_id: 'b1' })
+      makeRequest({ email: 'Existing@Example.com', role: 'barber', branch_id: 'b1' })
     );
     const body = await response.json();
 
@@ -129,7 +129,7 @@ describe('POST /api/users/invite', () => {
     expect(mockUbaUpsert).toHaveBeenCalledWith({
       user_id: 'existing-user-1',
       branch_id: 'b1',
-      role: 'viewer',
+      role: 'barber',
     });
   });
 });

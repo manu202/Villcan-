@@ -7,11 +7,6 @@ vi.mock('@/contexts/BranchContext', () => ({
   useBranch: () => mockUseBranch(),
 }));
 
-const mockUseBranchRole = vi.fn();
-vi.mock('@/hooks/useBranchRole', () => ({
-  useBranchRole: () => mockUseBranchRole(),
-}));
-
 const eqCalls: Array<[string, unknown]> = [];
 
 function createQueryMock(resultPromise: Promise<unknown>) {
@@ -47,7 +42,6 @@ describe('OrdersPage (REQ: incoming orders panel)', () => {
   });
 
   it('scopes the orders query to the current branch (branch-scoped visibility)', async () => {
-    mockUseBranchRole.mockReturnValue({ role: 'admin', canWrite: true });
     queryResult = Promise.resolve({
       data: [
         {
@@ -69,31 +63,7 @@ describe('OrdersPage (REQ: incoming orders panel)', () => {
     expect(eqCalls).toContainEqual(['branch_id', 'branch-1']);
   });
 
-  it('disables the status select for a viewer (cannot change status)', async () => {
-    mockUseBranchRole.mockReturnValue({ role: 'viewer', canWrite: false });
-    queryResult = Promise.resolve({
-      data: [
-        {
-          id: 'o1',
-          order_code: 'A1B2C3',
-          customer_name: 'Juan',
-          status: 'pending',
-          total: 40000,
-          created_at: '2026-08-31T10:00:00Z',
-          branch_id: 'branch-1',
-        },
-      ],
-      error: null,
-    });
-
-    render(<OrdersPage />);
-
-    await waitFor(() => expect(screen.getByRole('combobox')).toBeTruthy());
-    expect((screen.getByRole('combobox') as HTMLSelectElement).disabled).toBe(true);
-  });
-
-  it('enables the status select for admin/barber (different role, different path)', async () => {
-    mockUseBranchRole.mockReturnValue({ role: 'barber', canWrite: true });
+  it('enables the status select for any authenticated staff (no read-only role exists anymore)', async () => {
     queryResult = Promise.resolve({
       data: [
         {

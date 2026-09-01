@@ -54,7 +54,7 @@ function StoreForm({
 }: {
   businessName: string;
   refreshSettings: () => Promise<void>;
-  branchRoles: { id: string; user_role: 'admin' | 'barber' | 'viewer' }[];
+  branchRoles: { id: string; user_role: 'admin' | 'barber' }[];
 }) {
   const [name, setName] = useState(businessName);
   const [savingName, setSavingName] = useState(false);
