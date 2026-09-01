@@ -105,8 +105,10 @@ describe('StorePage /settings/store', () => {
     expect(screen.getByText('Activa')).toBeTruthy();
     expect(screen.getByText('Inactiva')).toBeTruthy();
 
-    expect(screen.getByText('villcan.app/tienda/mi-negocio-centro')).toBeTruthy();
-    expect(screen.getByText('villcan.app/tienda/mi-negocio-norte')).toBeTruthy();
+    // Host comes from window.location (real deploy domain), never hardcoded —
+    // only assert the /tienda/<slug> part, which is what the app controls.
+    expect(screen.getByText(/\/tienda\/mi-negocio-centro$/)).toBeTruthy();
+    expect(screen.getByText(/\/tienda\/mi-negocio-norte$/)).toBeTruthy();
 
     const centroInput = screen.getByLabelText('WhatsApp', {
       selector: `#whatsapp-b1`,

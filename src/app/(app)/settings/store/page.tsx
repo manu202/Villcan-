@@ -60,6 +60,13 @@ function StoreForm({
   const [savingName, setSavingName] = useState(false);
   const { showToast } = useToast();
 
+  // Real host, whatever it is (Vercel's default *.vercel.app domain today, a
+  // custom domain later if one gets configured) — never hardcode one. Read in
+  // an effect, not inline, so SSR's placeholder (no window) doesn't mismatch
+  // what the client renders after hydration.
+  const [storeHost, setStoreHost] = useState('');
+  useEffect(() => setStoreHost(window.location.host), []);
+
   const [branches, setBranches] = useState<StoreBranchRow[]>([]);
   const [loadingBranches, setLoadingBranches] = useState(true);
   const [whatsappDrafts, setWhatsappDrafts] = useState<Record<string, string>>({});
@@ -188,7 +195,7 @@ function StoreForm({
 
                   <p className="slug-preview">
                     {branch.slug
-                      ? `villcan.app/tienda/${branch.slug}`
+                      ? `${storeHost || 'tu-dominio'}/tienda/${branch.slug}`
                       : 'La URL se generará al guardar'}
                   </p>
 
