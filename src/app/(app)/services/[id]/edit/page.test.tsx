@@ -19,6 +19,8 @@ let serviceData: {
 };
 
 const updateMock = vi.fn();
+const uploadMock = vi.fn();
+const getPublicUrlMock = vi.fn();
 
 function createSelectQueryMock(resultPromise: Promise<unknown>) {
   const mock: Record<string, unknown> = {};
@@ -38,12 +40,20 @@ vi.mock('@/lib/supabase/client', () => ({
         return { eq: () => Promise.resolve({ error: null }) };
       },
     }),
+    storage: {
+      from: () => ({
+        upload: uploadMock,
+        getPublicUrl: getPublicUrlMock,
+      }),
+    },
   }),
 }));
 
 describe('ServiceEditPage product fields (description, image_url, category, is_available)', () => {
   beforeEach(() => {
     updateMock.mockClear();
+    uploadMock.mockReset();
+    getPublicUrlMock.mockReset();
     serviceData = {
       id: 'svc-1',
       name: 'Corte',
@@ -85,6 +95,66 @@ describe('ServiceEditPage product fields (description, image_url, category, is_a
         category: 'Cortes',
         is_available: false,
       })
+    );
+  });
+
+  it('uploads a new image file and sends the resulting public URL on submit', async () => {
+    uploadMock.mockResolvedValue({ data: { path: 'new-path.png' }, error: null });
+    getPublicUrlMock.mockReturnValue({
+      data: { publicUrl: 'https://cdn.example.com/service-images/new-path.png' },
+    });
+
+    render(<ServiceEditPage />);
+
+    await waitFor(() => expect(screen.getByDisplayValue('Corte')).toBeTruthy());
+
+    const file = new File(['fake-image-bytes'], 'nueva.png', { type: 'image/png' });
+    fireEvent.change(screen.getByLabelText('Imagen'), { target: { files: [file] } });
+
+    await waitFor(() => expect(uploadMock).toHaveBeenCalledTimes(1));
+
+    const [path, uploadedFile] = uploadMock.mock.calls[0];
+    expect(path).toContain('nueva.png');
+    expect(uploadedFile).toBe(file);
+    expect(getPublicUrlMock).toHaveBeenCalledWith(path);
+
+    await waitFor(() =>
+      expect(screen.getByDisplayValue('https://cdn.example.com/service-images/new-path.png')).toBeTruthy()
+    );
+
+    fireEvent.click(screen.getByText('Guardar'));
+
+    await waitFor(() => expect(updateMock).toHaveBeenCalled());
+
+    expect(updateMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        image_url: 'https://cdn.example.com/service-images/new-path.png',
+      })
+    );
+  });
+
+  it('shows an error and keeps the previous image_url when the upload fails', async () => {
+    uploadMock.mockResolvedValue({ data: null, error: { message: 'Storage error' } });
+
+    render(<ServiceEditPage />);
+
+    await waitFor(() => expect(screen.getByDisplayValue('Corte')).toBeTruthy());
+
+    const file = new File(['fake-image-bytes'], 'nueva.png', { type: 'image/png' });
+    fireEvent.change(screen.getByLabelText('Imagen'), { target: { files: [file] } });
+
+    await waitFor(() => expect(uploadMock).toHaveBeenCalledTimes(1));
+
+    expect(await screen.findByText(/no se pudo subir la imagen/i)).toBeTruthy();
+    expect(getPublicUrlMock).not.toHaveBeenCalled();
+    expect(screen.getByDisplayValue('https://example.com/old.png')).toBeTruthy();
+
+    fireEvent.click(screen.getByText('Guardar'));
+
+    await waitFor(() => expect(updateMock).toHaveBeenCalled());
+
+    expect(updateMock).toHaveBeenCalledWith(
+      expect.objectContaining({ image_url: 'https://example.com/old.png' })
     );
   });
 });

@@ -41,6 +41,8 @@ export function ServiceForm({ onCancel, onSuccess }: ServiceFormProps) {
     isAvailable: true,
   });
   const [error, setError] = useState('');
+  const [uploadingImage, setUploadingImage] = useState(false);
+  const [uploadError, setUploadError] = useState('');
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -49,6 +51,29 @@ export function ServiceForm({ onCancel, onSuccess }: ServiceFormProps) {
 
   const handleCheckboxChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setForm(prev => ({ ...prev, isGlobal: e.target.checked }));
+  };
+
+  const handleImageFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setUploadError('');
+    setUploadingImage(true);
+
+    const supabase = createClient();
+    const path = `${crypto.randomUUID()}-${file.name}`;
+    const { error: uploadErr } = await supabase.storage.from('service-images').upload(path, file);
+
+    if (uploadErr) {
+      setUploadingImage(false);
+      setUploadError('No se pudo subir la imagen. Intenta de nuevo o pegá una URL.');
+      console.error('ServiceForm image upload error:', uploadErr);
+      return;
+    }
+
+    const { data } = supabase.storage.from('service-images').getPublicUrl(path);
+    setForm(prev => ({ ...prev, imageUrl: data.publicUrl }));
+    setUploadingImage(false);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -179,14 +204,27 @@ export function ServiceForm({ onCancel, onSuccess }: ServiceFormProps) {
         </section>
 
         <section className="section">
-          <label className="label">URL de la imagen</label>
+          <label className="label">Imagen</label>
+          {form.imageUrl && (
+            <img src={form.imageUrl} alt="Vista previa" className="image-preview" />
+          )}
+          <input
+            type="file"
+            accept="image/*"
+            onChange={handleImageFileChange}
+            className="input"
+            disabled={uploadingImage}
+            aria-label="Subir imagen"
+          />
+          {uploadingImage && <p className="upload-status">Subiendo imagen...</p>}
+          {uploadError && <p className="error">{uploadError}</p>}
           <input
             type="url"
             name="imageUrl"
             value={form.imageUrl}
             onChange={handleChange}
             placeholder="https://..."
-            className="input"
+            className="input input-url-fallback"
           />
         </section>
 
@@ -227,7 +265,7 @@ export function ServiceForm({ onCancel, onSuccess }: ServiceFormProps) {
         <section className="section">
           <button
             type="submit"
-            disabled={isSubmitting}
+            disabled={isSubmitting || uploadingImage}
             className="btn-primary btn-full"
           >
             {isSubmitting ? 'Guardando...' : 'Guardar Servicio'}
@@ -316,6 +354,26 @@ export function ServiceForm({ onCancel, onSuccess }: ServiceFormProps) {
         .textarea {
           resize: vertical;
           font-family: inherit;
+        }
+
+        .image-preview {
+          display: block;
+          width: 96px;
+          height: 96px;
+          object-fit: cover;
+          border-radius: 8px;
+          margin-bottom: 10px;
+          border: 1px solid var(--border);
+        }
+
+        .input-url-fallback {
+          margin-top: 8px;
+        }
+
+        .upload-status {
+          font-size: 13px;
+          color: var(--text-secondary);
+          margin-top: 8px;
         }
 
         .toggle-row {

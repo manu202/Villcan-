@@ -21,6 +21,8 @@ export default function ServiceEditPage() {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [uploadingImage, setUploadingImage] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!serviceId) return;
@@ -51,6 +53,29 @@ export default function ServiceEditPage() {
 
     fetchService();
   }, [serviceId]);
+
+  async function handleImageFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setUploadError(null);
+    setUploadingImage(true);
+
+    const supabase = createClient();
+    const path = `${crypto.randomUUID()}-${file.name}`;
+    const { error: uploadErr } = await supabase.storage.from('service-images').upload(path, file);
+
+    if (uploadErr) {
+      setUploadingImage(false);
+      setUploadError('No se pudo subir la imagen. Intenta de nuevo o pegá una URL.');
+      console.error('ServiceEditPage image upload error:', uploadErr);
+      return;
+    }
+
+    const { data } = supabase.storage.from('service-images').getPublicUrl(path);
+    setImageUrl(data.publicUrl);
+    setUploadingImage(false);
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -142,13 +167,26 @@ export default function ServiceEditPage() {
         </div>
 
         <div className="field">
-          <label htmlFor="imageUrl">URL de la imagen</label>
+          <label htmlFor="imageFile">Imagen</label>
+          {imageUrl && (
+            <img src={imageUrl} alt="Vista previa" className="image-preview" />
+          )}
+          <input
+            id="imageFile"
+            type="file"
+            accept="image/*"
+            onChange={handleImageFileChange}
+            disabled={uploadingImage}
+          />
+          {uploadingImage && <p className="upload-status">Subiendo imagen...</p>}
+          {uploadError && <p className="error">{uploadError}</p>}
           <input
             id="imageUrl"
             type="url"
             value={imageUrl}
             onChange={(e) => setImageUrl(e.target.value)}
             placeholder="https://..."
+            className="input-url-fallback"
           />
         </div>
 
@@ -178,7 +216,7 @@ export default function ServiceEditPage() {
           <Link href={`/services/${serviceId}`} className="cancel-btn">
             Cancelar
           </Link>
-          <button type="submit" className="submit-btn" disabled={submitting}>
+          <button type="submit" className="submit-btn" disabled={submitting || uploadingImage}>
             {submitting ? 'Guardando...' : 'Guardar'}
           </button>
         </div>
@@ -261,6 +299,24 @@ export default function ServiceEditPage() {
           border-radius: 8px;
           background: var(--surface);
           resize: vertical;
+        }
+
+        .image-preview {
+          display: block;
+          width: 96px;
+          height: 96px;
+          object-fit: cover;
+          border-radius: 8px;
+          border: 1px solid var(--border);
+        }
+
+        .input-url-fallback {
+          margin-top: 4px;
+        }
+
+        .upload-status {
+          font-size: 13px;
+          color: var(--text-secondary);
         }
 
         .toggle-row {
