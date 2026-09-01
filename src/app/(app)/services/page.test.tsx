@@ -7,6 +7,11 @@ vi.mock('@/contexts/BranchContext', () => ({
   useBranch: () => mockUseBranch(),
 }));
 
+const mockUseSettings = vi.fn();
+vi.mock('@/contexts/SettingsContext', () => ({
+  useSettings: () => mockUseSettings(),
+}));
+
 // Chainable query mock: every method returns itself, and it is thenable
 // so `await query` resolves to whatever `resultPromise` resolves to.
 function createQueryMock(resultPromise: Promise<unknown>) {
@@ -36,6 +41,7 @@ describe('ServicesPage error handling (REQ-ERR-1)', () => {
       currentBranch: { id: 'branch-1', name: 'Centro' },
       initialized: true,
     });
+    mockUseSettings.mockReturnValue({ settings: { services_label: 'Servicios' } });
   });
 
   it('renders ErrorState (not the empty state) when the Supabase query errors', async () => {
@@ -58,5 +64,24 @@ describe('ServicesPage error handling (REQ-ERR-1)', () => {
     screen.getByText('Reintentar').click();
 
     await waitFor(() => expect(screen.getByText('No hay servicios registrados')).toBeTruthy());
+  });
+});
+
+describe('ServicesPage dynamic module label (business_settings.services_label)', () => {
+  beforeEach(() => {
+    mockUseBranch.mockReturnValue({
+      currentBranch: { id: 'branch-1', name: 'Centro' },
+      initialized: true,
+    });
+    queryResult = Promise.resolve({ data: [], error: null });
+  });
+
+  it('uses services_label as the page title instead of a hardcoded "Servicios"', async () => {
+    mockUseSettings.mockReturnValue({ settings: { services_label: 'Productos' } });
+
+    render(<ServicesPage />);
+
+    await waitFor(() => expect(screen.getByText('Productos')).toBeTruthy());
+    expect(screen.queryByRole('heading', { name: 'Servicios' })).toBeNull();
   });
 });

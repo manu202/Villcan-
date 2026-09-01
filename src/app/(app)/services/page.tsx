@@ -5,11 +5,13 @@ import Link from 'next/link';
 import { formatGuaranies } from '@/lib/utils';
 import { createClient } from '@/lib/supabase/client';
 import { useBranch } from '@/contexts/BranchContext';
+import { useSettings } from '@/contexts/SettingsContext';
 import { ErrorState } from '@/components/ErrorState';
 import type { Service } from '@/types';
 
 export default function ServicesPage() {
   const { currentBranch, initialized } = useBranch();
+  const { settings } = useSettings();
   const [services, setServices] = useState<Service[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
@@ -69,11 +71,11 @@ export default function ServicesPage() {
     <div className="page">
       <header className="page-header flex-header">
         <div>
-          <h1 className="page-title">Servicios</h1>
+          <h1 className="page-title">{settings.services_label}</h1>
           {loading ? (
             <p className="page-subtitle">...</p>
           ) : !error ? (
-            <p className="page-subtitle">{services.length} servicios</p>
+            <p className="page-subtitle">{services.length} {settings.services_label.toLowerCase()}</p>
           ) : null}
         </div>
         <Link href="/services/new" className="btn-add">+Nuevo</Link>

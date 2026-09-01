@@ -1,0 +1,46 @@
+-- NOT APPLIED YET. Reviewed by the orchestrator by hand before running against
+-- remote (project vjgdtxryudoscumwsjhs) — do NOT `supabase db push` this from
+-- an agent session.
+--
+-- CRITICAL bug found while verifying the store-business-config change by
+-- testing as a REAL anonymous visitor (curl with the anon apikey, no session
+-- cookie) instead of trusting my own authenticated/service-role testing.
+-- Every prior verification of the storefront in this project was done while
+-- authenticated (admin session, CLI with elevated tokens) — none of it would
+-- have caught this, because an authenticated session masks the problem
+-- entirely (has_branch_access/is_branch_admin work fine for authenticated).
+--
+-- Root cause: `has_branch_access(uuid)` and `is_branch_admin(uuid)` (defined
+-- in 20260831120000_baseline.sql) only ever got
+-- `GRANT ... TO authenticated, service_role` — never `anon`. Meanwhile
+-- `branches_select` (baseline) and `services_select_branch_access`
+-- (20260831120001_user_fixes.sql) were written with NO explicit `TO` clause,
+-- which defaults to `TO public` — i.e. every role, anon included.
+--
+-- PostgreSQL checks EXECUTE privilege on every function referenced by a
+-- policy applicable to the requesting role, independent of whether that
+-- function would actually get called at runtime for a given row (this is
+-- not short-circuit evaluation at the privilege-check stage — it's a
+-- planning-time check). So ANY select as `anon` on `branches` or `services`
+-- fails outright with "permission denied for function has_branch_access",
+-- instead of the intended "0 rows visible via that policy, fall through to
+-- the anon-scoped policy via OR". This broke the ENTIRE public storefront
+-- for real anonymous customers (not just the branch_id-global-services bug
+-- fixed alongside this in getCatalog()) — an owner testing their own link
+-- while still logged into the admin panel never sees it, because their
+-- session is `authenticated`, which does have EXECUTE, masking the bug.
+--
+-- Fix: grant EXECUTE on both functions to anon too. Safe — both functions
+-- read auth.uid(), which is NULL for anon, so they still correctly return
+-- false for anon callers. This only lets the permission CHECK pass; it does
+-- not change what anon can actually see (branches_select/
+-- services_select_branch_access still evaluate to false for anon on their
+-- own — visibility for anon keeps coming entirely from the dedicated
+-- `branches_public_select_storefront` / `services_public_select` policies).
+
+grant execute on function public.has_branch_access(uuid) to anon;
+grant execute on function public.is_branch_admin(uuid) to anon;
+
+-- Rollback (manual):
+--   revoke execute on function public.has_branch_access(uuid) from anon;
+--   revoke execute on function public.is_branch_admin(uuid) from anon;

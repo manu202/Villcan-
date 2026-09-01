@@ -12,6 +12,13 @@ interface ServiceCardProps {
 export function ServiceCard({ service, qtyInCart, onAdd }: ServiceCardProps) {
   return (
     <li className="storefront-service-card">
+      {service.image_url && (
+        <img
+          className="storefront-service-image"
+          src={service.image_url}
+          alt={service.name}
+        />
+      )}
       <div className="storefront-service-info">
         <span className="storefront-service-name">{service.name}</span>
         {service.description && (
@@ -31,6 +38,14 @@ export function ServiceCard({ service, qtyInCart, onAdd }: ServiceCardProps) {
           gap: 12px;
           padding: 16px 20px;
           background: var(--surface);
+        }
+        .storefront-service-image {
+          width: 48px;
+          height: 48px;
+          flex-shrink: 0;
+          object-fit: cover;
+          border-radius: 8px;
+          background: var(--surface-elevated);
         }
         .storefront-service-info {
           display: flex;

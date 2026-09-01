@@ -10,7 +10,7 @@ import {
   LayoutDashboard,
   ArrowRightLeft,
   Users,
-  Scissors,
+  Package,
   BarChart3,
   Archive,
   Settings,
@@ -23,6 +23,7 @@ import { AuthButton } from './AuthButton';
 import { BranchSelector } from './BranchSelector';
 import { useTheme, type ThemePreference } from '@/contexts/ThemeContext';
 import { usePendingOrdersCount } from '@/hooks/usePendingOrdersCount';
+import { useSettings } from '@/contexts/SettingsContext';
 
 const THEME_CYCLE: ThemePreference[] = ['system', 'light', 'dark'];
 
@@ -62,11 +63,10 @@ interface NavItem {
   icon: LucideIcon;
 }
 
-const navItems: NavItem[] = [
+const BASE_NAV_ITEMS: NavItem[] = [
   { label: 'Caja', href: '/', icon: LayoutDashboard },
   { label: 'Movimientos', href: '/movements', icon: ArrowRightLeft },
   { label: 'Contactos', href: '/contacts', icon: Users },
-  { label: 'Servicios', href: '/services', icon: Scissors },
   { label: 'Pedidos', href: '/orders', icon: ShoppingBag },
   { label: 'Reportes', href: '/reports', icon: BarChart3 },
   { label: 'Cierres de Caja', href: '/closings', icon: Archive },
@@ -78,6 +78,16 @@ export function HamburgerMenu() {
   const [isOpen, setIsOpen] = useState(false);
   const pathname = usePathname();
   const pendingOrdersCount = usePendingOrdersCount();
+  const { settings } = useSettings();
+
+  // "Servicios" is a barbershop-specific default — business_settings.services_label
+  // lets other verticals (restaurant, retail) rename this module (e.g. "Productos",
+  // "Menú"). Icon is a neutral `Package` instead of `Scissors` for the same reason.
+  const navItems: NavItem[] = [
+    ...BASE_NAV_ITEMS.slice(0, 3),
+    { label: settings.services_label, href: '/services', icon: Package },
+    ...BASE_NAV_ITEMS.slice(3),
+  ];
 
   const closeMenu = useCallback(() => setIsOpen(false), []);
 

@@ -4,6 +4,7 @@ import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
+import { Toggle } from '@/components/Toggle';
 
 export default function ServiceEditPage() {
   const params = useParams();
@@ -13,6 +14,10 @@ export default function ServiceEditPage() {
   const [name, setName] = useState('');
   const [price, setPrice] = useState('');
   const [cost, setCost] = useState('');
+  const [description, setDescription] = useState('');
+  const [imageUrl, setImageUrl] = useState('');
+  const [category, setCategory] = useState('');
+  const [isAvailable, setIsAvailable] = useState(true);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -24,7 +29,7 @@ export default function ServiceEditPage() {
       const supabase = createClient();
       const { data, error } = await supabase
         .from('services')
-        .select('id, name, price, cost')
+        .select('id, name, price, cost, description, image_url, category, is_available')
         .eq('id', serviceId)
         .single();
 
@@ -37,6 +42,10 @@ export default function ServiceEditPage() {
       setName(data.name);
       setPrice(data.price.toString());
       setCost(data.cost != null ? data.cost.toString() : '');
+      setDescription(data.description ?? '');
+      setImageUrl(data.image_url ?? '');
+      setCategory(data.category ?? '');
+      setIsAvailable(data.is_available ?? true);
       setLoading(false);
     }
 
@@ -51,7 +60,15 @@ export default function ServiceEditPage() {
     const supabase = createClient();
     const { error } = await supabase
       .from('services')
-      .update({ name, price: parseInt(price, 10), cost: cost ? parseInt(cost, 10) : 0 })
+      .update({
+        name,
+        price: parseInt(price, 10),
+        cost: cost ? parseInt(cost, 10) : 0,
+        description: description.trim() || null,
+        image_url: imageUrl.trim() || null,
+        category: category.trim() || null,
+        is_available: isAvailable,
+      })
       .eq('id', serviceId);
 
     if (error) {
@@ -110,6 +127,48 @@ export default function ServiceEditPage() {
             value={cost}
             onChange={(e) => setCost(e.target.value)}
             min="0"
+          />
+        </div>
+
+        <div className="field">
+          <label htmlFor="description">Descripción</label>
+          <textarea
+            id="description"
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            placeholder="Se muestra en la tienda pública debajo del nombre"
+            rows={3}
+          />
+        </div>
+
+        <div className="field">
+          <label htmlFor="imageUrl">URL de la imagen</label>
+          <input
+            id="imageUrl"
+            type="url"
+            value={imageUrl}
+            onChange={(e) => setImageUrl(e.target.value)}
+            placeholder="https://..."
+          />
+        </div>
+
+        <div className="field">
+          <label htmlFor="category">Categoría</label>
+          <input
+            id="category"
+            type="text"
+            value={category}
+            onChange={(e) => setCategory(e.target.value)}
+            placeholder="Cortes, Bebidas, etc."
+          />
+        </div>
+
+        <div className="field toggle-row">
+          <span className="toggle-row-label">Disponible</span>
+          <Toggle
+            checked={isAvailable}
+            onChange={setIsAvailable}
+            label="Disponible en la tienda pública"
           />
         </div>
 
@@ -188,9 +247,32 @@ export default function ServiceEditPage() {
           background: var(--surface);
         }
 
-        .field input:focus {
+        .field input:focus,
+        .field textarea:focus {
           outline: none;
           border-color: var(--accent);
+        }
+
+        .field textarea {
+          padding: 12px 16px;
+          font-size: 16px;
+          font-family: inherit;
+          border: 1px solid var(--border);
+          border-radius: 8px;
+          background: var(--surface);
+          resize: vertical;
+        }
+
+        .toggle-row {
+          flex-direction: row;
+          align-items: center;
+          justify-content: space-between;
+        }
+
+        .toggle-row-label {
+          font-size: 14px;
+          font-weight: 600;
+          color: var(--text-primary);
         }
 
         .error {

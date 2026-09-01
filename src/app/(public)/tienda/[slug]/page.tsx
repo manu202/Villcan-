@@ -20,12 +20,18 @@ async function getBranchBySlug(slug: string): Promise<Branch | null> {
   return (data as Branch | null) ?? null;
 }
 
-async function getCatalog(branchId: string): Promise<Service[]> {
+export async function getCatalog(branchId: string): Promise<Service[]> {
   const supabase = await createClient();
+  // Services with branch_id = NULL are global (visible on every branch) —
+  // same convention used everywhere else in the app (ServiceForm.tsx's
+  // isGlobal checkbox, create_storefront_order's `branch_id = v_branch.id
+  // or branch_id is null` check). This page is the only place that used to
+  // filter with a plain `.eq('branch_id', branchId)`, which silently
+  // excluded every global service from the public catalog.
   const { data } = await supabase
     .from('services')
     .select('*')
-    .eq('branch_id', branchId)
+    .or(`branch_id.eq.${branchId},branch_id.is.null`)
     .eq('is_active', true)
     .eq('is_available', true)
     .order('category')

@@ -6,12 +6,17 @@ import { parseGuaranies } from '@/lib/utils';
 import { createClient } from '@/lib/supabase/client';
 import { useBranch } from '@/contexts/BranchContext';
 import { useToast } from '@/contexts/ToastContext';
+import { Toggle } from '@/components/Toggle';
 
 interface ServiceFormData {
   name: string;
   price: string;
   cost: string;
   isGlobal: boolean;
+  description: string;
+  imageUrl: string;
+  category: string;
+  isAvailable: boolean;
 }
 
 interface ServiceFormProps {
@@ -30,10 +35,14 @@ export function ServiceForm({ onCancel, onSuccess }: ServiceFormProps) {
     price: '',
     cost: '',
     isGlobal: false,
+    description: '',
+    imageUrl: '',
+    category: '',
+    isAvailable: true,
   });
   const [error, setError] = useState('');
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
     setForm(prev => ({ ...prev, [name]: value }));
   };
@@ -86,6 +95,10 @@ export function ServiceForm({ onCancel, onSuccess }: ServiceFormProps) {
         cost: form.cost ? parseGuaranies(form.cost) : 0,
         is_active: true,
         branch_id: branchId,
+        description: form.description.trim() || null,
+        image_url: form.imageUrl.trim() || null,
+        category: form.category.trim() || null,
+        is_available: form.isAvailable,
       })
       .select()
       .single();
@@ -154,6 +167,42 @@ export function ServiceForm({ onCancel, onSuccess }: ServiceFormProps) {
         </section>
 
         <section className="section">
+          <label className="label">Descripción</label>
+          <textarea
+            name="description"
+            value={form.description}
+            onChange={handleChange}
+            placeholder="Se muestra en la tienda pública debajo del nombre"
+            className="input textarea"
+            rows={3}
+          />
+        </section>
+
+        <section className="section">
+          <label className="label">URL de la imagen</label>
+          <input
+            type="url"
+            name="imageUrl"
+            value={form.imageUrl}
+            onChange={handleChange}
+            placeholder="https://..."
+            className="input"
+          />
+        </section>
+
+        <section className="section">
+          <label className="label">Categoría</label>
+          <input
+            type="text"
+            name="category"
+            value={form.category}
+            onChange={handleChange}
+            placeholder="Cortes, Bebidas, etc."
+            className="input"
+          />
+        </section>
+
+        <section className="section">
           <label className="checkbox-label">
             <input
               type="checkbox"
@@ -162,6 +211,15 @@ export function ServiceForm({ onCancel, onSuccess }: ServiceFormProps) {
             />
             <span>Servicio global (todas las sucursales)</span>
           </label>
+        </section>
+
+        <section className="section toggle-row">
+          <span className="label toggle-row-label">Disponible</span>
+          <Toggle
+            checked={form.isAvailable}
+            onChange={(checked) => setForm(prev => ({ ...prev, isAvailable: checked }))}
+            label="Disponible en la tienda pública"
+          />
         </section>
 
         {error && <p className="error">{error}</p>}
@@ -253,6 +311,21 @@ export function ServiceForm({ onCancel, onSuccess }: ServiceFormProps) {
           width: 20px;
           height: 20px;
           cursor: pointer;
+        }
+
+        .textarea {
+          resize: vertical;
+          font-family: inherit;
+        }
+
+        .toggle-row {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+        }
+
+        .toggle-row-label {
+          margin-bottom: 0;
         }
 
         .btn-primary {
