@@ -63,6 +63,13 @@ export interface Service {
 
 export type OrderStatus = 'pending' | 'confirmed' | 'completed' | 'cancelled';
 
+export const ORDER_STATUS_LABELS: Record<OrderStatus, string> = {
+  pending: 'Pendiente',
+  confirmed: 'Confirmado',
+  completed: 'Completado',
+  cancelled: 'Cancelado',
+};
+
 export type OrderPaymentMethod = 'efectivo' | 'transferencia';
 
 export type OrderDeliveryType = 'pickup' | 'delivery';

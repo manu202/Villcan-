@@ -7,7 +7,7 @@ import { createClient } from '@/lib/supabase/client';
 import { useBranch } from '@/contexts/BranchContext';
 import { ErrorState } from '@/components/ErrorState';
 import { EmptyState } from '@/components/EmptyState';
-import type { Order, OrderStatus } from '@/types';
+import { ORDER_STATUS_LABELS, type Order, type OrderStatus } from '@/types';
 
 const STATUS_TABS: Array<{ value: OrderStatus | 'all'; label: string }> = [
   { value: 'all', label: 'Todos' },
@@ -119,7 +119,7 @@ export default function OrdersPage() {
                 >
                   {STATUS_OPTIONS.map((status) => (
                     <option key={status} value={status}>
-                      {status}
+                      {ORDER_STATUS_LABELS[status]}
                     </option>
                   ))}
                 </select>

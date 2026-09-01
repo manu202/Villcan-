@@ -7,14 +7,15 @@ import { createClient } from '@/lib/supabase/client';
 import { formatGuaranies } from '@/lib/utils';
 import { ServiceCard } from '@/components/storefront/ServiceCard';
 import { CartSheet, type CartLine } from '@/components/storefront/CartSheet';
-import type {
-  Contact,
-  Order,
-  OrderDeliveryType,
-  OrderItem,
-  OrderPaymentMethod,
-  OrderStatus,
-  Service,
+import {
+  ORDER_STATUS_LABELS,
+  type Contact,
+  type Order,
+  type OrderDeliveryType,
+  type OrderItem,
+  type OrderPaymentMethod,
+  type OrderStatus,
+  type Service,
 } from '@/types';
 
 const STATUS_OPTIONS: OrderStatus[] = ['pending', 'confirmed', 'completed', 'cancelled'];
@@ -303,7 +304,7 @@ export default function OrderDetailPage() {
             >
               {STATUS_OPTIONS.map((status) => (
                 <option key={status} value={status}>
-                  {status}
+                  {ORDER_STATUS_LABELS[status]}
                 </option>
               ))}
             </select>
@@ -348,12 +349,11 @@ export default function OrderDetailPage() {
             {order.customer_email && <p>{order.customer_email}</p>}
             {order.contact_id ? (
               <Link href={`/contacts/${order.contact_id}`} className="contact-link">
-                Ver contacto vinculado
+                {contact ? `Ver contacto vinculado: ${contact.full_name} →` : 'Ver contacto vinculado →'}
               </Link>
             ) : (
               <p className="no-contact">Sin contacto vinculado</p>
             )}
-            {contact && <p className="contact-name-confirm">Contacto: {contact.full_name}</p>}
           </section>
 
           <section className="section">
@@ -390,7 +390,7 @@ export default function OrderDetailPage() {
             >
               {STATUS_OPTIONS.map((status) => (
                 <option key={status} value={status}>
-                  {status}
+                  {ORDER_STATUS_LABELS[status]}
                 </option>
               ))}
             </select>
