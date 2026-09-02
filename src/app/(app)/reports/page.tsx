@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState, useRef } from 'react';
+import Link from 'next/link';
 import { formatGuaranies } from '@/lib/utils';
 import { createClient } from '@/lib/supabase/client';
 import { useBranch } from '@/contexts/BranchContext';
@@ -261,6 +262,9 @@ export default function ReportsPage() {
     };
   }, [view, customRange, selectedBranch, initialized]);
 
+  const servicesLabel = settings.services_label || 'Servicios';
+  const staffLabelLower = (settings.staff_label || 'Barbero').toLowerCase();
+
   return (
     <div className="page">
       <header className="page-header">
@@ -351,7 +355,7 @@ export default function ReportsPage() {
               return (
                 <div className="kpi-grid">
                   <div className="kpi-card">
-                    <span className="kpi-label">Ingresos</span>
+                    <span className="kpi-label">{`Total ${servicesLabel}`}</span>
                     <span className="kpi-value">{totalServicios}</span>
                     <span className="kpi-amount">{formatGuaranies(totalServiciosAmount)}</span>
                     {ingresosPct !== null && (
@@ -377,6 +381,12 @@ export default function ReportsPage() {
                 </div>
               );
             })()}
+          </section>
+
+          <section className="section">
+            <Link href="/reports/liquidacion" className="nav-link-card">
+              {`Liquidación por ${staffLabelLower} ›`}
+            </Link>
           </section>
 
           <section className="section">

@@ -2,6 +2,11 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor, within, fireEvent } from '@testing-library/react';
 import BranchesPage from './page';
 
+vi.mock('next/navigation', () => ({
+  useRouter: () => ({ push: vi.fn(), replace: vi.fn() }),
+  usePathname: () => '/settings/branches',
+}));
+
 const mockUseBranch = vi.fn();
 const mockSelectBranch = vi.fn();
 const mockRefreshBranches = vi.fn();
@@ -73,7 +78,7 @@ describe('BranchesPage /settings/branches (REQ-SETTINGSREORG-3, REQ-SETTINGSREOR
       currentBranch: { id: 'b1', name: 'Centro', user_role: 'admin' },
       branches: [
         { id: 'b1', name: 'Centro', address: null, user_role: 'admin' },
-        { id: 'b2', name: 'Sucursal Norte', address: null, user_role: 'barber' },
+        { id: 'b2', name: 'Sucursal Norte', address: null, user_role: 'user' },
       ],
       isLoading: false,
       selectBranch: mockSelectBranch,
@@ -91,7 +96,7 @@ describe('BranchesPage /settings/branches (REQ-SETTINGSREORG-3, REQ-SETTINGSREOR
       currentBranch: { id: 'b1', name: 'Centro', user_role: 'admin' },
       branches: [
         { id: 'b1', name: 'Centro', address: null, user_role: 'admin' },
-        { id: 'b2', name: 'Sucursal Norte', address: null, user_role: 'barber' },
+        { id: 'b2', name: 'Sucursal Norte', address: null, user_role: 'user' },
       ],
       isLoading: false,
       selectBranch: mockSelectBranch,
@@ -106,7 +111,7 @@ describe('BranchesPage /settings/branches (REQ-SETTINGSREORG-3, REQ-SETTINGSREOR
   it('renders an access-restricted state when the user is not admin anywhere', () => {
     mockUseBranch.mockReturnValue({
       currentBranch: null,
-      branches: [{ id: 'b1', name: 'Centro', user_role: 'barber' }],
+      branches: [{ id: 'b1', name: 'Centro', user_role: 'user' }],
       isLoading: false,
       selectBranch: mockSelectBranch,
       refreshBranches: mockRefreshBranches,
@@ -130,7 +135,7 @@ describe('BranchesPage /settings/branches (REQ-SETTINGSREORG-3, REQ-SETTINGSREOR
     render(<BranchesPage />);
 
     expect(screen.queryByText(/acceso restringido/i)).toBeNull();
-    expect(screen.getByText(/\+nueva/i)).toBeTruthy();
+    expect(screen.getByText('+Nueva')).toBeTruthy();
     expect(screen.queryByText(/\+usuario/i)).toBeNull();
     await waitFor(() => expect(screen.getByText('Editar')).toBeTruthy());
   });
@@ -140,7 +145,7 @@ describe('BranchesPage /settings/branches (REQ-SETTINGSREORG-3, REQ-SETTINGSREOR
       currentBranch: { id: 'b1', name: 'Centro', user_role: 'admin' },
       branches: [
         { id: 'b1', name: 'Centro', address: null, user_role: 'admin' },
-        { id: 'b2', name: 'Sucursal Norte', address: null, user_role: 'barber' },
+        { id: 'b2', name: 'Sucursal Norte', address: null, user_role: 'user' },
       ],
       isLoading: false,
       selectBranch: mockSelectBranch,

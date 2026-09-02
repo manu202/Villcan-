@@ -27,7 +27,16 @@ vi.mock('@/contexts/SettingsContext', () => ({
   useSettings: () => mockUseSettings(),
 }));
 
+const mockUseBranch = vi.fn();
+vi.mock('@/contexts/BranchContext', () => ({
+  useBranch: () => mockUseBranch(),
+}));
+
 describe('HamburgerMenu services nav item (business_settings.services_label)', () => {
+  beforeEach(() => {
+    mockUseBranch.mockReturnValue({ branches: [{ id: 'b1', user_role: 'admin' }] });
+  });
+
   it('uses services_label from settings instead of a hardcoded "Servicios"', () => {
     mockUseSettings.mockReturnValue({ settings: { services_label: 'Menú' } });
 
@@ -58,6 +67,7 @@ describe('HamburgerMenu services nav item (business_settings.services_label)', (
 describe('HamburgerMenu grouped sections (IA reorg)', () => {
   beforeEach(() => {
     mockUseSettings.mockReturnValue({ settings: { services_label: 'Servicios' } });
+    mockUseBranch.mockReturnValue({ branches: [{ id: 'b1', user_role: 'admin' }] });
   });
 
   it('renders the four section headers', () => {

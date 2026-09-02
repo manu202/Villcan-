@@ -7,8 +7,8 @@ type Row = Pick<UserBranchAccess, 'user_id' | 'role'>;
 describe('countAdmins (REQ-SETTINGSREORG-8)', () => {
   it('zero admins -> 0', () => {
     const rows: Row[] = [
-      { user_id: 'u1', role: 'barber' },
-      { user_id: 'u2', role: 'barber' },
+      { user_id: 'u1', role: 'user' },
+      { user_id: 'u2', role: 'user' },
     ];
     expect(countAdmins(rows)).toBe(0);
   });
@@ -16,7 +16,7 @@ describe('countAdmins (REQ-SETTINGSREORG-8)', () => {
   it('one admin -> 1', () => {
     const rows: Row[] = [
       { user_id: 'u1', role: 'admin' },
-      { user_id: 'u2', role: 'barber' },
+      { user_id: 'u2', role: 'user' },
     ];
     expect(countAdmins(rows)).toBe(1);
   });
@@ -25,7 +25,7 @@ describe('countAdmins (REQ-SETTINGSREORG-8)', () => {
     const rows: Row[] = [
       { user_id: 'u1', role: 'admin' },
       { user_id: 'u2', role: 'admin' },
-      { user_id: 'u3', role: 'barber' },
+      { user_id: 'u3', role: 'user' },
     ];
     expect(countAdmins(rows)).toBe(2);
   });
@@ -38,8 +38,8 @@ describe('countAdmins (REQ-SETTINGSREORG-8)', () => {
 describe('isLastAdmin (REQ-SETTINGSREORG-8)', () => {
   it('zero admins in the branch -> false for anyone (nothing to protect)', () => {
     const rows: Row[] = [
-      { user_id: 'u1', role: 'barber' },
-      { user_id: 'u2', role: 'barber' },
+      { user_id: 'u1', role: 'user' },
+      { user_id: 'u2', role: 'user' },
     ];
     expect(isLastAdmin(rows, 'u1')).toBe(false);
   });
@@ -47,7 +47,7 @@ describe('isLastAdmin (REQ-SETTINGSREORG-8)', () => {
   it('exactly one admin, target IS that admin -> true (must be protected)', () => {
     const rows: Row[] = [
       { user_id: 'u1', role: 'admin' },
-      { user_id: 'u2', role: 'barber' },
+      { user_id: 'u2', role: 'user' },
     ];
     expect(isLastAdmin(rows, 'u1')).toBe(true);
   });
@@ -55,7 +55,7 @@ describe('isLastAdmin (REQ-SETTINGSREORG-8)', () => {
   it('exactly one admin, target is someone else (a non-admin row) -> false', () => {
     const rows: Row[] = [
       { user_id: 'u1', role: 'admin' },
-      { user_id: 'u2', role: 'barber' },
+      { user_id: 'u2', role: 'user' },
     ];
     expect(isLastAdmin(rows, 'u2')).toBe(false);
   });

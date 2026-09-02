@@ -32,9 +32,10 @@ let movementsFromCalls = 0;
 vi.mock('@/lib/supabase/client', () => ({
   createClient: () => ({
     from: () => {
-      // Reports page issues 3 movements queries per load: serviceQuery,
-      // methodQuery, gastoQuery (in that exact order, see src/app/reports/page.tsx).
-      const callIndex = movementsFromCalls % 3;
+      // Reports page issues 2 main queries: serviceQuery (index 0), gastoQuery
+      // (index 1). methodData reuses serviceData — no separate query. A 3rd call
+      // (index 2+) is the prevPeriod comparison query — return empty data for it.
+      const callIndex = movementsFromCalls;
       movementsFromCalls++;
       if (callIndex === 0) {
         // serviceQuery -> serviciosAmount = 100000
@@ -43,15 +44,13 @@ vi.mock('@/lib/supabase/client', () => ({
         ]);
       }
       if (callIndex === 1) {
-        // methodQuery
+        // gastoQuery -> gastosTotal = 30000 => balanceNeto = 100000 - 30000 = 70000
         return createQueryMockForData([
-          { amount_charged: 100000, income: 100000, expense: 0, payment_method: 'efectivo' },
+          { expense: 30000, income: 0, comment: 'Alquiler' },
         ]);
       }
-      // gastoQuery -> gastosTotal = 30000
-      return createQueryMockForData([
-        { expense: 30000, income: 0, comment: 'Alquiler' },
-      ]);
+      // prevPeriod comparison query (always fires for 'today'/'week'/'month' views)
+      return createQueryMockForData([]);
     },
   }),
 }));

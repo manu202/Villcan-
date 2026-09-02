@@ -49,10 +49,6 @@ export function ServiceForm({ onCancel, onSuccess }: ServiceFormProps) {
     setForm(prev => ({ ...prev, [name]: value }));
   };
 
-  const handleCheckboxChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setForm(prev => ({ ...prev, isGlobal: e.target.checked }));
-  };
-
   const handleImageFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -240,15 +236,13 @@ export function ServiceForm({ onCancel, onSuccess }: ServiceFormProps) {
           />
         </section>
 
-        <section className="section">
-          <label className="checkbox-label">
-            <input
-              type="checkbox"
-              checked={form.isGlobal}
-              onChange={handleCheckboxChange}
-            />
-            <span>Servicio global (todas las sucursales)</span>
-          </label>
+        <section className="section toggle-row">
+          <span className="label toggle-row-label">Global</span>
+          <Toggle
+            checked={form.isGlobal}
+            onChange={(checked) => setForm(prev => ({ ...prev, isGlobal: checked }))}
+            label="Disponible en todas las sucursales"
+          />
         </section>
 
         <section className="section toggle-row">
@@ -334,21 +328,6 @@ export function ServiceForm({ onCancel, onSuccess }: ServiceFormProps) {
           color: var(--text-secondary);
           font-size: 14px;
           margin-bottom: 16px;
-        }
-
-        .checkbox-label {
-          display: flex;
-          align-items: center;
-          gap: 10px;
-          font-size: 14px;
-          color: var(--text-secondary);
-          cursor: pointer;
-        }
-
-        .checkbox-label input[type="checkbox"] {
-          width: 20px;
-          height: 20px;
-          cursor: pointer;
         }
 
         .textarea {

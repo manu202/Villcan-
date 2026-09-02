@@ -47,8 +47,8 @@ describe('UsersPage /settings/users (REQ-SETTINGSREORG-4, -8, -9)', () => {
 
   it('renders an access-restricted state when the user is not admin anywhere', () => {
     mockUseBranch.mockReturnValue({
-      currentBranch: { id: 'b1', name: 'Centro', user_role: 'barber' },
-      branches: [{ id: 'b1', user_role: 'barber' }],
+      currentBranch: { id: 'b1', name: 'Centro', user_role: 'user' },
+      branches: [{ id: 'b1', user_role: 'user' }],
       isLoading: false,
     });
 
@@ -59,9 +59,9 @@ describe('UsersPage /settings/users (REQ-SETTINGSREORG-4, -8, -9)', () => {
 
   it('shows a notice and disables mutations when admin elsewhere but not of currentBranch', async () => {
     mockUseBranch.mockReturnValue({
-      currentBranch: { id: 'b1', name: 'Centro', user_role: 'barber' },
+      currentBranch: { id: 'b1', name: 'Centro', user_role: 'user' },
       branches: [
-        { id: 'b1', user_role: 'barber' },
+        { id: 'b1', user_role: 'user' },
         { id: 'b2', user_role: 'admin' },
       ],
       isLoading: false,
@@ -193,7 +193,7 @@ describe('UsersPage handleAddUser invite flow (REQ: server-side user provisionin
         '/api/users/invite',
         expect.objectContaining({
           method: 'POST',
-          body: JSON.stringify({ email: 'nuevo@example.com', role: 'barber', branch_id: 'b1' }),
+          body: JSON.stringify({ email: 'nuevo@example.com', role: 'user', branch_id: 'b1' }),
         })
       )
     );

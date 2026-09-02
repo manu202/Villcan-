@@ -35,7 +35,7 @@ export default function BranchesPage() {
 
   const ROLE_LABEL: Record<BranchWithRole['user_role'], string> = {
     admin: 'Administrador',
-    barber: settings.staff_label,
+    user: settings.staff_label,
   };
 
   const isAdminAnywhere = branches.some((b) => b.user_role === 'admin');
@@ -178,7 +178,7 @@ export default function BranchesPage() {
           <button type="button" onClick={() => router.back()} className="back-btn">←</button>
           <h1 className="page-title">Sucursales</h1>
         </header>
-        <p className="page-subtitle">Solo un administrador puede ver esta página.</p>
+        <p className="page-subtitle">Acceso restringido. Solo un administrador puede gestionar sucursales.</p>
         <PageStyles />
       </div>
     );
@@ -204,7 +204,7 @@ export default function BranchesPage() {
         <h1 className="page-title">Sucursales</h1>
         {!showForm && (
           <button type="button" onClick={() => setShowForm(true)} className="btn-new">
-            + Nueva
+            +Nueva
           </button>
         )}
       </header>
@@ -219,7 +219,7 @@ export default function BranchesPage() {
               <span className="field-label">Nombre</span>
               <input
                 type="text"
-                placeholder="Nombre de la sucursal"
+                placeholder="Nombre"
                 value={formData.name}
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                 className="input"
@@ -232,16 +232,17 @@ export default function BranchesPage() {
               <span className="field-label">Dirección <span className="optional">(opcional)</span></span>
               <input
                 type="text"
-                placeholder="Ej: Av. Principal 123"
+                placeholder="Dirección"
                 value={formData.address}
                 onChange={(e) => setFormData({ ...formData, address: e.target.value })}
                 className="input"
               />
             </label>
 
-            <div className="field">
+            <label className="field">
               <span className="field-label">Rubro</span>
               <select
+                aria-label="Rubro"
                 value={formData.vertical}
                 onChange={(e) => setFormData({ ...formData, vertical: e.target.value as BusinessVertical })}
                 className="input"
@@ -251,32 +252,38 @@ export default function BranchesPage() {
                 ))}
               </select>
               <span className="field-hint">Define el diseño de la tienda pública de esta sucursal.</span>
-            </div>
+            </label>
 
-            <div className="field">
+            <label className="field">
               <span className="field-label">WhatsApp</span>
               <input
                 type="tel"
+                aria-label="WhatsApp"
                 value={formData.whatsapp}
                 onChange={(e) => setFormData({ ...formData, whatsapp: e.target.value })}
                 className="input"
                 placeholder="Ej: 595981234567"
               />
               <span className="field-hint">Al cargarlo, la tienda pública se activa automáticamente.</span>
-            </div>
+            </label>
 
-            {editingBranch && storefrontData[editingBranch.id]?.slug && (
+            {editingBranch && storefrontData[editingBranch.id]?.slug ? (
               <div className="storefront-preview">
                 <Globe size={13} />
-                <span>
-                  {storeOrigin || 'tu-dominio'}/tienda/{storefrontData[editingBranch.id]?.slug}
+                <span className="slug-preview">
+                  /tienda/{storefrontData[editingBranch.id]?.slug}
                 </span>
                 <span className={`status-dot ${storefrontData[editingBranch.id]?.storefront_enabled ? 'active' : ''}`} />
                 <span className="status-text">
-                  {storefrontData[editingBranch.id]?.storefront_enabled ? 'Activa' : 'Inactiva'}
+                  {storefrontData[editingBranch.id]?.storefront_enabled ? 'Tienda activa' : 'Tienda inactiva'}
                 </span>
               </div>
-            )}
+            ) : editingBranch ? (
+              <div className="storefront-preview">
+                <span className="status-text">La URL se generará al guardar</span>
+                <span className="status-text muted">Tienda inactiva</span>
+              </div>
+            ) : null}
 
             <div className="form-actions">
               <button type="submit" className="btn-primary" disabled={saving}>
@@ -326,11 +333,14 @@ export default function BranchesPage() {
               )}
 
               <div className="branch-footer">
-                <span className="role-label">{ROLE_LABEL[branch.user_role]}</span>
+                <span className="role-label">Tu rol: {ROLE_LABEL[branch.user_role]}</span>
+                {!canManage && (
+                  <span className="no-perms-hint">Sin permisos de administrador en esta sucursal</span>
+                )}
                 <div className="branch-actions">
                   {!isCurrent && (
                     <button type="button" onClick={() => selectBranch(branch)} className="btn-action">
-                      Usar
+                      Usar esta sucursal
                     </button>
                   )}
                   {canManage && (

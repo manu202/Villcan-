@@ -14,7 +14,7 @@ vi.mock('@/components/ClosingForm', () => ({
 describe('NewClosingPage admin gate (REQ-CAJA-6)', () => {
   it('renders an access-restricted state when the current branch role is not admin', () => {
     mockUseBranch.mockReturnValue({
-      currentBranch: { id: 'b1', user_role: 'barber' },
+      currentBranch: { id: 'b1', user_role: 'user' },
     });
 
     render(<NewClosingPage />);

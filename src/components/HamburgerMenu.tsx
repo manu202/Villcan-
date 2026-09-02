@@ -23,6 +23,7 @@ import { BranchSelector } from './BranchSelector';
 import { useTheme, type ThemePreference } from '@/contexts/ThemeContext';
 import { usePendingOrdersCount } from '@/hooks/usePendingOrdersCount';
 import { useSettings } from '@/contexts/SettingsContext';
+import { useBranch } from '@/contexts/BranchContext';
 
 const THEME_CYCLE: ThemePreference[] = ['system', 'light', 'dark'];
 
@@ -91,6 +92,9 @@ export function HamburgerMenu() {
   const pathname = usePathname();
   const pendingOrdersCount = usePendingOrdersCount();
   const { settings } = useSettings();
+  const { branches } = useBranch();
+
+  const isAdminAnywhere = branches.some((b) => b.user_role === 'admin');
 
   // "Servicios" is a barbershop-specific default — business_settings.services_label
   // lets other verticals (restaurant, retail) rename this module (e.g. "Productos",
@@ -99,7 +103,7 @@ export function HamburgerMenu() {
     { label: 'OPERACIÓN', items: OPERACION_ITEMS },
     { label: 'CATÁLOGO', items: [{ label: settings.services_label, href: '/services', icon: Package }] },
     { label: 'ANÁLISIS', items: ANALISIS_ITEMS },
-    { label: 'CONFIGURACIÓN', items: CONFIGURACION_ITEMS },
+    ...(isAdminAnywhere ? [{ label: 'CONFIGURACIÓN', items: CONFIGURACION_ITEMS }] : []),
   ];
 
   const closeMenu = useCallback(() => setIsOpen(false), []);

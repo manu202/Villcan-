@@ -95,7 +95,7 @@ export default function LiquidacionPage() {
     <div className="page">
       <header className="page-header">
         <Link href="/reports" className="back-link">← Reportes</Link>
-        <h1 className="page-title">{`Ventas por ${staffLabelLower}`}</h1>
+        <h1 className="page-title">{`Liquidación por ${staffLabelLower}`}</h1>
       </header>
 
       <section className="section">
@@ -145,7 +145,7 @@ export default function LiquidacionPage() {
       ) : (
         <section className="section">
           <div className="card">
-            <h2 className="card-title">{`Desglose por ${staffLabelLower}`}</h2>
+            <h2 className="card-title">{`Por ${staffLabelLower}`}</h2>
             <ul className="breakdown-list">
               {rows.length === 0 ? (
                 <li className="breakdown-empty">Sin servicios en este período</li>

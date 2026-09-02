@@ -14,7 +14,7 @@ describe('SettingsPage hub (REQ-SETTINGSREORG-1)', () => {
 
   it('renders an access-restricted state when the user is not admin anywhere', () => {
     mockUseBranch.mockReturnValue({
-      branches: [{ id: 'b1', user_role: 'barber' }],
+      branches: [{ id: 'b1', user_role: 'user' }],
     });
 
     render(<SettingsPage />);
@@ -26,7 +26,7 @@ describe('SettingsPage hub (REQ-SETTINGSREORG-1)', () => {
   it('renders navigable cards (Negocio, Sucursales, Módulos, Usuarios, Soporte) when admin on at least one branch', () => {
     mockUseBranch.mockReturnValue({
       branches: [
-        { id: 'b1', user_role: 'barber' },
+        { id: 'b1', user_role: 'user' },
         { id: 'b2', user_role: 'admin' },
       ],
     });

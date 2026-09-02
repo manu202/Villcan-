@@ -36,7 +36,7 @@ export default function UsersPage() {
 
   const ROLE_OPTIONS: { value: AccessRole; label: string }[] = [
     { value: 'admin', label: 'Administrador' },
-    { value: 'barber', label: settings.staff_label },
+    { value: 'user', label: settings.staff_label },
   ];
 
   const isAdminAnywhere = branches.some((b) => b.user_role === 'admin');
@@ -47,7 +47,7 @@ export default function UsersPage() {
   const { showToast } = useToast();
 
   const [newEmail, setNewEmail] = useState('');
-  const [newRole, setNewRole] = useState<AccessRole>('barber');
+  const [newRole, setNewRole] = useState<AccessRole>('user');
   const [adding, setAdding] = useState(false);
 
   const [rowPendingDelete, setRowPendingDelete] = useState<AccessRow | null>(null);
@@ -120,7 +120,7 @@ export default function UsersPage() {
           'success'
         );
         setNewEmail('');
-        setNewRole('barber');
+        setNewRole('user');
         await loadAccess();
       }
     } catch {

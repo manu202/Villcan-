@@ -51,7 +51,7 @@ describe('ModulesPage /settings/modules (REQ-SETTINGSREORG-4)', () => {
 
   it('renders an access-restricted state when the user is not admin anywhere', () => {
     mockUseBranch.mockReturnValue({
-      branches: [{ id: 'b1', user_role: 'barber' }],
+      branches: [{ id: 'b1', user_role: 'user' }],
     });
 
     render(<ModulesPage />);

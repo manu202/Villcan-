@@ -15,6 +15,7 @@ function createQueryMock(resultPromise: Promise<unknown>) {
   const chainable = () => mock;
   mock.select = chainable;
   mock.eq = chainable;
+  mock.or = chainable;
   mock.ilike = chainable;
   mock.order = chainable;
   mock.limit = chainable;
@@ -230,22 +231,28 @@ describe('cierre step regression guard (caja-integrity change must NOT touch thi
 
     // Still just a single amount field with the extraction hint - no
     // per-payment-method count inputs, no discrepancy UI of any kind.
-    expect(screen.getByText('Nuevo Retiro')).toBeTruthy();
+    expect(screen.getByText('Retiro de Caja')).toBeTruthy();
     expect(screen.getByText('Dinero a extraer/depositar')).toBeTruthy();
     expect(screen.getByPlaceholderText('0')).toBeTruthy();
     expect(screen.queryByLabelText(/efectivo/i)).toBeNull();
     expect(screen.queryByText(/discrepanc/i)).toBeNull();
-    expect(screen.getByText('Registrar movimiento')).toBeTruthy();
+    expect(screen.getByText('Registrar retiro')).toBeTruthy();
   });
 
-  it('submit button stays disabled until an amount is entered, same as every other bare-amount type', () => {
+  it('clicking submit without an amount shows an inline validation error for bare-amount types', () => {
     render(<MovementForm initialType="cierre" />);
 
-    const submitBtn = screen.getByText('Registrar movimiento') as HTMLButtonElement;
-    expect(submitBtn.disabled).toBe(true);
+    // No amount entered — inline errors should be absent initially.
+    expect(screen.queryByText(/ingresá el monto/i)).toBeNull();
 
+    fireEvent.click(screen.getByText('Registrar retiro'));
+
+    // After attempted submit, inline error appears.
+    expect(screen.getByText(/ingresá el monto/i)).toBeTruthy();
+
+    // Entering an amount and resubmitting should clear the error path.
     fireEvent.change(screen.getByPlaceholderText('0'), { target: { value: '50000' } });
-    expect(submitBtn.disabled).toBe(false);
+    expect(screen.queryByText(/ingresá el monto/i)).toBeNull();
   });
 });
 
@@ -279,7 +286,7 @@ describe('commission_pct frozen at insert, servicio branch only (REQ-PROFIT-1/2)
 
     fireEvent.click(screen.getByText('Transferencia'));
 
-    fireEvent.click(screen.getByText('Registrar movimiento'));
+    fireEvent.click(screen.getByText('Registrar venta'));
 
     await waitFor(() => expect(lastMovementInsert).not.toBeNull());
   }

@@ -86,6 +86,7 @@ export function MovementForm({ initialType, showToast }: MovementFormProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showNewContact, setShowNewContact] = useState(false);
   const [showDiscardConfirm, setShowDiscardConfirm] = useState(false);
+  const [attempted, setAttempted] = useState(false);
 
   // Form state
   const [type, setType] = useState<MovementType | ''>(initialType || '');
@@ -197,6 +198,10 @@ export function MovementForm({ initialType, showToast }: MovementFormProps) {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!isValid()) {
+      setAttempted(true);
+      return;
+    }
     setIsSubmitting(true);
 
     const userId = await getCurrentUserId();
@@ -481,6 +486,9 @@ export function MovementForm({ initialType, showToast }: MovementFormProps) {
           <>
             <section className="section">
               <h2 className="section-title">Cliente <span className="required-mark">*</span></h2>
+              {attempted && !selectedContact && (
+                <p className="field-error">Seleccioná un cliente</p>
+              )}
               {selectedContact ? (
                 <div className="selected-contact">
                   <span className="contact-name">{selectedContact.full_name}</span>
@@ -540,6 +548,9 @@ export function MovementForm({ initialType, showToast }: MovementFormProps) {
 
             <section className="section">
               <h2 className="section-title">Servicio</h2>
+              {attempted && !serviceId && (
+                <p className="field-error">Seleccioná un servicio</p>
+              )}
               <div className="service-grid">
                 {services.map((s) => (
                   <button
@@ -560,6 +571,9 @@ export function MovementForm({ initialType, showToast }: MovementFormProps) {
 
             <section className="section">
               <h2 className="section-title">Método de pago</h2>
+              {attempted && !paymentMethod && (
+                <p className="field-error">Seleccioná un método de pago</p>
+              )}
               <div className="method-grid">
                 {paymentMethods.map((m) => (
                   <button
@@ -579,6 +593,9 @@ export function MovementForm({ initialType, showToast }: MovementFormProps) {
               <>
                 <section className="section">
                   <h2 className="section-title">Dinero recibido</h2>
+                  {attempted && parseGuaranies(income) <= 0 && (
+                    <p className="field-error">Ingresá el monto recibido</p>
+                  )}
                   <input
                     type="text"
                     inputMode="numeric"
@@ -618,6 +635,9 @@ export function MovementForm({ initialType, showToast }: MovementFormProps) {
 
             <section className="section">
               <h2 className="section-title">Monto</h2>
+              {attempted && parseGuaranies(income) <= 0 && (
+                <p className="field-error">Ingresá el monto</p>
+              )}
               <input
                 type="text"
                 inputMode="numeric"
@@ -630,6 +650,9 @@ export function MovementForm({ initialType, showToast }: MovementFormProps) {
 
             <section className="section">
               <h2 className="section-title">Origen <span className="required-mark">*</span></h2>
+              {attempted && !fuente && (
+                <p className="field-error">Seleccioná el origen del gasto</p>
+              )}
               <div className="method-grid">
                 {fuentes.map((f) => (
                   <button
@@ -650,6 +673,9 @@ export function MovementForm({ initialType, showToast }: MovementFormProps) {
         {(type === 'apertura' || type === 'cierre') && (
           <section className="section">
             <h2 className="section-title">Monto</h2>
+            {attempted && parseGuaranies(income) <= 0 && (
+              <p className="field-error">Ingresá el monto</p>
+            )}
             <input
               type="text"
               inputMode="numeric"
@@ -667,7 +693,7 @@ export function MovementForm({ initialType, showToast }: MovementFormProps) {
         <section className="section">
           <button
             type="submit"
-            disabled={!isValid() || isSubmitting}
+            disabled={isSubmitting}
             className="btn-primary btn-full"
           >
             {isSubmitting ? 'Guardando...' : (type ? SUBMIT_LABELS[type] : 'Registrar')}
@@ -906,6 +932,13 @@ export function MovementForm({ initialType, showToast }: MovementFormProps) {
         .btn-primary:disabled {
           opacity: 0.5;
           cursor: not-allowed;
+        }
+
+        .field-error {
+          font-size: 12px;
+          color: #ef4444;
+          margin-bottom: 8px;
+          font-weight: 500;
         }
 
         .dropdown {

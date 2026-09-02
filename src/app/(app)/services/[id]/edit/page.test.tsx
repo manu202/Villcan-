@@ -7,6 +7,10 @@ vi.mock('next/navigation', () => ({
   useRouter: () => ({ push: vi.fn() }),
 }));
 
+vi.mock('@/contexts/BranchContext', () => ({
+  useBranch: () => ({ currentBranch: { id: 'branch-1', name: 'Centro' }, initialized: true }),
+}));
+
 let serviceData: {
   id: string;
   name: string;

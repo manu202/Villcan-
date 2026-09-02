@@ -379,7 +379,7 @@ export default function OrderDetailPage() {
             </div>
             <button type="button" className="whatsapp-btn" onClick={handleNotify}>
               <MessageCircle size={15} />
-              Notificar
+              Notificar cliente
             </button>
           </div>
 
@@ -406,7 +406,7 @@ export default function OrderDetailPage() {
                   className="contact-pill"
                 >
                   <User size={13} />
-                  <span>Ver contacto</span>
+                  <span>Ver contacto vinculado</span>
                   <ChevronRight size={13} />
                 </Link>
               )}

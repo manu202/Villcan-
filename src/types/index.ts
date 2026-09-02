@@ -36,12 +36,12 @@ export interface Branch {
 export interface UserBranchAccess {
   user_id: string;
   branch_id: string;
-  role: 'admin' | 'barber';
+  role: 'admin' | 'user';
   created_at: string;
 }
 
 export interface BranchWithRole extends Branch {
-  user_role: 'admin' | 'barber';
+  user_role: 'admin' | 'user';
 }
 
 export interface Service {

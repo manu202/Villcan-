@@ -51,7 +51,7 @@ describe('SettingsPage /settings/general — "Negocio" (REQ-SETTINGSREORG-2)', (
 
   it('renders an access-restricted state when the user is not admin anywhere', () => {
     mockUseBranch.mockReturnValue({
-      branches: [{ id: 'b1', user_role: 'barber' }],
+      branches: [{ id: 'b1', user_role: 'user' }],
     });
 
     render(<SettingsPage />);
@@ -73,7 +73,7 @@ describe('SettingsPage /settings/general — "Negocio" (REQ-SETTINGSREORG-2)', (
   it('renders the full form pre-populated when the user is admin on at least one branch', () => {
     mockUseBranch.mockReturnValue({
       branches: [
-        { id: 'b1', user_role: 'barber' },
+        { id: 'b1', user_role: 'user' },
         { id: 'b2', user_role: 'admin' },
       ],
     });

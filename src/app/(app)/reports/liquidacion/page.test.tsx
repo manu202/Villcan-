@@ -36,6 +36,7 @@ describe('LiquidacionPage commission column visibility (REQ-PROFIT-5)', () => {
   beforeEach(() => {
     mockUseBranch.mockReturnValue({
       currentBranch: { id: 'branch-1', name: 'Centro', vertical: 'barbershop' },
+      branches: [{ id: 'branch-1', user_role: 'admin' }],
       initialized: true,
     });
     movementsData = [
@@ -76,6 +77,7 @@ describe('LiquidacionPage titles use configurable staff_label (generalize-vertic
   beforeEach(() => {
     mockUseBranch.mockReturnValue({
       currentBranch: { id: 'branch-1', name: 'Centro', vertical: 'barbershop' },
+      branches: [{ id: 'branch-1', user_role: 'admin' }],
       initialized: true,
     });
     movementsData = [

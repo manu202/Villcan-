@@ -4,6 +4,7 @@ import ContactDetailPage from './page';
 
 vi.mock('next/navigation', () => ({
   useParams: () => ({ id: 'contact-1' }),
+  useRouter: () => ({ push: vi.fn() }),
 }));
 
 let contactResult: Promise<unknown>;
@@ -42,9 +43,9 @@ describe('ContactDetailPage (REQ-CRM-3)', () => {
     contactResult = Promise.resolve({ data: baseContact, error: null });
     movementsResult = Promise.resolve({
       data: [
-        { id: 'm1', type: 'servicio', amount_charged: 35000, created_at: '2026-07-15T10:00:00.000Z', service: { name: 'Corte' } },
-        { id: 'm2', type: 'servicio', amount_charged: 35000, created_at: '2026-07-01T10:00:00.000Z', service: { name: 'Corte' } },
-        { id: 'm3', type: 'servicio', amount_charged: 35000, created_at: '2026-06-20T10:00:00.000Z', service: { name: 'Corte' } },
+        { id: 'm1', type: 'servicio', amount_charged: 35000, created_at: '2026-08-25T10:00:00.000Z', service: { name: 'Corte' } },
+        { id: 'm2', type: 'servicio', amount_charged: 35000, created_at: '2026-08-10T10:00:00.000Z', service: { name: 'Corte' } },
+        { id: 'm3', type: 'servicio', amount_charged: 35000, created_at: '2026-08-01T10:00:00.000Z', service: { name: 'Corte' } },
       ],
       error: null,
     });
@@ -52,7 +53,7 @@ describe('ContactDetailPage (REQ-CRM-3)', () => {
     render(<ContactDetailPage />);
 
     await waitFor(() => expect(screen.getByText('Cliente frecuente')).toBeTruthy());
-    expect(screen.getAllByText('15/07/2026').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('25/08/2026').length).toBeGreaterThan(0);
   });
 
   it('shows "Sin visitas" and no frequent badge for a contact with zero movements', async () => {
