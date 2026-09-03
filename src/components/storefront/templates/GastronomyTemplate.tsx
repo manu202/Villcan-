@@ -1,7 +1,7 @@
 'use client';
 
-import { useMemo, useState } from 'react';
-import { ShoppingBag, X, Plus, Minus, MessageCircle, UtensilsCrossed } from 'lucide-react';
+import { useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
+import { ShoppingBag, X, Plus, Minus, MessageCircle, ChevronLeft, ChevronRight, UtensilsCrossed } from 'lucide-react';
 import { CheckoutForm } from '../CheckoutForm';
 import { OrderSuccess } from '../OrderSuccess';
 import { useStorefrontCart } from '../useStorefrontCart';
@@ -16,26 +16,20 @@ interface GastronomyTemplateProps {
   services: Service[];
 }
 
-const UNCATEGORIZED = 'Otros';
-
-function slugify(value: string): string {
-  return value
-    .toLowerCase()
-    .normalize('NFD')
-    .replace(/[̀-ͯ]/g, '')
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/(^-|-$)/g, '');
-}
+// Pointer-drag threshold (px) before a swipe counts as prev/next, mirroring
+// the reference artifact's `Math.abs(dx) > 48` rule.
+const SWIPE_THRESHOLD = 48;
 
 /**
- * Gastronomy vertical — warm linen/terracotta identity ("La Pizzería"
- * reference palette): cream/charcoal/ember light palette with an equivalent
- * dark variant, Playfair Display for the business name, product names and
- * prices, DM Sans for everything else. A page-level hero (business name +
- * circular photo, no per-product mockup chrome, no swipe) sits above the
- * category nav. Categories are derived from real service.category values,
- * not hardcoded. Catalog/cart/checkout behavior is unchanged — only the
- * visual skin moved from the previous ember/ink-black identity.
+ * Gastronomy vertical — "La Pizzería" reference: one product at a time,
+ * navigated with prev/next arrows, dot indicators, and real touch/pointer
+ * swipe, instead of a category list. Products come from the branch's real
+ * `services` (same flat order `getCatalog` already provides — no category
+ * grouping, no hardcoded data). No size picker, no ingredients section, and
+ * no phone-mockup chrome — this page fills the visitor's actual viewport.
+ * Cart/checkout wiring (`useStorefrontCart`, `CheckoutForm`, `OrderSuccess`)
+ * is reused unchanged; the cart badge + drawer is this template's own
+ * addition since the reference artifact has no such affordance.
  */
 export function GastronomyTemplate({ branch, services }: GastronomyTemplateProps) {
   const {
@@ -57,27 +51,44 @@ export function GastronomyTemplate({ branch, services }: GastronomyTemplateProps
   } = useStorefrontCart(branch, services);
 
   const [cartOpen, setCartOpen] = useState(false);
+  const [current, setCurrent] = useState(0);
+  const [dragX, setDragX] = useState(0);
+  // A ref (not plain state) survives across the pointerdown -> pointermove ->
+  // pointerup sequence without being reset by the re-renders that setDragX
+  // triggers in between — a plain object recreated each render would lose
+  // `active` on the very first pointermove.
+  const dragState = useRef({ active: false, startX: 0 });
 
-  const categories = useMemo(() => {
-    const map = new Map<string, Service[]>();
-    for (const service of services) {
-      const name = service.category?.trim() || UNCATEGORIZED;
-      const list = map.get(name) ?? [];
-      list.push(service);
-      map.set(name, list);
+  const lastIndex = services.length - 1;
+  const product = services[current];
+
+  // Clamped navigation — no wrap-around, matching the reference artifact's
+  // elastic "bounce" behavior at both ends (it snaps back instead of looping
+  // to the other side).
+  const goTo = (nextIndex: number) => {
+    if (nextIndex < 0 || nextIndex > lastIndex) return;
+    setCurrent(nextIndex);
+  };
+
+  const onPointerDown = (e: ReactPointerEvent<HTMLDivElement>) => {
+    dragState.current.active = true;
+    dragState.current.startX = e.clientX;
+    e.currentTarget.setPointerCapture(e.pointerId);
+  };
+
+  const onPointerMove = (e: ReactPointerEvent<HTMLDivElement>) => {
+    if (!dragState.current.active) return;
+    setDragX(e.clientX - dragState.current.startX);
+  };
+
+  const endDrag = () => {
+    if (!dragState.current.active) return;
+    dragState.current.active = false;
+    if (Math.abs(dragX) > SWIPE_THRESHOLD) {
+      goTo(current + (dragX < 0 ? 1 : -1));
     }
-    return Array.from(map.entries()).map(([name, items]) => ({
-      name,
-      slug: slugify(name),
-      items,
-    }));
-  }, [services]);
-
-  // No dedicated "cover image" field on branches — the hero photo is the
-  // first catalog service that has one, following the same category/name
-  // order `getCatalog` already provides. With no image anywhere, fall back
-  // to a decorative gradient circle instead of a broken-image icon.
-  const heroImage = useMemo(() => services.find((s) => s.image_url)?.image_url ?? null, [services]);
+    setDragX(0);
+  };
 
   if (step === 'success' && result && whatsappHref) {
     return (
@@ -121,78 +132,105 @@ export function GastronomyTemplate({ branch, services }: GastronomyTemplateProps
       <link rel="stylesheet" href={GOOGLE_FONTS_HREF} />
       <div className="gastro-grain" aria-hidden="true" />
 
-      <header className="gastro-hero">
-        <div className={`gastro-hero-circle${heroImage ? '' : ' gastro-hero-circle--fallback'}`}>
-          {heroImage ? (
-            // eslint-disable-next-line @next/next/no-img-element -- storefront images come from arbitrary Supabase Storage URLs, not part of the Next.js image pipeline.
-            <img src={heroImage} alt={branch.name} />
-          ) : (
-            <UtensilsCrossed size={40} strokeWidth={1.5} aria-hidden="true" />
-          )}
-        </div>
-        <h1 className="gastro-hero-name">{branch.name}</h1>
-        <p className="gastro-hero-tagline">
-          Elegí tus productos y armá tu pedido — te confirmamos todo por WhatsApp.
-        </p>
-      </header>
-
       <nav className="gastro-nav">
-        <div className="gastro-brand">
-          <span className="gastro-brand-name">{branch.name}</span>
-        </div>
-        {categories.length > 0 && (
-          <ul className="gastro-nav-links">
-            {categories.map((cat) => (
-              <li key={cat.slug}>
-                <a href={`#${cat.slug}`}>{cat.name}</a>
-              </li>
-            ))}
-          </ul>
-        )}
-        <button type="button" className="gastro-cart-btn" onClick={() => setCartOpen(true)}>
+        <span className="gastro-brand-name">{branch.name}</span>
+        <button
+          type="button"
+          className="gastro-cart-btn"
+          aria-label="Abrir pedido"
+          onClick={() => setCartOpen(true)}
+        >
           Pedido <span className="gastro-cart-count">{itemCount}</span>
         </button>
       </nav>
 
-      {categories.map((cat, idx) => (
-        <section className="gastro-category" id={cat.slug} key={cat.slug}>
-          <div className="gastro-cat-head">
-            <div className="gastro-cat-tag">{String(idx + 1).padStart(2, '0')}</div>
-            <h2>{cat.name}</h2>
+      {!product ? (
+        <div className="gastro-empty">No hay productos disponibles todavía.</div>
+      ) : (
+        <main className="gastro-stage">
+          <div
+            className="gastro-product-circle"
+            style={{ transform: dragX ? `translateX(${dragX * 0.4}px)` : undefined }}
+            onPointerDown={onPointerDown}
+            onPointerMove={onPointerMove}
+            onPointerUp={endDrag}
+            onPointerCancel={endDrag}
+          >
+            <div className="gastro-product-shadow" aria-hidden="true" />
+            {product.image_url ? (
+              // eslint-disable-next-line @next/next/no-img-element -- storefront images come from arbitrary Supabase Storage URLs, not part of the Next.js image pipeline.
+              <img src={product.image_url} alt={product.name} draggable={false} />
+            ) : (
+              <div className="gastro-product-circle-fallback">
+                <UtensilsCrossed size={40} strokeWidth={1.5} aria-hidden="true" />
+              </div>
+            )}
           </div>
-          <div className="gastro-ticket-grid">
-            {cat.items.map((service) => {
-              const qty = cart[service.id] ?? 0;
-              return (
-                <div className="gastro-ticket" key={service.id}>
-                  <div>
-                    <h3 className="gastro-ticket-name">{service.name}</h3>
-                    {service.description && (
-                      <p className="gastro-ticket-desc">{service.description}</p>
-                    )}
-                  </div>
-                  <div className="gastro-ticket-right">
-                    <span className="gastro-ticket-price">{formatGuaranies(service.price)}</span>
-                    <button
-                      type="button"
-                      className="gastro-ticket-add"
-                      onClick={() => addToCart(service)}
-                    >
-                      {qty > 0 ? `Agregado (${qty})` : '+ Agregar'}
-                    </button>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </section>
-      ))}
 
-      <footer className="gastro-footer">
-        <div className="gastro-fire-mark">— {branch.name} —</div>
-        <h3>¿Listo para pedir?</h3>
-        <p>Armá tu pedido arriba y enviálo directo por WhatsApp.</p>
-      </footer>
+          <div className="gastro-arrows">
+            <button
+              type="button"
+              className="gastro-arrow-btn"
+              aria-label="Producto anterior"
+              onClick={() => goTo(current - 1)}
+              disabled={current === 0}
+            >
+              <ChevronLeft size={18} />
+            </button>
+            <div className="gastro-dots">
+              {services.map((s, idx) => (
+                <button
+                  key={s.id}
+                  type="button"
+                  className={`gastro-dot${idx === current ? ' active' : ''}`}
+                  aria-label={`Ir al producto ${idx + 1}`}
+                  aria-current={idx === current}
+                  onClick={() => goTo(idx)}
+                />
+              ))}
+            </div>
+            <button
+              type="button"
+              className="gastro-arrow-btn"
+              aria-label="Producto siguiente"
+              onClick={() => goTo(current + 1)}
+              disabled={current === lastIndex}
+            >
+              <ChevronRight size={18} />
+            </button>
+          </div>
+
+          <div className="gastro-info">
+            <h1 className="gastro-product-name">{product.name}</h1>
+            {product.description && <p className="gastro-product-desc">{product.description}</p>}
+            <div className="gastro-price-row">
+              <span className="gastro-price">{formatGuaranies(product.price)}</span>
+              <span className="gastro-price-tag">por unidad</span>
+            </div>
+          </div>
+
+          <div className="gastro-bottom-bar">
+            <div className="gastro-qty-ctrl">
+              <button
+                type="button"
+                aria-label="Restar"
+                onClick={() => decrement(product.id)}
+                disabled={(cart[product.id] ?? 0) === 0}
+              >
+                <Minus size={16} />
+              </button>
+              <span className="gastro-qty-num">{cart[product.id] ?? 0}</span>
+              <button type="button" aria-label="Sumar" onClick={() => increment(product.id)}>
+                <Plus size={16} />
+              </button>
+            </div>
+            <button type="button" className="gastro-add-btn" onClick={() => addToCart(product)}>
+              <ShoppingBag size={16} />
+              Agregar al carrito
+            </button>
+          </div>
+        </main>
+      )}
 
       {itemCount > 0 && (
         <button type="button" className="gastro-fab" onClick={() => setCartOpen(true)}>
@@ -300,6 +338,8 @@ function GastroStyles() {
         --font-body: 'DM Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
         position: relative;
         min-height: 100vh;
+        display: flex;
+        flex-direction: column;
         background: var(--linen);
         color: var(--charcoal);
         font-family: var(--font-body);
@@ -347,53 +387,6 @@ function GastroStyles() {
         background-image: radial-gradient(circle, rgba(196,120,58,0.5) 1px, transparent 1px);
         background-size: 3px 3px;
       }
-      .gastro-hero {
-        position: relative;
-        z-index: 1;
-        padding: 48px 20px 36px;
-        text-align: center;
-        max-width: 520px;
-        margin: 0 auto;
-      }
-      .gastro-hero-circle {
-        width: clamp(120px, 32vw, 176px);
-        height: clamp(120px, 32vw, 176px);
-        margin: 0 auto 20px;
-        border-radius: 50%;
-        overflow: hidden;
-        box-shadow:
-          0 0 0 5px var(--card),
-          0 0 0 6px var(--ash),
-          0 16px 50px var(--shadow),
-          0 0 60px var(--glow);
-      }
-      .gastro-hero-circle img {
-        width: 100%;
-        height: 100%;
-        object-fit: cover;
-        display: block;
-      }
-      .gastro-hero-circle--fallback {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        background: radial-gradient(circle, var(--ember-lo), var(--card));
-        color: var(--ember);
-      }
-      .gastro-hero-name {
-        font-family: var(--font-display);
-        font-weight: 700;
-        font-size: clamp(28px, 7vw, 44px);
-        margin: 0 0 12px;
-        color: var(--charcoal);
-      }
-      .gastro-hero-tagline {
-        font-family: var(--font-body);
-        font-size: 14px;
-        line-height: 1.7;
-        color: var(--smoke);
-        margin: 0;
-      }
       .gastro-nav {
         position: sticky;
         top: 0;
@@ -401,8 +394,6 @@ function GastroStyles() {
         display: flex;
         align-items: center;
         justify-content: space-between;
-        flex-wrap: wrap;
-        row-gap: 10px;
         padding: 14px 20px;
         background: rgba(247, 242, 236, 0.9);
         background: color-mix(in srgb, var(--linen) 90%, transparent);
@@ -414,28 +405,6 @@ function GastroStyles() {
         font-weight: 700;
         font-size: 18px;
         color: var(--charcoal);
-      }
-      .gastro-nav-links {
-        display: flex;
-        gap: 16px;
-        list-style: none;
-        margin: 0;
-        padding: 0;
-        order: 3;
-        flex-basis: 100%;
-        overflow-x: auto;
-        border-top: 1px dashed var(--ash);
-        padding-top: 10px;
-      }
-      .gastro-nav-links a {
-        font-family: var(--font-body);
-        font-size: 12px;
-        font-weight: 600;
-        letter-spacing: 0.4px;
-        text-transform: uppercase;
-        color: var(--smoke);
-        text-decoration: none;
-        white-space: nowrap;
       }
       .gastro-cart-btn {
         display: flex;
@@ -464,119 +433,237 @@ function GastroStyles() {
         font-weight: 700;
         padding: 0 4px;
       }
-      .gastro-category {
+
+      /* ── Single-product stage (swipe) ── */
+      .gastro-stage {
         position: relative;
         z-index: 1;
-        padding: 40px 20px 10px;
-        max-width: 720px;
-        margin: 0 auto;
-        scroll-margin-top: 90px;
-      }
-      .gastro-cat-tag {
-        font-family: var(--font-body);
-        font-size: 11px;
-        font-weight: 700;
-        letter-spacing: 2px;
-        color: var(--ember);
-        margin-bottom: 8px;
-      }
-      .gastro-cat-head h2 {
-        font-family: var(--font-display);
-        font-weight: 700;
-        font-size: clamp(24px, 5vw, 34px);
-        margin: 0 0 24px;
-        color: var(--charcoal);
-      }
-      .gastro-ticket-grid {
-        display: grid;
-        gap: 0;
-      }
-      .gastro-ticket {
-        display: grid;
-        grid-template-columns: 1fr auto;
-        gap: 14px;
-        align-items: start;
-        padding: 18px 12px;
-        border-bottom: 1px solid var(--ash);
-        background: var(--card);
-        border-radius: 12px;
-        margin-bottom: 10px;
-      }
-      .gastro-ticket-name {
-        font-family: var(--font-display);
-        font-weight: 700;
-        font-size: 18px;
-        color: var(--charcoal);
-        margin: 0 0 6px;
-      }
-      .gastro-ticket-desc {
-        font-family: var(--font-body);
-        font-size: 12.5px;
-        line-height: 1.6;
-        color: var(--smoke);
-        margin: 0;
-      }
-      .gastro-ticket-right {
-        text-align: right;
+        flex: 1;
         display: flex;
         flex-direction: column;
-        align-items: flex-end;
-        gap: 8px;
+        align-items: center;
+        width: 100%;
+        max-width: 480px;
+        margin: 0 auto;
+        padding: 40px 24px 24px;
+        touch-action: pan-y;
       }
-      .gastro-ticket-price {
+      .gastro-empty {
+        position: relative;
+        z-index: 1;
+        flex: 1;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        text-align: center;
+        padding: 60px 24px;
+        color: var(--smoke);
+        font-family: var(--font-body);
+        font-size: 14px;
+      }
+      .gastro-product-circle {
+        position: relative;
+        width: clamp(200px, 60vw, 270px);
+        height: clamp(200px, 60vw, 270px);
+        flex-shrink: 0;
+        cursor: grab;
+        touch-action: none;
+        border-radius: 50%;
+      }
+      .gastro-product-circle:active {
+        cursor: grabbing;
+      }
+      .gastro-product-shadow {
+        position: absolute;
+        bottom: -18px;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 85%;
+        height: 26px;
+        background: radial-gradient(ellipse, var(--shadow) 0%, transparent 70%);
+        border-radius: 50%;
+        pointer-events: none;
+      }
+      .gastro-product-circle img,
+      .gastro-product-circle-fallback {
+        width: 100%;
+        height: 100%;
+        border-radius: 50%;
+        object-fit: cover;
+        display: block;
+        box-shadow:
+          0 0 0 5px var(--card),
+          0 0 0 6px var(--ash),
+          0 16px 50px var(--shadow),
+          0 0 60px var(--glow);
+        user-select: none;
+        -webkit-user-drag: none;
+      }
+      .gastro-product-circle-fallback {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: radial-gradient(circle, var(--ember-lo), var(--card));
+        color: var(--ember);
+      }
+      .gastro-arrows {
+        display: flex;
+        align-items: center;
+        gap: 24px;
+        margin-top: 24px;
+      }
+      .gastro-arrow-btn {
+        width: 36px;
+        height: 36px;
+        border-radius: 50%;
+        border: 1.5px solid var(--ash);
+        background: var(--white);
+        color: var(--smoke);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        transition: all .2s;
+      }
+      .gastro-arrow-btn:hover:not(:disabled) {
+        border-color: var(--ember);
+        color: var(--ember);
+      }
+      .gastro-arrow-btn:disabled {
+        opacity: 0.35;
+        cursor: not-allowed;
+      }
+      .gastro-dots {
+        display: flex;
+        gap: 5px;
+        align-items: center;
+      }
+      .gastro-dot {
+        width: 5px;
+        height: 5px;
+        padding: 0;
+        border: none;
+        border-radius: 50%;
+        background: var(--ash);
+        cursor: pointer;
+        transition: all .35s cubic-bezier(.4,0,.2,1);
+      }
+      .gastro-dot.active {
+        width: 20px;
+        border-radius: 3px;
+        background: var(--ember);
+      }
+      .gastro-info {
+        width: 100%;
+        text-align: center;
+        margin-top: 28px;
+      }
+      .gastro-product-name {
         font-family: var(--font-display);
         font-weight: 700;
-        font-size: 16px;
-        color: var(--ember);
-        white-space: nowrap;
+        font-size: clamp(24px, 6vw, 32px);
+        color: var(--charcoal);
+        margin: 0;
+        line-height: 1.15;
       }
-      .gastro-ticket-add {
+      .gastro-product-desc {
+        font-family: var(--font-display);
+        font-style: italic;
+        font-size: 14px;
+        color: var(--smoke);
+        margin: 6px 0 0;
+      }
+      .gastro-price-row {
+        display: flex;
+        align-items: baseline;
+        justify-content: center;
+        gap: 12px;
+        margin-top: 16px;
+      }
+      .gastro-price {
+        font-family: var(--font-display);
+        font-weight: 700;
+        font-size: 32px;
+        color: var(--charcoal);
+      }
+      .gastro-price-tag {
         font-family: var(--font-body);
         font-size: 11px;
-        font-weight: 700;
-        letter-spacing: 0.4px;
+        font-weight: 600;
+        letter-spacing: 1.5px;
         text-transform: uppercase;
         color: var(--ember);
         background: var(--ember-lo);
-        border: 1px solid transparent;
-        padding: 6px 12px;
-        border-radius: 100px;
-        cursor: pointer;
-        white-space: nowrap;
-        min-height: 32px;
+        padding: 3px 8px;
+        border-radius: 4px;
       }
-      .gastro-ticket-add:hover {
-        border-color: var(--ember);
+      .gastro-bottom-bar {
+        position: sticky;
+        bottom: 0;
+        width: 100%;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin-top: 32px;
+        padding: 16px 0 8px;
+        background: linear-gradient(to top, var(--linen) 70%, transparent);
       }
-      .gastro-footer {
-        position: relative;
-        z-index: 1;
-        padding: 60px 20px 90px;
-        text-align: center;
-        border-top: 1px solid var(--ash);
-        margin-top: 40px;
+      .gastro-bottom-bar .gastro-qty-ctrl {
+        display: flex;
+        align-items: center;
+        background: var(--white);
+        border: 1.5px solid var(--ash);
+        border-radius: 50px;
+        overflow: hidden;
       }
-      .gastro-fire-mark {
-        font-family: var(--font-display);
-        font-style: italic;
-        font-weight: 600;
-        font-size: 14px;
-        color: var(--ember);
-        margin-bottom: 8px;
-      }
-      .gastro-footer h3 {
-        font-family: var(--font-display);
-        font-weight: 700;
-        font-size: 24px;
+      .gastro-bottom-bar .gastro-qty-ctrl button {
+        width: 40px;
+        height: 48px;
+        border: none;
+        background: transparent;
         color: var(--charcoal);
-        margin: 0 0 10px;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
       }
-      .gastro-footer p {
+      .gastro-bottom-bar .gastro-qty-ctrl button:hover:not(:disabled) {
+        background: var(--ember-lo);
+      }
+      .gastro-bottom-bar .gastro-qty-ctrl button:disabled {
+        opacity: 0.35;
+        cursor: not-allowed;
+      }
+      .gastro-qty-num {
+        width: 30px;
+        text-align: center;
         font-family: var(--font-body);
-        font-size: 13px;
-        color: var(--smoke);
-        max-width: 380px;
-        margin: 0 auto;
+        font-size: 15px;
+        font-weight: 700;
+        color: var(--charcoal);
+      }
+      .gastro-add-btn {
+        flex: 1;
+        height: 50px;
+        background: var(--charcoal);
+        color: var(--card);
+        border: none;
+        border-radius: 50px;
+        font-family: var(--font-body);
+        font-size: 14px;
+        font-weight: 600;
+        letter-spacing: .3px;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        box-shadow: 0 4px 16px var(--shadow);
+        transition: background .2s, box-shadow .15s;
+      }
+      .gastro-add-btn:hover {
+        background: var(--ember);
+        box-shadow: 0 6px 20px var(--glow);
       }
       .gastro-fab {
         position: fixed;
@@ -591,14 +678,11 @@ function GastroStyles() {
         font-family: var(--font-body);
         font-size: 13px;
         font-weight: 700;
-        display: flex;
+        display: none;
         align-items: center;
         gap: 8px;
         cursor: pointer;
         box-shadow: 0 8px 24px var(--shadow), 0 0 40px var(--glow);
-      }
-      @media (min-width: 761px) {
-        .gastro-fab { display: none; }
       }
       .gastro-overlay {
         position: fixed;
@@ -684,12 +768,12 @@ function GastroStyles() {
         color: var(--smoke);
         margin-top: 3px;
       }
-      .gastro-qty-ctrl {
+      .gastro-drawer-body .gastro-qty-ctrl {
         display: flex;
         align-items: center;
         gap: 10px;
       }
-      .gastro-qty-ctrl button {
+      .gastro-drawer-body .gastro-qty-ctrl button {
         width: 26px;
         height: 26px;
         border-radius: 50%;
@@ -851,6 +935,10 @@ function GastroStyles() {
         text-transform: uppercase;
       }
       .gastro-shell .whatsapp-btn:hover { filter: brightness(1.1); }
+
+      @media (max-width: 760px) {
+        .gastro-fab { display: flex; }
+      }
     `}</style>
   );
 }
