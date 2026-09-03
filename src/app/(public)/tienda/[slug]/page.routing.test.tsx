@@ -58,7 +58,7 @@ describe('StorefrontPage vertical routing (REQ: template chosen by branch.vertic
 
   it('renders the Gastronomy template for vertical=gastronomy', async () => {
     await renderPage('gastronomy');
-    expect(document.querySelector('.gastro-shell')).toBeTruthy();
+    expect(document.querySelector('.gt')).toBeTruthy();
   });
 
   it('renders the Retail template for vertical=retail', async () => {

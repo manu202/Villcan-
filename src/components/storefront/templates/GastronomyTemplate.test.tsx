@@ -61,30 +61,27 @@ const services: Service[] = [
   },
 ];
 
-describe('GastronomyTemplate (one-product-at-a-time swipe)', () => {
+describe('GastronomyTemplate — ticket-grid catalog', () => {
   beforeEach(() => vi.clearAllMocks());
 
-  it('renders without crashing and shows the first product plus the brand name', () => {
+  it('renders all products visible in the catalog at once (grid, not carousel)', () => {
     render(<GastronomyTemplate branch={branch} services={services} />);
-    expect(screen.getAllByText('Tatapiriri').length).toBeGreaterThan(0);
+    // All products must be visible simultaneously — this is the grid, not one-at-a-time.
     expect(screen.getByText('Mozzarella')).toBeTruthy();
-    expect(screen.getByText('Base blanca, mozzarella')).toBeTruthy();
-    // Only the current product is shown — not a category list of everything.
-    expect(screen.queryByText('3 Salsas')).toBeNull();
-    expect(screen.queryByText('Napolitana')).toBeNull();
+    expect(screen.getByText('3 Salsas')).toBeTruthy();
+    expect(screen.getByText('Napolitana')).toBeTruthy();
   });
 
-  it('renders a single-product catalog without crashing and disables both arrows', () => {
-    render(<GastronomyTemplate branch={branch} services={[services[0]]} />);
-    expect(screen.getByText('Mozzarella')).toBeTruthy();
-    const prevBtn = screen.getByRole('button', {
-      name: /producto anterior/i,
-    }) as HTMLButtonElement;
-    const nextBtn = screen.getByRole('button', {
-      name: /producto siguiente/i,
-    }) as HTMLButtonElement;
-    expect(prevBtn.disabled).toBe(true);
-    expect(nextBtn.disabled).toBe(true);
+  it('shows the branch name in the nav', () => {
+    render(<GastronomyTemplate branch={branch} services={services} />);
+    expect(screen.getAllByText('Tatapiriri').length).toBeGreaterThan(0);
+  });
+
+  it('groups products under their category headings', () => {
+    render(<GastronomyTemplate branch={branch} services={services} />);
+    expect(screen.getByRole('heading', { name: 'Pizzas' })).toBeTruthy();
+    // Products with no category fall under the default heading
+    expect(screen.getByRole('heading', { name: 'Del menú' })).toBeTruthy();
   });
 
   it('renders an empty catalog without crashing', () => {
@@ -93,65 +90,41 @@ describe('GastronomyTemplate (one-product-at-a-time swipe)', () => {
     expect(screen.getByText(/no hay productos/i)).toBeTruthy();
   });
 
-  it('advances to the next product on "next" and back on "prev", clamping at both ends', () => {
+  it('opens the product detail sheet when tapping a product', () => {
     render(<GastronomyTemplate branch={branch} services={services} />);
-    const prevBtn = screen.getByRole('button', {
-      name: /producto anterior/i,
-    }) as HTMLButtonElement;
-    const nextBtn = screen.getByRole('button', {
-      name: /producto siguiente/i,
-    }) as HTMLButtonElement;
-
-    // Clamped at the start — prev does nothing on the first product.
-    expect(prevBtn.disabled).toBe(true);
-    fireEvent.click(nextBtn);
-    expect(screen.getByText('3 Salsas')).toBeTruthy();
-    expect(screen.queryByText('Mozzarella')).toBeNull();
-
-    fireEvent.click(nextBtn);
-    expect(screen.getByText('Napolitana')).toBeTruthy();
-
-    // Clamped at the end — next does nothing on the last product.
-    expect(nextBtn.disabled).toBe(true);
-    fireEvent.click(nextBtn);
-    expect(screen.getByText('Napolitana')).toBeTruthy();
-
-    fireEvent.click(prevBtn);
-    expect(screen.getByText('3 Salsas')).toBeTruthy();
+    // Tap the first product ticket
+    fireEvent.click(screen.getByRole('button', { name: /Mozzarella/i }));
+    // Sheet should now show the product name (heading) and description
+    expect(screen.getByRole('heading', { name: 'Mozzarella' })).toBeTruthy();
+    expect(screen.getByText('Base blanca, mozzarella')).toBeTruthy();
   });
 
-  it('"Agregar al carrito" adds the currently visible product, not a fixed one', () => {
+  it('adds a product to the cart from the bottom sheet CTA', () => {
     render(<GastronomyTemplate branch={branch} services={services} />);
-    const addBtn = screen.getByRole('button', { name: /agregar al carrito/i });
-
-    // Add the first product (Mozzarella).
-    fireEvent.click(addBtn);
+    fireEvent.click(screen.getByRole('button', { name: /Mozzarella/i }));
+    fireEvent.click(screen.getByRole('button', { name: /agregar al pedido/i }));
+    // Sheet closes and cart badge appears in the nav with count 1
     expect(screen.getAllByText('1').length).toBeGreaterThan(0);
-
-    // Move to the second product and add it too.
-    fireEvent.click(screen.getByRole('button', { name: /producto siguiente/i }));
-    fireEvent.click(screen.getByRole('button', { name: /agregar al carrito/i }));
-
-    // Open the cart drawer and confirm both distinct products landed in it
-    // (the second product is also still shown as the current stage product,
-    // so it legitimately appears twice — the drawer line item is the tell).
-    fireEvent.click(screen.getByRole('button', { name: /abrir pedido/i }));
-    expect(screen.getAllByText('Mozzarella').length).toBeGreaterThan(0);
-    expect(screen.getAllByText('3 Salsas').length).toBeGreaterThan(0);
   });
 
-  it('the cart badge reflects the real item count and leads to checkout', () => {
+  it('opens the cart drawer from the nav cart button and shows line items', () => {
     render(<GastronomyTemplate branch={branch} services={services} />);
-    fireEvent.click(screen.getByRole('button', { name: /agregar al carrito/i }));
-    fireEvent.click(screen.getByRole('button', { name: /agregar al carrito/i }));
+    // Add Mozzarella
+    fireEvent.click(screen.getByRole('button', { name: /Mozzarella/i }));
+    fireEvent.click(screen.getByRole('button', { name: /agregar al pedido/i }));
+    // Open cart drawer
+    fireEvent.click(screen.getByRole('button', { name: /ver pedido/i }));
+    expect(screen.getByRole('heading', { name: 'Tu pedido' })).toBeTruthy();
+    expect(screen.getAllByText('Mozzarella').length).toBeGreaterThan(0);
+  });
 
-    const cartBtn = screen.getByRole('button', { name: /abrir pedido/i });
-    expect(cartBtn.textContent).toContain('2');
-
-    fireEvent.click(cartBtn);
+  it('proceeds to checkout from the cart drawer', () => {
+    render(<GastronomyTemplate branch={branch} services={services} />);
+    fireEvent.click(screen.getByRole('button', { name: /Mozzarella/i }));
+    fireEvent.click(screen.getByRole('button', { name: /agregar al pedido/i }));
+    fireEvent.click(screen.getByRole('button', { name: /ver pedido/i }));
     fireEvent.click(screen.getByRole('button', { name: /continuar pedido/i }));
-
-    // CheckoutForm is reused as-is — its "Nombre" field is the tell.
+    // CheckoutForm mounts — its Nombre field is the tell
     expect(screen.getByLabelText(/nombre/i)).toBeTruthy();
   });
 });

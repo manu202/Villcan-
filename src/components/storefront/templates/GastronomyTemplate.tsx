@@ -1,120 +1,97 @@
 'use client';
 
-import { useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
-import { ShoppingBag, X, Plus, Minus, MessageCircle, ChevronLeft, ChevronRight, UtensilsCrossed } from 'lucide-react';
+import { useState, useMemo, useEffect } from 'react';
+import {
+  ShoppingBag, X, Plus, Minus, MessageCircle, UtensilsCrossed,
+} from 'lucide-react';
 import { CheckoutForm } from '../CheckoutForm';
 import { OrderSuccess } from '../OrderSuccess';
 import { useStorefrontCart } from '../useStorefrontCart';
 import { formatGuaranies } from '@/lib/utils';
 import type { Branch, Service } from '@/types';
 
-const GOOGLE_FONTS_HREF =
-  'https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,600;0,700;1,400;1,600&family=DM+Sans:wght@300;400;500;600;700&display=swap';
+const FONTS =
+  'https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400;1,600&family=Work+Sans:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap';
 
 interface GastronomyTemplateProps {
   branch: Branch;
   services: Service[];
 }
 
-// Pointer-drag threshold (px) before a swipe counts as prev/next, mirroring
-// the reference artifact's `Math.abs(dx) > 48` rule.
-const SWIPE_THRESHOLD = 48;
+function slugify(s: string) {
+  return s.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+}
 
-/**
- * Gastronomy vertical — "La Pizzería" reference: one product at a time,
- * navigated with prev/next arrows, dot indicators, and real touch/pointer
- * swipe, instead of a category list. Products come from the branch's real
- * `services` (same flat order `getCatalog` already provides — no category
- * grouping, no hardcoded data). No size picker, no ingredients section, and
- * no phone-mockup chrome — this page fills the visitor's actual viewport.
- * Cart/checkout wiring (`useStorefrontCart`, `CheckoutForm`, `OrderSuccess`)
- * is reused unchanged; the cart badge + drawer is this template's own
- * addition since the reference artifact has no such affordance.
- */
+function groupByCategory(services: Service[]): [string, Service[]][] {
+  const map = new Map<string, Service[]>();
+  for (const s of services) {
+    const key = s.category || 'Del menú';
+    if (!map.has(key)) map.set(key, []);
+    map.get(key)!.push(s);
+  }
+  return [...map.entries()];
+}
+
 export function GastronomyTemplate({ branch, services }: GastronomyTemplateProps) {
   const {
-    cart,
-    lines,
-    total,
-    itemCount,
-    step,
-    submitting,
-    errorMessage,
-    result,
-    whatsappHref,
-    addToCart,
-    increment,
-    decrement,
-    goToCheckout,
-    backToCatalog,
-    handleSubmit,
+    cart, lines, total, itemCount, step,
+    submitting, errorMessage, result, whatsappHref,
+    addToCart, increment, decrement,
+    goToCheckout, backToCatalog, handleSubmit,
   } = useStorefrontCart(branch, services);
 
   const [cartOpen, setCartOpen] = useState(false);
-  const [current, setCurrent] = useState(0);
-  const [dragX, setDragX] = useState(0);
-  // A ref (not plain state) survives across the pointerdown -> pointermove ->
-  // pointerup sequence without being reset by the re-renders that setDragX
-  // triggers in between — a plain object recreated each render would lose
-  // `active` on the very first pointermove.
-  const dragState = useRef({ active: false, startX: 0 });
+  const [selected, setSelected] = useState<Service | null>(null);
 
-  const lastIndex = services.length - 1;
-  const product = services[current];
+  const categories = useMemo(() => groupByCategory(services), [services]);
 
-  // Clamped navigation — no wrap-around, matching the reference artifact's
-  // elastic "bounce" behavior at both ends (it snaps back instead of looping
-  // to the other side).
-  const goTo = (nextIndex: number) => {
-    if (nextIndex < 0 || nextIndex > lastIndex) return;
-    setCurrent(nextIndex);
-  };
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return;
+      if (selected) { setSelected(null); return; }
+      if (cartOpen) setCartOpen(false);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [selected, cartOpen]);
 
-  const onPointerDown = (e: ReactPointerEvent<HTMLDivElement>) => {
-    dragState.current.active = true;
-    dragState.current.startX = e.clientX;
-    e.currentTarget.setPointerCapture(e.pointerId);
-  };
+  useEffect(() => {
+    document.body.style.overflow = cartOpen || selected ? 'hidden' : '';
+    return () => { document.body.style.overflow = ''; };
+  }, [cartOpen, selected]);
 
-  const onPointerMove = (e: ReactPointerEvent<HTMLDivElement>) => {
-    if (!dragState.current.active) return;
-    setDragX(e.clientX - dragState.current.startX);
-  };
+  const sheetQty = selected ? (cart[selected.id] ?? 0) : 0;
 
-  const endDrag = () => {
-    if (!dragState.current.active) return;
-    dragState.current.active = false;
-    if (Math.abs(dragX) > SWIPE_THRESHOLD) {
-      goTo(current + (dragX < 0 ? 1 : -1));
-    }
-    setDragX(0);
+  const handleSheetAdd = () => {
+    if (!selected) return;
+    if (sheetQty === 0) addToCart(selected);
+    else increment(selected.id);
   };
 
   if (step === 'success' && result && whatsappHref) {
     return (
-      <div className="gastro-shell">
-        <link rel="stylesheet" href={GOOGLE_FONTS_HREF} />
-        <nav className="gastro-nav">
-          <span className="gastro-brand-name">{branch.name}</span>
-        </nav>
-        <OrderSuccess orderCode={result.order_code} whatsappHref={whatsappHref} />
-        <GastroStyles />
+      <div className="gt">
+        <link rel="stylesheet" href={FONTS} />
+        <nav className="gt-nav"><span className="gt-brand">{branch.name}</span></nav>
+        <div className="gt-success-wrap">
+          <OrderSuccess orderCode={result.order_code} whatsappHref={whatsappHref} />
+        </div>
+        <GtStyles />
       </div>
     );
   }
 
   if (step === 'checkout') {
     return (
-      <div className="gastro-shell">
-        <link rel="stylesheet" href={GOOGLE_FONTS_HREF} />
-        <nav className="gastro-nav">
-          <span className="gastro-brand-name">{branch.name}</span>
-          <button type="button" className="gastro-cart-btn" onClick={backToCatalog}>
-            ← Volver
-          </button>
+      <div className="gt">
+        <link rel="stylesheet" href={FONTS} />
+        <nav className="gt-nav">
+          <button type="button" className="gt-back-btn" onClick={backToCatalog}>← Menú</button>
+          <span className="gt-brand">{branch.name}</span>
+          <span className="gt-nav-spacer" />
         </nav>
-        <div className="gastro-checkout-page">
-          <div className="gastro-checkout-eyebrow">Confirmá tu pedido</div>
+        <div className="gt-checkout-wrap">
+          <p className="gt-checkout-eyebrow">Confirmá tu pedido</p>
           <CheckoutForm
             submitting={submitting}
             errorMessage={errorMessage}
@@ -122,822 +99,1025 @@ export function GastronomyTemplate({ branch, services }: GastronomyTemplateProps
             onBack={backToCatalog}
           />
         </div>
-        <GastroStyles />
+        <GtStyles />
       </div>
     );
   }
 
   return (
-    <div className="gastro-shell">
-      <link rel="stylesheet" href={GOOGLE_FONTS_HREF} />
-      <div className="gastro-grain" aria-hidden="true" />
+    <div className="gt">
+      <link rel="stylesheet" href={FONTS} />
+      <div className="gt-grain" aria-hidden="true" />
 
-      <nav className="gastro-nav">
-        <span className="gastro-brand-name">{branch.name}</span>
+      {/* ── NAV ── */}
+      <nav className="gt-nav" aria-label="Navegación principal">
+        <span className="gt-brand">{branch.name}</span>
+        <ul className="gt-nav-cats">
+          {categories.map(([cat]) => (
+            <li key={cat}>
+              <a href={`#${slugify(cat)}`} className="gt-nav-cat">{cat}</a>
+            </li>
+          ))}
+        </ul>
         <button
           type="button"
-          className="gastro-cart-btn"
-          aria-label="Abrir pedido"
+          className="gt-cart-trigger"
           onClick={() => setCartOpen(true)}
+          aria-label={`Ver pedido — ${itemCount} ítems`}
         >
-          Pedido <span className="gastro-cart-count">{itemCount}</span>
+          <ShoppingBag size={14} aria-hidden="true" />
+          Pedido
+          {itemCount > 0 && <span className="gt-badge">{itemCount}</span>}
         </button>
       </nav>
 
-      {!product ? (
-        <div className="gastro-empty">No hay productos disponibles todavía.</div>
-      ) : (
-        <main className="gastro-stage">
-          <div
-            className="gastro-product-circle"
-            style={{ transform: dragX ? `translateX(${dragX * 0.4}px)` : undefined }}
-            onPointerDown={onPointerDown}
-            onPointerMove={onPointerMove}
-            onPointerUp={endDrag}
-            onPointerCancel={endDrag}
-          >
-            <div className="gastro-product-shadow" aria-hidden="true" />
-            {product.image_url ? (
-              // eslint-disable-next-line @next/next/no-img-element -- storefront images come from arbitrary Supabase Storage URLs, not part of the Next.js image pipeline.
-              <img src={product.image_url} alt={product.name} draggable={false} />
-            ) : (
-              <div className="gastro-product-circle-fallback">
-                <UtensilsCrossed size={40} strokeWidth={1.5} aria-hidden="true" />
+      {/* ── HERO ── */}
+      <header className="gt-hero">
+        <div className="gt-hero-glow" aria-hidden="true" />
+        <div className="gt-hero-content">
+          <p className="gt-hero-eyebrow">Menú</p>
+          <h1 className="gt-hero-name">{branch.name}</h1>
+        </div>
+        <div className="gt-scroll-indicator" aria-hidden="true">
+          <span className="gt-scroll-line" />
+        </div>
+      </header>
+
+      {/* ── CATALOG ── */}
+      <main className="gt-catalog">
+        {services.length === 0 ? (
+          <p className="gt-empty">No hay productos disponibles todavía.</p>
+        ) : (
+          categories.map(([cat, items]) => (
+            <section
+              key={cat}
+              id={slugify(cat)}
+              className="gt-section"
+              aria-labelledby={`hl-${slugify(cat)}`}
+            >
+              <div className="gt-section-head">
+                <h2 id={`hl-${slugify(cat)}`} className="gt-section-title">{cat}</h2>
               </div>
-            )}
-          </div>
+              <div className="gt-tickets">
+                {items.map((item) => {
+                  const qty = cart[item.id] ?? 0;
+                  return (
+                    <button
+                      key={item.id}
+                      type="button"
+                      className="gt-ticket"
+                      onClick={() => setSelected(item)}
+                      aria-label={`${item.name}${qty > 0 ? ` — ${qty} en pedido` : ''}`}
+                    >
+                      <div className="gt-ticket-info">
+                        <span className="gt-ticket-name">{item.name}</span>
+                        {item.description && (
+                          <span className="gt-ticket-desc">{item.description}</span>
+                        )}
+                      </div>
+                      <div className="gt-ticket-right">
+                        <span className="gt-ticket-price">{formatGuaranies(item.price)}</span>
+                        {qty > 0 && (
+                          <span className="gt-ticket-qty">{qty} ×</span>
+                        )}
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </section>
+          ))
+        )}
+      </main>
 
-          <div className="gastro-arrows">
-            <button
-              type="button"
-              className="gastro-arrow-btn"
-              aria-label="Producto anterior"
-              onClick={() => goTo(current - 1)}
-              disabled={current === 0}
-            >
-              <ChevronLeft size={18} />
-            </button>
-            <div className="gastro-dots">
-              {services.map((s, idx) => (
-                <button
-                  key={s.id}
-                  type="button"
-                  className={`gastro-dot${idx === current ? ' active' : ''}`}
-                  aria-label={`Ir al producto ${idx + 1}`}
-                  aria-current={idx === current}
-                  onClick={() => goTo(idx)}
-                />
-              ))}
-            </div>
-            <button
-              type="button"
-              className="gastro-arrow-btn"
-              aria-label="Producto siguiente"
-              onClick={() => goTo(current + 1)}
-              disabled={current === lastIndex}
-            >
-              <ChevronRight size={18} />
-            </button>
-          </div>
-
-          <div className="gastro-info">
-            <h1 className="gastro-product-name">{product.name}</h1>
-            {product.description && <p className="gastro-product-desc">{product.description}</p>}
-            <div className="gastro-price-row">
-              <span className="gastro-price">{formatGuaranies(product.price)}</span>
-              <span className="gastro-price-tag">por unidad</span>
-            </div>
-          </div>
-
-          <div className="gastro-bottom-bar">
-            <div className="gastro-qty-ctrl">
-              <button
-                type="button"
-                aria-label="Restar"
-                onClick={() => decrement(product.id)}
-                disabled={(cart[product.id] ?? 0) === 0}
-              >
-                <Minus size={16} />
-              </button>
-              <span className="gastro-qty-num">{cart[product.id] ?? 0}</span>
-              <button type="button" aria-label="Sumar" onClick={() => increment(product.id)}>
-                <Plus size={16} />
-              </button>
-            </div>
-            <button type="button" className="gastro-add-btn" onClick={() => addToCart(product)}>
-              <ShoppingBag size={16} />
-              Agregar al carrito
-            </button>
-          </div>
-        </main>
-      )}
-
+      {/* ── FAB — mobile only, visible when cart has items ── */}
       {itemCount > 0 && (
-        <button type="button" className="gastro-fab" onClick={() => setCartOpen(true)}>
-          <ShoppingBag size={16} />
-          Ver pedido <span className="gastro-cart-count">{itemCount}</span>
+        <button type="button" className="gt-fab" onClick={() => setCartOpen(true)}>
+          <ShoppingBag size={15} aria-hidden="true" />
+          Ver pedido
+          <span className="gt-badge">{itemCount}</span>
         </button>
       )}
 
+      {/* ── PRODUCT SHEET ── */}
       <div
-        className={`gastro-overlay ${cartOpen ? 'open' : ''}`}
+        className={`gt-sheet-scrim${selected ? ' is-open' : ''}`}
+        onClick={() => setSelected(null)}
+        aria-hidden="true"
+      />
+      <div
+        className={`gt-sheet${selected ? ' is-open' : ''}`}
+        role="dialog"
+        aria-modal="true"
+        aria-label={selected?.name ?? 'Producto'}
+        aria-hidden={!selected}
+      >
+        {selected && (
+          <>
+            <button
+              type="button"
+              className="gt-sheet-close"
+              onClick={() => setSelected(null)}
+              aria-label="Cerrar"
+            >
+              <X size={17} aria-hidden="true" />
+            </button>
+
+            {selected.image_url ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={selected.image_url}
+                alt={selected.name}
+                className="gt-sheet-img"
+                draggable={false}
+              />
+            ) : (
+              <div className="gt-sheet-img-empty" aria-hidden="true">
+                <UtensilsCrossed size={38} strokeWidth={1.2} />
+              </div>
+            )}
+
+            <div className="gt-sheet-body">
+              <h3 className="gt-sheet-name">{selected.name}</h3>
+              {selected.description && (
+                <p className="gt-sheet-desc">{selected.description}</p>
+              )}
+              <p className="gt-sheet-price">{formatGuaranies(selected.price)}</p>
+            </div>
+
+            <div className="gt-sheet-foot">
+              {sheetQty > 0 && (
+                <div className="gt-qty-row">
+                  <button
+                    type="button"
+                    className="gt-qty-btn"
+                    aria-label="Restar uno"
+                    onClick={() => decrement(selected.id)}
+                  >
+                    <Minus size={14} aria-hidden="true" />
+                  </button>
+                  <span className="gt-qty-n">{sheetQty}</span>
+                  <button
+                    type="button"
+                    className="gt-qty-btn"
+                    aria-label="Sumar uno"
+                    onClick={handleSheetAdd}
+                  >
+                    <Plus size={14} aria-hidden="true" />
+                  </button>
+                </div>
+              )}
+              <button
+                type="button"
+                className="gt-sheet-cta"
+                onClick={() => {
+                  if (sheetQty === 0) addToCart(selected);
+                  setSelected(null);
+                }}
+              >
+                {sheetQty > 0
+                  ? `Ver pedido · ${formatGuaranies(total)}`
+                  : 'Agregar al pedido'}
+              </button>
+            </div>
+          </>
+        )}
+      </div>
+
+      {/* ── CART DRAWER ── */}
+      <div
+        className={`gt-overlay${cartOpen ? ' is-open' : ''}`}
         onClick={() => setCartOpen(false)}
         aria-hidden="true"
       />
       <div
-        className={`gastro-drawer ${cartOpen ? 'open' : ''}`}
+        className={`gt-drawer${cartOpen ? ' is-open' : ''}`}
         role="dialog"
         aria-modal="true"
         aria-label="Tu pedido"
+        aria-hidden={!cartOpen}
       >
-        <div className="gastro-drawer-head">
-          <h3>Tu pedido</h3>
+        <div className="gt-drawer-head">
+          <h3 className="gt-drawer-title">Tu pedido</h3>
           <button
             type="button"
-            className="gastro-drawer-close"
+            className="gt-drawer-close"
             onClick={() => setCartOpen(false)}
             aria-label="Cerrar pedido"
           >
-            <X size={20} />
+            <X size={19} aria-hidden="true" />
           </button>
         </div>
-        <div className="gastro-drawer-body">
+
+        <div className="gt-drawer-body">
           {lines.length === 0 ? (
-            <div className="gastro-cart-empty">Todavía no agregaste nada.</div>
+            <p className="gt-drawer-empty">
+              Todavía no elegiste nada.<br />
+              Explorá el menú.
+            </p>
           ) : (
             lines.map((line) => (
-              <div className="gastro-cart-item" key={line.service.id}>
-                <div>
-                  <div className="gastro-cart-item-name">{line.service.name}</div>
-                  <div className="gastro-cart-item-price">
+              <div className="gt-drawer-item" key={line.service.id}>
+                <div className="gt-drawer-item-info">
+                  <span className="gt-drawer-item-name">{line.service.name}</span>
+                  <span className="gt-drawer-item-price">
                     {formatGuaranies(line.service.price)} c/u
-                  </div>
+                  </span>
                 </div>
-                <div className="gastro-qty-ctrl">
+                <div className="gt-drawer-qty">
                   <button
                     type="button"
+                    className="gt-qty-btn sm"
                     aria-label={`Restar ${line.service.name}`}
                     onClick={() => decrement(line.service.id)}
                   >
-                    <Minus size={14} />
+                    <Minus size={12} aria-hidden="true" />
                   </button>
-                  <span>{line.qty}</span>
+                  <span className="gt-qty-n">{line.qty}</span>
                   <button
                     type="button"
+                    className="gt-qty-btn sm"
                     aria-label={`Sumar ${line.service.name}`}
                     onClick={() => increment(line.service.id)}
                   >
-                    <Plus size={14} />
+                    <Plus size={12} aria-hidden="true" />
                   </button>
                 </div>
               </div>
             ))
           )}
         </div>
-        <div className="gastro-drawer-foot">
-          <div className="gastro-cart-total">
+
+        <div className="gt-drawer-foot">
+          <div className="gt-drawer-total">
             <span>Total</span>
             <strong>{formatGuaranies(total)}</strong>
           </div>
           <button
             type="button"
-            className="gastro-whatsapp-btn"
+            className="gt-drawer-cta"
             disabled={lines.length === 0}
-            onClick={() => {
-              setCartOpen(false);
-              goToCheckout();
-            }}
+            onClick={() => { setCartOpen(false); goToCheckout(); }}
           >
-            <MessageCircle size={16} />
+            <MessageCircle size={15} aria-hidden="true" />
             Continuar pedido
           </button>
         </div>
       </div>
 
-      <GastroStyles />
+      <GtStyles />
     </div>
   );
 }
 
-function GastroStyles() {
+function GtStyles() {
   return (
     <style>{`
-      .gastro-shell {
-        --linen: #F7F2EC;
-        --linen-2: #EEE7DC;
-        --charcoal: #1C1714;
-        --ember: #C4783A;
-        --ember-lo: rgba(196, 120, 58, .15);
-        --smoke: #8A7E74;
-        --ash: #E0D8CF;
-        --card: #FDFAF6;
-        --white: #FFFFFF;
-        --shadow: rgba(28, 23, 20, .12);
-        --glow: rgba(196, 120, 58, .22);
-        --font-display: 'Playfair Display', Georgia, 'Iowan Old Style', 'Palatino Linotype', serif;
-        --font-body: 'DM Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      /* ── TOKENS: dark-first ── */
+      .gt {
+        --bg:       #140e0b;
+        --surf:     #1c1512;
+        --surf-hi:  #251c17;
+        --ember:    #c4602a;
+        --ember-b:  #e0692a;
+        --amber:    #e8a566;
+        --amber-d:  #c98a55;
+        --brass:    #c2966a;
+        --cream:    #fdf6ee;
+        --parch:    #e9dcc9;
+        --smoke:    #9a8070;
+        --line:     rgba(232,165,102,.14);
+        --shadow:   rgba(10,6,4,.55);
+        --glow:     rgba(196,96,42,.30);
+        --fd: 'Playfair Display', Georgia, 'Iowan Old Style', serif;
+        --fb: 'Work Sans', system-ui, sans-serif;
+        --fm: 'JetBrains Mono', ui-monospace, monospace;
+
         position: relative;
-        min-height: 100vh;
+        min-height: 100svh;
+        background: var(--bg);
+        color: var(--cream);
+        font-family: var(--fb);
         display: flex;
         flex-direction: column;
-        background: var(--linen);
-        color: var(--charcoal);
-        font-family: var(--font-body);
-        color-scheme: light;
-        /* overflow-x: clip instead of hidden — clip prevents horizontal overflow
-           without creating a new scroll container, so position: sticky on
-           .gastro-nav continues to stick to the viewport correctly. */
         overflow-x: clip;
-      }
-      @media (prefers-color-scheme: dark) {
-        :root:not([data-theme]) .gastro-shell {
-          --linen: #1C1714;
-          --linen-2: #241F1B;
-          --charcoal: #F0EBE2;
-          --ember: #D4894A;
-          --ember-lo: rgba(212, 137, 74, .18);
-          --smoke: #9A8E84;
-          --ash: #3A322C;
-          --card: #261F1A;
-          --white: #2E261F;
-          --shadow: rgba(0, 0, 0, .4);
-          --glow: rgba(212, 137, 74, .3);
-          color-scheme: dark;
-        }
-      }
-      :root[data-theme='dark'] .gastro-shell {
-        --linen: #1C1714;
-        --linen-2: #241F1B;
-        --charcoal: #F0EBE2;
-        --ember: #D4894A;
-        --ember-lo: rgba(212, 137, 74, .18);
-        --smoke: #9A8E84;
-        --ash: #3A322C;
-        --card: #261F1A;
-        --white: #2E261F;
-        --shadow: rgba(0, 0, 0, .4);
-        --glow: rgba(212, 137, 74, .3);
         color-scheme: dark;
       }
-      .gastro-grain {
+
+      /* light: system default */
+      @media (prefers-color-scheme: light) {
+        :root:not([data-theme="dark"]) .gt {
+          --bg:      #fdf6ee;
+          --surf:    #f3ebe0;
+          --surf-hi: #ece0d0;
+          --ember:   #b8531f;
+          --ember-b: #c4602a;
+          --amber:   #7a3d0e;
+          --amber-d: #6b3209;
+          --brass:   #6b4020;
+          --cream:   #140e0b;
+          --parch:   #2b1c14;
+          --smoke:   #6b5040;
+          --line:    rgba(184,83,31,.18);
+          --shadow:  rgba(28,21,18,.18);
+          --glow:    rgba(184,83,31,.20);
+          color-scheme: light;
+        }
+      }
+      /* light: explicit toggle */
+      :root[data-theme="light"] .gt {
+        --bg:      #fdf6ee;
+        --surf:    #f3ebe0;
+        --surf-hi: #ece0d0;
+        --ember:   #b8531f;
+        --ember-b: #c4602a;
+        --amber:   #7a3d0e;
+        --amber-d: #6b3209;
+        --brass:   #6b4020;
+        --cream:   #140e0b;
+        --parch:   #2b1c14;
+        --smoke:   #6b5040;
+        --line:    rgba(184,83,31,.18);
+        --shadow:  rgba(28,21,18,.18);
+        --glow:    rgba(184,83,31,.20);
+        color-scheme: light;
+      }
+
+      /* ── GRAIN TEXTURE ── */
+      .gt-grain {
         position: fixed;
         inset: 0;
         pointer-events: none;
-        opacity: 0.035;
-        background-image: radial-gradient(circle, rgba(196,120,58,0.5) 1px, transparent 1px);
-        background-size: 3px 3px;
+        z-index: 1;
+        opacity: .045;
+        mix-blend-mode: overlay;
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
       }
-      .gastro-nav {
+
+      /* ── NAV ── */
+      .gt-nav {
         position: sticky;
         top: 0;
         z-index: 50;
         display: flex;
         align-items: center;
-        justify-content: space-between;
-        padding: 14px 20px;
-        background: rgba(247, 242, 236, 0.9);
-        background: color-mix(in srgb, var(--linen) 90%, transparent);
-        backdrop-filter: blur(10px);
-        border-bottom: 1px solid var(--ash);
+        gap: 14px;
+        padding: 13px 22px;
+        background: color-mix(in srgb, var(--bg) 82%, transparent);
+        backdrop-filter: blur(14px);
+        -webkit-backdrop-filter: blur(14px);
+        border-bottom: 1px solid var(--line);
       }
-      .gastro-brand-name {
-        font-family: var(--font-display);
+      .gt-brand {
+        font-family: var(--fd);
+        font-size: 17px;
         font-weight: 700;
-        font-size: 18px;
-        color: var(--charcoal);
+        color: var(--cream);
+        flex-shrink: 0;
+        white-space: nowrap;
       }
-      .gastro-cart-btn {
+      .gt-nav-cats {
+        flex: 1;
+        display: flex;
+        list-style: none;
+        margin: 0;
+        padding: 0;
+        gap: 0;
+        overflow-x: auto;
+        scrollbar-width: none;
+      }
+      .gt-nav-cats::-webkit-scrollbar { display: none; }
+      .gt-nav-cat {
+        font-family: var(--fm);
+        font-size: 10px;
+        letter-spacing: 1.1px;
+        text-transform: uppercase;
+        color: var(--parch);
+        text-decoration: none;
+        padding: 5px 11px;
+        white-space: nowrap;
+        opacity: .6;
+        transition: opacity .2s, color .2s;
+      }
+      .gt-nav-cat:hover { opacity: 1; color: var(--amber); }
+      .gt-cart-trigger {
         display: flex;
         align-items: center;
-        gap: 8px;
-        background: var(--card);
-        border: 1px solid var(--ash);
-        color: var(--charcoal);
-        font-family: var(--font-body);
-        font-weight: 600;
-        font-size: 12px;
-        padding: 8px 14px;
+        gap: 6px;
+        border: 1px solid var(--line);
         border-radius: 100px;
+        background: transparent;
+        color: var(--cream);
+        font-family: var(--fm);
+        font-size: 10px;
+        letter-spacing: .8px;
+        padding: 6px 12px;
         cursor: pointer;
+        flex-shrink: 0;
+        white-space: nowrap;
+        transition: border-color .2s, background .2s;
+        min-height: 34px;
       }
-      .gastro-cart-count {
-        min-width: 18px;
-        height: 18px;
+      .gt-cart-trigger:hover {
+        border-color: var(--ember-b);
+        background: rgba(196,96,42,.1);
+      }
+      .gt-badge {
+        min-width: 17px;
+        height: 17px;
         border-radius: 50%;
-        background: var(--ember);
-        color: var(--white);
+        background: var(--ember-b);
+        color: #fff;
         display: inline-flex;
         align-items: center;
         justify-content: center;
         font-size: 10px;
         font-weight: 700;
-        padding: 0 4px;
+        padding: 0 3px;
       }
+      .gt-back-btn {
+        background: none;
+        border: none;
+        color: var(--smoke);
+        font-family: var(--fm);
+        font-size: 10px;
+        letter-spacing: 1px;
+        text-transform: uppercase;
+        cursor: pointer;
+        padding: 0;
+        flex-shrink: 0;
+        transition: color .2s;
+      }
+      .gt-back-btn:hover { color: var(--amber); }
+      .gt-nav-spacer { flex: 0 0 80px; }
 
-      /* ── Single-product stage (swipe) ── */
-      .gastro-stage {
+      /* ── HERO ── */
+      .gt-hero {
         position: relative;
-        z-index: 1;
-        flex: 1;
+        z-index: 2;
         display: flex;
         flex-direction: column;
         align-items: center;
-        width: 100%;
-        max-width: 480px;
-        margin: 0 auto;
-        padding: 40px 24px 24px;
-        touch-action: pan-y;
-      }
-      .gastro-empty {
-        position: relative;
-        z-index: 1;
-        flex: 1;
-        display: flex;
-        align-items: center;
         justify-content: center;
         text-align: center;
-        padding: 60px 24px;
-        color: var(--smoke);
-        font-family: var(--font-body);
-        font-size: 14px;
-      }
-      .gastro-product-circle {
-        position: relative;
-        width: clamp(200px, 60vw, 270px);
-        height: clamp(200px, 60vw, 270px);
-        flex-shrink: 0;
-        cursor: grab;
-        touch-action: none;
-        border-radius: 50%;
-      }
-      .gastro-product-circle:active {
-        cursor: grabbing;
-      }
-      .gastro-product-shadow {
-        position: absolute;
-        bottom: -18px;
-        left: 50%;
-        transform: translateX(-50%);
-        width: 85%;
-        height: 26px;
-        background: radial-gradient(ellipse, var(--shadow) 0%, transparent 70%);
-        border-radius: 50%;
-        pointer-events: none;
-      }
-      .gastro-product-circle img,
-      .gastro-product-circle-fallback {
-        width: 100%;
-        height: 100%;
-        border-radius: 50%;
-        object-fit: cover;
-        display: block;
-        box-shadow:
-          0 0 0 5px var(--card),
-          0 0 0 6px var(--ash),
-          0 16px 50px var(--shadow),
-          0 0 60px var(--glow);
-        user-select: none;
-        -webkit-user-drag: none;
-      }
-      .gastro-product-circle-fallback {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        background: radial-gradient(circle, var(--ember-lo), var(--card));
-        color: var(--ember);
-      }
-      .gastro-arrows {
-        display: flex;
-        align-items: center;
-        gap: 24px;
-        margin-top: 24px;
-      }
-      .gastro-arrow-btn {
-        width: 36px;
-        height: 36px;
-        border-radius: 50%;
-        border: 1.5px solid var(--ash);
-        background: var(--white);
-        color: var(--smoke);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        cursor: pointer;
-        transition: all .2s;
-      }
-      .gastro-arrow-btn:hover:not(:disabled) {
-        border-color: var(--ember);
-        color: var(--ember);
-      }
-      .gastro-arrow-btn:disabled {
-        opacity: 0.35;
-        cursor: not-allowed;
-      }
-      .gastro-dots {
-        display: flex;
-        gap: 5px;
-        align-items: center;
-      }
-      .gastro-dot {
-        width: 5px;
-        height: 5px;
-        padding: 0;
-        border: none;
-        border-radius: 50%;
-        background: var(--ash);
-        cursor: pointer;
-        transition: all .35s cubic-bezier(.4,0,.2,1);
-      }
-      .gastro-dot.active {
-        width: 20px;
-        border-radius: 3px;
-        background: var(--ember);
-      }
-      .gastro-info {
-        width: 100%;
-        text-align: center;
-        margin-top: 28px;
-      }
-      .gastro-product-name {
-        font-family: var(--font-display);
-        font-weight: 700;
-        font-size: clamp(24px, 6vw, 32px);
-        color: var(--charcoal);
-        margin: 0;
-        line-height: 1.15;
-      }
-      .gastro-product-desc {
-        font-family: var(--font-display);
-        font-style: italic;
-        font-size: 14px;
-        color: var(--smoke);
-        margin: 6px 0 0;
-      }
-      .gastro-price-row {
-        display: flex;
-        align-items: baseline;
-        justify-content: center;
-        gap: 12px;
-        margin-top: 16px;
-      }
-      .gastro-price {
-        font-family: var(--font-display);
-        font-weight: 700;
-        font-size: 32px;
-        color: var(--charcoal);
-      }
-      .gastro-price-tag {
-        font-family: var(--font-body);
-        font-size: 11px;
-        font-weight: 600;
-        letter-spacing: 1.5px;
-        text-transform: uppercase;
-        color: var(--ember);
-        background: var(--ember-lo);
-        padding: 3px 8px;
-        border-radius: 4px;
-      }
-      .gastro-bottom-bar {
-        position: sticky;
-        bottom: 0;
-        width: 100%;
-        display: flex;
-        align-items: center;
-        gap: 12px;
-        margin-top: 32px;
-        padding: 16px 0 8px;
-        background: linear-gradient(to top, var(--linen) 70%, transparent);
-      }
-      .gastro-bottom-bar .gastro-qty-ctrl {
-        display: flex;
-        align-items: center;
-        background: var(--white);
-        border: 1.5px solid var(--ash);
-        border-radius: 50px;
+        padding: 88px 24px 68px;
         overflow: hidden;
       }
-      .gastro-bottom-bar .gastro-qty-ctrl button {
-        width: 40px;
-        height: 48px;
-        border: none;
-        background: transparent;
-        color: var(--charcoal);
-        cursor: pointer;
+      .gt-hero-glow {
+        position: absolute;
+        bottom: -30%;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 700px;
+        height: 560px;
+        max-width: 160vw;
+        background: radial-gradient(ellipse, var(--glow) 0%, transparent 66%);
+        filter: blur(6px);
+        pointer-events: none;
+        animation: gt-pulse 7s ease-in-out infinite;
+      }
+      @keyframes gt-pulse {
+        0%, 100% { opacity: .7; transform: translateX(-50%) scale(1); }
+        50%       { opacity: 1; transform: translateX(-50%) scale(1.07); }
+      }
+      .gt-hero-content { position: relative; z-index: 1; }
+      .gt-hero-eyebrow {
+        font-family: var(--fm);
+        font-size: 10px;
+        letter-spacing: 3.5px;
+        text-transform: uppercase;
+        color: var(--amber);
+        margin: 0 0 14px;
         display: flex;
         align-items: center;
         justify-content: center;
+        gap: 10px;
       }
-      .gastro-bottom-bar .gastro-qty-ctrl button:hover:not(:disabled) {
-        background: var(--ember-lo);
+      .gt-hero-eyebrow::before,
+      .gt-hero-eyebrow::after {
+        content: '';
+        width: 22px;
+        height: 1px;
+        background: var(--amber-d);
+        opacity: .6;
       }
-      .gastro-bottom-bar .gastro-qty-ctrl button:disabled {
-        opacity: 0.35;
-        cursor: not-allowed;
-      }
-      .gastro-qty-num {
-        width: 30px;
-        text-align: center;
-        font-family: var(--font-body);
-        font-size: 15px;
+      .gt-hero-name {
+        font-family: var(--fd);
+        font-size: clamp(40px, 9vw, 80px);
         font-weight: 700;
-        color: var(--charcoal);
+        color: var(--cream);
+        margin: 0;
+        line-height: 1;
+        letter-spacing: -.4px;
+        text-wrap: balance;
       }
-      .gastro-add-btn {
-        flex: 1;
-        height: 50px;
-        background: var(--charcoal);
-        color: var(--card);
-        border: none;
-        border-radius: 50px;
-        font-family: var(--font-body);
-        font-size: 14px;
-        font-weight: 600;
-        letter-spacing: .3px;
+      .gt-scroll-indicator {
+        position: absolute;
+        bottom: 22px;
+        left: 50%;
+        transform: translateX(-50%);
+        z-index: 1;
+      }
+      .gt-scroll-line {
+        display: block;
+        width: 1px;
+        height: 30px;
+        background: linear-gradient(var(--amber-d), transparent);
+        animation: gt-drop 2s ease-in-out infinite;
+      }
+      @keyframes gt-drop {
+        0%   { opacity: 0; transform: scaleY(.2); transform-origin: top; }
+        45%  { opacity: 1; transform: scaleY(1); }
+        100% { opacity: 0; transform: scaleY(1); }
+      }
+
+      /* ── CATALOG ── */
+      .gt-catalog {
+        position: relative;
+        z-index: 2;
+        max-width: 860px;
+        width: 100%;
+        margin: 0 auto;
+        padding: 0 24px 140px;
+      }
+      .gt-section { padding-top: 64px; }
+      .gt-section-head { margin-bottom: 28px; }
+      .gt-section-title {
+        font-family: var(--fd);
+        font-size: clamp(28px, 5vw, 44px);
+        font-weight: 400;
+        color: var(--cream);
+        margin: 0;
+      }
+      .gt-empty {
+        text-align: center;
+        padding: 80px 24px;
+        font-family: var(--fm);
+        font-size: 12px;
+        color: var(--smoke);
+        letter-spacing: 1px;
+      }
+
+      /* ── TICKET LIST ── */
+      .gt-tickets {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 0;
+      }
+      .gt-ticket {
+        display: grid;
+        grid-template-columns: 1fr auto;
+        gap: 20px;
+        align-items: start;
+        padding: 22px 6px;
+        border-bottom: 1px dashed var(--line);
+        text-align: left;
+        background: none;
+        border-top: none;
+        border-left: none;
+        border-right: none;
         cursor: pointer;
+        color: inherit;
+        transition: padding-left .22s;
+      }
+      .gt-ticket:first-child { border-top: 1px dashed var(--line); }
+      .gt-ticket:hover { padding-left: 14px; }
+      .gt-ticket:hover .gt-ticket-name { color: var(--amber); }
+      .gt-ticket-info {
         display: flex;
-        align-items: center;
-        justify-content: center;
-        gap: 8px;
-        box-shadow: 0 4px 16px var(--shadow);
-        transition: background .2s, box-shadow .15s;
+        flex-direction: column;
+        gap: 6px;
+        min-width: 0;
       }
-      .gastro-add-btn:hover {
-        background: var(--ember);
-        box-shadow: 0 6px 20px var(--glow);
+      .gt-ticket-name {
+        font-family: var(--fd);
+        font-size: 19px;
+        font-weight: 400;
+        color: var(--cream);
+        transition: color .2s;
+        text-wrap: balance;
       }
-      .gastro-fab {
+      .gt-ticket-desc {
+        font-size: 13px;
+        line-height: 1.65;
+        color: var(--parch);
+        opacity: .7;
+        max-width: 420px;
+        overflow: hidden;
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+      }
+      .gt-ticket-right {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-end;
+        gap: 6px;
+        flex-shrink: 0;
+      }
+      .gt-ticket-price {
+        font-family: var(--fm);
+        font-size: 14px;
+        color: var(--amber);
+        white-space: nowrap;
+        font-variant-numeric: tabular-nums;
+      }
+      .gt-ticket-qty {
+        font-family: var(--fm);
+        font-size: 10px;
+        color: var(--ember-b);
+        background: rgba(196,96,42,.14);
+        border-radius: 100px;
+        padding: 2px 8px;
+        letter-spacing: .4px;
+      }
+
+      /* ── FAB ── */
+      .gt-fab {
         position: fixed;
         bottom: 20px;
         right: 20px;
         z-index: 60;
-        background: var(--ember);
-        color: var(--white);
-        border: none;
-        border-radius: 100px;
-        padding: 13px 18px;
-        font-family: var(--font-body);
-        font-size: 13px;
-        font-weight: 700;
         display: none;
         align-items: center;
-        gap: 8px;
+        gap: 7px;
+        background: var(--ember);
+        color: #fff;
+        border: none;
+        border-radius: 100px;
+        padding: 12px 18px;
+        font-family: var(--fb);
+        font-size: 13px;
+        font-weight: 600;
         cursor: pointer;
-        box-shadow: 0 8px 24px var(--shadow), 0 0 40px var(--glow);
+        box-shadow: 0 6px 24px var(--shadow), 0 0 40px var(--glow);
+        transition: background .2s;
       }
-      .gastro-overlay {
+      .gt-fab:hover { background: var(--ember-b); }
+      @media (max-width: 767px) { .gt-fab { display: flex; } }
+
+      /* ── PRODUCT SHEET ── */
+      .gt-sheet-scrim {
         position: fixed;
         inset: 0;
-        background: rgba(20, 15, 12, 0.55);
-        z-index: 90;
+        background: rgba(10,6,4,.62);
+        backdrop-filter: blur(4px);
+        -webkit-backdrop-filter: blur(4px);
+        z-index: 80;
         opacity: 0;
         pointer-events: none;
-        transition: opacity 0.25s;
+        transition: opacity .3s;
       }
-      .gastro-overlay.open {
+      .gt-sheet-scrim.is-open {
         opacity: 1;
         pointer-events: auto;
       }
-      .gastro-drawer {
+      .gt-sheet {
+        position: fixed;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        z-index: 81;
+        background: var(--surf);
+        border-top: 1px solid var(--line);
+        border-radius: 20px 20px 0 0;
+        transform: translateY(100%);
+        transition: transform .36s cubic-bezier(.4,0,.2,1);
+        max-height: 90svh;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+      }
+      /* base open state must come BEFORE the desktop media query so the
+         desktop rule wins at equal specificity via source order */
+      .gt-sheet.is-open { transform: translateY(0); }
+      @media (min-width: 640px) {
+        .gt-sheet {
+          left: 50%;
+          right: auto;
+          transform: translate(-50%, 100%);
+          width: 480px;
+          border-radius: 16px 16px 0 0;
+        }
+        .gt-sheet.is-open {
+          transform: translate(-50%, 0);
+        }
+      }
+      .gt-sheet-close {
+        position: absolute;
+        top: 14px;
+        right: 14px;
+        z-index: 2;
+        width: 30px;
+        height: 30px;
+        border-radius: 50%;
+        background: rgba(255,255,255,.08);
+        border: none;
+        color: var(--cream);
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: background .18s;
+      }
+      .gt-sheet-close:hover { background: rgba(255,255,255,.15); }
+      .gt-sheet-img {
+        width: 100%;
+        aspect-ratio: 16/9;
+        object-fit: cover;
+        flex-shrink: 0;
+        display: block;
+        user-select: none;
+        -webkit-user-drag: none;
+      }
+      .gt-sheet-img-empty {
+        width: 100%;
+        height: 160px;
+        flex-shrink: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: radial-gradient(ellipse at center,
+          color-mix(in srgb, var(--ember) 20%, var(--surf-hi)) 0%,
+          var(--surf-hi) 100%);
+        color: var(--ember);
+        opacity: .65;
+      }
+      .gt-sheet-body {
+        padding: 22px 22px 14px;
+        overflow-y: auto;
+      }
+      .gt-sheet-name {
+        font-family: var(--fd);
+        font-size: 25px;
+        font-weight: 600;
+        color: var(--cream);
+        margin: 0 0 10px;
+        line-height: 1.2;
+        text-wrap: balance;
+      }
+      .gt-sheet-desc {
+        font-size: 14px;
+        line-height: 1.7;
+        color: var(--parch);
+        margin: 0 0 16px;
+      }
+      .gt-sheet-price {
+        font-family: var(--fm);
+        font-size: 22px;
+        color: var(--amber);
+        margin: 0;
+        font-variant-numeric: tabular-nums;
+      }
+      .gt-sheet-foot {
+        padding: 14px 18px 28px;
+        border-top: 1px solid var(--line);
+        display: flex;
+        gap: 10px;
+        align-items: center;
+        background: var(--surf);
+        flex-shrink: 0;
+      }
+      .gt-sheet-cta {
+        flex: 1;
+        height: 48px;
+        border: none;
+        border-radius: 100px;
+        background: var(--cream);
+        color: var(--bg);
+        font-family: var(--fb);
+        font-size: 14px;
+        font-weight: 700;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        letter-spacing: .2px;
+        transition: background .2s;
+        min-height: 44px;
+      }
+      .gt-sheet-cta:hover { background: var(--amber); }
+
+      /* ── QTY CONTROLS ── */
+      .gt-qty-row {
+        display: flex;
+        align-items: center;
+        gap: 0;
+        background: var(--surf-hi);
+        border: 1px solid var(--line);
+        border-radius: 100px;
+        overflow: hidden;
+        flex-shrink: 0;
+      }
+      .gt-qty-btn {
+        width: 40px;
+        height: 44px;
+        border: none;
+        background: transparent;
+        color: var(--cream);
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: background .15s;
+      }
+      .gt-qty-btn:hover { background: rgba(196,96,42,.14); }
+      .gt-qty-btn:disabled { opacity: .3; cursor: not-allowed; }
+      .gt-qty-btn.sm {
+        width: 28px;
+        height: 28px;
+        border-radius: 50%;
+        border: 1px solid var(--line);
+        background: var(--surf-hi);
+        color: var(--ember);
+      }
+      .gt-qty-btn.sm:hover { background: rgba(196,96,42,.15); }
+      .gt-qty-n {
+        width: 30px;
+        text-align: center;
+        font-family: var(--fm);
+        font-size: 14px;
+        font-weight: 600;
+        color: var(--cream);
+      }
+
+      /* ── CART DRAWER ── */
+      .gt-overlay {
+        position: fixed;
+        inset: 0;
+        background: rgba(10,6,4,.52);
+        backdrop-filter: blur(3px);
+        -webkit-backdrop-filter: blur(3px);
+        z-index: 90;
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity .25s;
+      }
+      .gt-overlay.is-open {
+        opacity: 1;
+        pointer-events: auto;
+      }
+      .gt-drawer {
         position: fixed;
         top: 0;
         right: 0;
         height: 100%;
-        width: min(400px, 92vw);
+        width: min(400px, 94vw);
         z-index: 91;
-        background: var(--card);
-        border-left: 1px solid var(--ash);
+        background: var(--surf);
+        border-left: 1px solid var(--line);
         transform: translateX(100%);
-        transition: transform 0.3s ease;
+        transition: transform .33s cubic-bezier(.4,0,.2,1);
         display: flex;
         flex-direction: column;
       }
-      .gastro-drawer.open {
-        transform: translateX(0);
-      }
-      .gastro-drawer-head {
-        padding: 20px;
-        border-bottom: 1px solid var(--ash);
+      .gt-drawer.is-open { transform: translateX(0); }
+      .gt-drawer-head {
+        padding: 18px 22px;
+        border-bottom: 1px solid var(--line);
         display: flex;
         align-items: center;
         justify-content: space-between;
+        flex-shrink: 0;
       }
-      .gastro-drawer-head h3 {
-        font-family: var(--font-display);
-        font-weight: 700;
-        font-size: 18px;
-        color: var(--charcoal);
+      .gt-drawer-title {
+        font-family: var(--fd);
+        font-size: 20px;
+        font-weight: 600;
+        color: var(--cream);
         margin: 0;
       }
-      .gastro-drawer-close {
+      .gt-drawer-close {
         background: none;
         border: none;
         color: var(--smoke);
         cursor: pointer;
         display: flex;
+        padding: 4px;
+        transition: color .2s;
       }
-      .gastro-drawer-body {
+      .gt-drawer-close:hover { color: var(--cream); }
+      .gt-drawer-body {
         flex: 1;
         overflow-y: auto;
-        padding: 8px 20px;
+        padding: 6px 22px;
       }
-      .gastro-cart-empty {
-        font-family: var(--font-body);
+      .gt-drawer-empty {
+        font-family: var(--fm);
+        font-size: 11px;
+        letter-spacing: .5px;
         color: var(--smoke);
-        font-size: 13px;
-        padding: 30px 0;
         text-align: center;
+        padding: 40px 0;
+        line-height: 1.9;
       }
-      .gastro-cart-item {
+      .gt-drawer-item {
         display: flex;
         justify-content: space-between;
         align-items: center;
-        padding: 14px 0;
-        border-bottom: 1px dashed var(--ash);
         gap: 10px;
+        padding: 14px 0;
+        border-bottom: 1px dashed var(--line);
       }
-      .gastro-cart-item-name {
-        font-family: var(--font-body);
-        font-weight: 500;
+      .gt-drawer-item-info { min-width: 0; }
+      .gt-drawer-item-name {
         font-size: 14px;
-        color: var(--charcoal);
+        font-weight: 500;
+        color: var(--cream);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        display: block;
       }
-      .gastro-cart-item-price {
-        font-family: var(--font-display);
-        font-weight: 600;
-        font-size: 12px;
+      .gt-drawer-item-price {
+        font-family: var(--fm);
+        font-size: 11px;
         color: var(--smoke);
         margin-top: 3px;
+        display: block;
       }
-      .gastro-drawer-body .gastro-qty-ctrl {
+      .gt-drawer-qty {
         display: flex;
         align-items: center;
-        gap: 10px;
+        gap: 6px;
+        flex-shrink: 0;
       }
-      .gastro-drawer-body .gastro-qty-ctrl button {
-        width: 26px;
-        height: 26px;
-        border-radius: 50%;
-        border: 1px solid var(--ash);
-        background: var(--linen);
-        color: var(--ember);
-        cursor: pointer;
-        display: flex;
-        align-items: center;
-        justify-content: center;
+      .gt-drawer-foot {
+        padding: 14px 22px 28px;
+        border-top: 1px solid var(--line);
+        flex-shrink: 0;
       }
-      .gastro-drawer-foot {
-        padding: 16px 20px 24px;
-        border-top: 1px solid var(--ash);
-      }
-      .gastro-cart-total {
+      .gt-drawer-total {
         display: flex;
         justify-content: space-between;
-        font-family: var(--font-body);
-        font-weight: 600;
-        font-size: 14px;
-        color: var(--charcoal);
+        align-items: baseline;
+        font-family: var(--fb);
+        font-size: 13px;
+        color: var(--smoke);
         margin-bottom: 14px;
       }
-      .gastro-cart-total strong {
-        font-family: var(--font-display);
-        color: var(--ember);
-        font-size: 18px;
+      .gt-drawer-total strong {
+        font-family: var(--fm);
+        font-size: 20px;
+        color: var(--amber);
+        font-variant-numeric: tabular-nums;
       }
-      .gastro-whatsapp-btn {
+      .gt-drawer-cta {
         width: 100%;
-        padding: 14px;
+        height: 50px;
         border: none;
-        border-radius: 8px;
-        cursor: pointer;
-        background: var(--charcoal);
-        color: var(--card);
-        font-family: var(--font-body);
+        border-radius: 10px;
+        background: var(--ember);
+        color: #fff;
+        font-family: var(--fb);
         font-size: 13px;
-        letter-spacing: 0.4px;
-        text-transform: uppercase;
         font-weight: 700;
+        letter-spacing: .5px;
+        text-transform: uppercase;
         display: flex;
         align-items: center;
         justify-content: center;
         gap: 8px;
+        cursor: pointer;
+        transition: background .2s;
         min-height: 44px;
       }
-      .gastro-whatsapp-btn:disabled {
-        opacity: 0.4;
-        cursor: not-allowed;
-      }
+      .gt-drawer-cta:hover:not(:disabled) { background: var(--ember-b); }
+      .gt-drawer-cta:disabled { opacity: .4; cursor: not-allowed; }
 
-      /* ── Checkout & success inside gastro context ── */
-      .gastro-checkout-page {
+      /* ── CHECKOUT / SUCCESS ── */
+      .gt-checkout-wrap {
         position: relative;
-        z-index: 1;
-        max-width: 540px;
+        z-index: 2;
+        max-width: 520px;
         margin: 0 auto;
-        padding: 32px 20px 80px;
+        padding: 36px 24px 100px;
       }
-      .gastro-checkout-eyebrow {
-        font-family: var(--font-body);
-        font-size: 11px;
-        font-weight: 700;
-        letter-spacing: 2px;
+      .gt-checkout-eyebrow {
+        font-family: var(--fm);
+        font-size: 10px;
+        letter-spacing: 2.5px;
         text-transform: uppercase;
         color: var(--ember);
         margin-bottom: 28px;
       }
-      .gastro-shell .checkout-form {
-        gap: 16px;
-        padding: 0;
-      }
-      .gastro-shell .checkout-back-btn {
-        color: var(--smoke);
-        font-family: var(--font-body);
-        font-size: 12px;
-        font-weight: 600;
-        letter-spacing: 0.4px;
-        text-transform: uppercase;
-        min-height: unset;
-      }
-      .gastro-shell .checkout-back-btn:hover { color: var(--ember); }
-      .gastro-shell label {
-        font-family: var(--font-body);
-        font-size: 11px;
-        font-weight: 700;
-        letter-spacing: 0.6px;
-        text-transform: uppercase;
-        color: var(--smoke);
-      }
-      .gastro-shell input,
-      .gastro-shell textarea,
-      .gastro-shell select {
-        font-family: var(--font-body);
-        background: var(--card);
-        border: 1px solid var(--ash);
-        border-radius: 8px;
-        color: var(--charcoal);
-      }
-      .gastro-shell input:focus,
-      .gastro-shell textarea:focus,
-      .gastro-shell select:focus {
-        outline: none;
-        border-color: var(--ember);
-        background: var(--white);
-      }
-      .gastro-shell .checkout-error { color: #B3261E; }
-      :root[data-theme='dark'] .gastro-shell .checkout-error { color: #FF8A80; }
-      @media (prefers-color-scheme: dark) {
-        :root:not([data-theme]) .gastro-shell .checkout-error { color: #FF8A80; }
-      }
-      .gastro-shell .checkout-submit-btn {
-        background: var(--ember);
-        color: var(--white);
-        border-radius: 8px;
-        font-family: var(--font-body);
-        font-size: 12px;
-        font-weight: 700;
-        letter-spacing: 0.6px;
-        text-transform: uppercase;
-      }
-      .gastro-shell .checkout-submit-btn:hover:not(:disabled) {
-        filter: brightness(0.94);
-      }
-
-      /* Success page */
-      .gastro-shell .order-success {
-        text-align: center;
-        padding: 80px 24px;
+      .gt-success-wrap {
+        position: relative;
+        z-index: 2;
         max-width: 480px;
         margin: 0 auto;
-        position: relative;
-        z-index: 1;
+        padding: 40px 24px;
       }
-      .gastro-shell .order-success h2 {
-        font-family: var(--font-display);
-        font-size: clamp(22px, 5vw, 32px);
-        font-weight: 700;
-        color: var(--charcoal);
-        margin-bottom: 12px;
-      }
-      .gastro-shell .order-success p {
-        font-family: var(--font-body);
-        font-size: 14px;
-        color: var(--smoke);
-        margin-bottom: 32px;
-        line-height: 1.6;
-      }
-      .gastro-shell .whatsapp-btn {
-        background: var(--charcoal);
-        color: var(--card);
-        border-radius: 8px;
-        font-family: var(--font-body);
-        font-size: 12px;
-        font-weight: 700;
-        letter-spacing: 0.6px;
-        text-transform: uppercase;
-      }
-      .gastro-shell .whatsapp-btn:hover { filter: brightness(1.1); }
 
-      @media (max-width: 760px) {
-        .gastro-fab { display: flex; }
+      /* ── REDUCED MOTION ── */
+      @media (prefers-reduced-motion: reduce) {
+        .gt-hero-glow { animation: none; }
+        .gt-scroll-line { animation: none; }
+        .gt-sheet,
+        .gt-drawer,
+        .gt-sheet-scrim,
+        .gt-overlay { transition-duration: 0.01ms; }
       }
     `}</style>
   );
