@@ -6,7 +6,6 @@ import {
   ChevronLeft, ChevronRight,
 } from 'lucide-react';
 import { CheckoutForm } from '../CheckoutForm';
-import { OrderSuccess } from '../OrderSuccess';
 import { useStorefrontCart } from '../useStorefrontCart';
 import { formatGuaranies } from '@/lib/utils';
 import type { Branch, Service } from '@/types';
@@ -122,6 +121,13 @@ export function GastronomyTemplate({ branch, services }: GastronomyTemplateProps
     return () => { document.body.style.overflow = ''; };
   }, [cartOpen, selected]);
 
+  // When the order is confirmed, go directly to WhatsApp
+  useEffect(() => {
+    if (step === 'success' && whatsappHref) {
+      window.open(whatsappHref, '_blank', 'noreferrer');
+    }
+  }, [step, whatsappHref]);
+
   const sheetQty = selected ? (cart[selected.id] ?? 0) : 0;
 
   const handleSheetAdd = () => {
@@ -130,13 +136,25 @@ export function GastronomyTemplate({ branch, services }: GastronomyTemplateProps
     else increment(selected.id);
   };
 
-  if (step === 'success' && result && whatsappHref) {
+  if (step === 'success' && result) {
     return (
       <div className="gt">
         <link rel="stylesheet" href={FONTS} />
-        <nav className="gt-nav"><span className="gt-brand">{branch.name}</span></nav>
-        <div className="gt-success-wrap">
-          <OrderSuccess orderCode={result.order_code} whatsappHref={whatsappHref} />
+        <div className="gt-confirmed">
+          <div className="gt-confirmed-icon">✓</div>
+          <p className="gt-confirmed-title">¡Pedido confirmado!</p>
+          <p className="gt-confirmed-code">#{result.order_code}</p>
+          <p className="gt-confirmed-hint">Abriendo WhatsApp…</p>
+          {whatsappHref && (
+            <a
+              href={whatsappHref}
+              target="_blank"
+              rel="noreferrer"
+              className="gt-confirmed-link"
+            >
+              Abrir WhatsApp manualmente
+            </a>
+          )}
         </div>
         <GtStyles />
       </div>
@@ -373,8 +391,14 @@ export function GastronomyTemplate({ branch, services }: GastronomyTemplateProps
                   className="gt-sheet-cta"
                   onClick={(e) => {
                     e.stopPropagation();
-                    if (sheetQty === 0) addToCart(selected);
-                    closeSheet();
+                    if (sheetQty === 0) {
+                      addToCart(selected);
+                      // sheet stays open — user can keep browsing
+                    } else {
+                      // "Ver pedido" → open cart drawer
+                      closeSheet();
+                      setCartOpen(true);
+                    }
                   }}
                 >
                   {sheetQty > 0
@@ -1300,12 +1324,44 @@ function GtStyles() {
         color: var(--ember);
         margin-bottom: 28px;
       }
-      .gt-success-wrap {
+      .gt-confirmed {
         position: relative;
         z-index: 2;
-        max-width: 480px;
-        margin: 0 auto;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        min-height: 100svh;
+        gap: 10px;
+        text-align: center;
         padding: 40px 24px;
+      }
+      .gt-confirmed-icon {
+        font-size: 52px;
+        color: var(--ember);
+        margin-bottom: 8px;
+      }
+      .gt-confirmed-title {
+        font-family: var(--fd);
+        font-size: 1.7rem;
+        color: var(--cream);
+      }
+      .gt-confirmed-code {
+        font-family: var(--fm);
+        font-size: .9rem;
+        color: var(--amber);
+        letter-spacing: .08em;
+      }
+      .gt-confirmed-hint {
+        color: var(--smoke);
+        font-size: .85rem;
+        margin-top: 6px;
+      }
+      .gt-confirmed-link {
+        margin-top: 16px;
+        font-size: .8rem;
+        color: var(--ember);
+        text-decoration: underline;
       }
 
       /* ── REDUCED MOTION ── */
