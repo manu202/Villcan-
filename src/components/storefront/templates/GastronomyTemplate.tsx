@@ -43,7 +43,10 @@ export function GastronomyTemplate({ branch, services }: GastronomyTemplateProps
 
   const [cartOpen, setCartOpen] = useState(false);
   const [selectedIdx, setSelectedIdx] = useState<number | null>(null);
-  const dragRef = useRef<{ startX: number; active: boolean }>({ startX: 0, active: false });
+  const [navDir, setNavDir] = useState<'next' | 'prev' | null>(null);
+  const [exiting, setExiting] = useState(false);
+  const dragRef = useRef<{ startX: number; startY: number; active: boolean; captured: boolean }>({ startX: 0, startY: 0, active: false, captured: false });
+  const exitTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const categories = useMemo(() => groupByCategory(services), [services]);
 
@@ -51,14 +54,44 @@ export function GastronomyTemplate({ branch, services }: GastronomyTemplateProps
   const hasPrev = selectedIdx !== null && selectedIdx > 0;
   const hasNext = selectedIdx !== null && selectedIdx < services.length - 1;
 
-  const openSheet = (item: Service) =>
+  function navigate(nextIdx: number, direction: 'next' | 'prev') {
+    if (exiting) return;
+    if (exitTimerRef.current) clearTimeout(exitTimerRef.current);
+    setNavDir(direction);
+    setExiting(true);
+    exitTimerRef.current = setTimeout(() => {
+      setSelectedIdx(nextIdx);
+      setExiting(false);
+    }, 160);
+  }
+
+  const openSheet = (item: Service) => {
+    setNavDir(null);
+    setExiting(false);
     setSelectedIdx(services.findIndex(s => s.id === item.id));
-  const closeSheet = () => setSelectedIdx(null);
-  const goPrev = () => selectedIdx !== null && hasPrev && setSelectedIdx(selectedIdx - 1);
-  const goNext = () => selectedIdx !== null && hasNext && setSelectedIdx(selectedIdx + 1);
+  };
+  const closeSheet = () => {
+    if (exitTimerRef.current) clearTimeout(exitTimerRef.current);
+    setSelectedIdx(null);
+    setExiting(false);
+    setNavDir(null);
+  };
+  const goPrev = () => { if (selectedIdx !== null && hasPrev) navigate(selectedIdx - 1, 'prev'); };
+  const goNext = () => { if (selectedIdx !== null && hasNext) navigate(selectedIdx + 1, 'next'); };
 
   const onSheetPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
-    dragRef.current = { startX: e.clientX, active: true };
+    dragRef.current = { startX: e.clientX, startY: e.clientY, active: true, captured: false };
+  };
+  const onSheetPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (!dragRef.current.active || dragRef.current.captured) return;
+    const dx = Math.abs(e.clientX - dragRef.current.startX);
+    const dy = Math.abs(e.clientY - dragRef.current.startY);
+    if (dx > 10 && dx > dy * 1.5) {
+      e.currentTarget.setPointerCapture(e.pointerId);
+      dragRef.current.captured = true;
+    } else if (dy > 10) {
+      dragRef.current.active = false;
+    }
   };
   const onSheetPointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
     if (!dragRef.current.active) return;
@@ -68,6 +101,7 @@ export function GastronomyTemplate({ branch, services }: GastronomyTemplateProps
     if (dx < 0) goNext();
     else goPrev();
   };
+  const onSheetPointerCancel = () => { dragRef.current.active = false; };
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -242,7 +276,9 @@ export function GastronomyTemplate({ branch, services }: GastronomyTemplateProps
         aria-label={selected?.name ?? 'Producto'}
         aria-hidden={!sheetIsOpen}
         onPointerDown={onSheetPointerDown}
+        onPointerMove={onSheetPointerMove}
         onPointerUp={onSheetPointerUp}
+        onPointerCancel={onSheetPointerCancel}
       >
         {selected && (
           <>
@@ -279,8 +315,15 @@ export function GastronomyTemplate({ branch, services }: GastronomyTemplateProps
               </button>
             </div>
 
-            {/* key= triggers fade animation on product change */}
-            <div key={selected.id} className="gt-sheet-content">
+            {/* key + direction class trigger the enter animation on product change */}
+            <div
+              key={selected.id}
+              className={`gt-sheet-content${
+                exiting
+                  ? ` is-exiting-${navDir ?? 'next'}`
+                  : navDir ? ` dir-${navDir}` : ''
+              }`}
+            >
               {selected.image_url ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
@@ -464,44 +507,7 @@ function GtStyles() {
         color-scheme: dark;
       }
 
-      /* light: system default */
-      @media (prefers-color-scheme: light) {
-        :root:not([data-theme="dark"]) .gt {
-          --bg:      #fdf6ee;
-          --surf:    #f3ebe0;
-          --surf-hi: #ece0d0;
-          --ember:   #b8531f;
-          --ember-b: #c4602a;
-          --amber:   #7a3d0e;
-          --amber-d: #6b3209;
-          --brass:   #6b4020;
-          --cream:   #140e0b;
-          --parch:   #2b1c14;
-          --smoke:   #6b5040;
-          --line:    rgba(184,83,31,.18);
-          --shadow:  rgba(28,21,18,.18);
-          --glow:    rgba(184,83,31,.20);
-          color-scheme: light;
-        }
-      }
-      /* light: explicit toggle */
-      :root[data-theme="light"] .gt {
-        --bg:      #fdf6ee;
-        --surf:    #f3ebe0;
-        --surf-hi: #ece0d0;
-        --ember:   #b8531f;
-        --ember-b: #c4602a;
-        --amber:   #7a3d0e;
-        --amber-d: #6b3209;
-        --brass:   #6b4020;
-        --cream:   #140e0b;
-        --parch:   #2b1c14;
-        --smoke:   #6b5040;
-        --line:    rgba(184,83,31,.18);
-        --shadow:  rgba(28,21,18,.18);
-        --glow:    rgba(184,83,31,.20);
-        color-scheme: light;
-      }
+      /* always dark — brand colors, no light override */
 
       /* ── GRAIN TEXTURE ── */
       .gt-grain {
@@ -843,6 +849,7 @@ function GtStyles() {
         border-radius: 20px 20px 0 0;
         transform: translateY(100%);
         transition: transform .36s cubic-bezier(.4,0,.2,1);
+        touch-action: pan-y;
         max-height: 90svh;
         display: flex;
         flex-direction: column;
@@ -929,17 +936,88 @@ function GtStyles() {
         flex-shrink: 0;
       }
       .gt-sheet-close:hover { background: rgba(255,255,255,.15); }
-      /* content fade-slide animation on product change */
+      /* ── PRODUCT TRANSITION ANIMATIONS ── */
+      @keyframes gt-slide-in-r {
+        0%   { opacity: 0; transform: translateX(56px); }
+        55%  { opacity: 1; transform: translateX(-7px); }
+        75%  { transform: translateX(3px); }
+        100% { opacity: 1; transform: translateX(0); }
+      }
+      @keyframes gt-slide-in-l {
+        0%   { opacity: 0; transform: translateX(-56px); }
+        55%  { opacity: 1; transform: translateX(7px); }
+        75%  { transform: translateX(-3px); }
+        100% { opacity: 1; transform: translateX(0); }
+      }
+      @keyframes gt-slide-out-l {
+        from { opacity: 1; transform: translateX(0); }
+        to   { opacity: 0; transform: translateX(-56px); }
+      }
+      @keyframes gt-slide-out-r {
+        from { opacity: 1; transform: translateX(0); }
+        to   { opacity: 0; transform: translateX(56px); }
+      }
+      @keyframes gt-img-spin-r {
+        from { transform: translateX(28px) rotate(9deg) scale(0.82); }
+        to   { transform: translateX(0) rotate(0deg) scale(1); }
+      }
+      @keyframes gt-img-spin-l {
+        from { transform: translateX(-28px) rotate(-9deg) scale(0.82); }
+        to   { transform: translateX(0) rotate(0deg) scale(1); }
+      }
+      @keyframes gt-text-rise {
+        from { opacity: 0; transform: translateY(10px); }
+        to   { opacity: 1; transform: translateY(0); }
+      }
+      @keyframes gt-sheet-open {
+        from { opacity: 0; transform: translateY(8px); }
+        to   { opacity: 1; transform: translateY(0); }
+      }
+      /* content slide — default (fresh open from catalog) */
       .gt-sheet-content {
         display: flex;
         flex-direction: column;
         overflow-y: auto;
         flex: 1;
-        animation: gt-sheet-in .18s ease;
+        animation: gt-sheet-open .22s ease both;
       }
-      @keyframes gt-sheet-in {
-        from { opacity: 0; transform: translateY(6px); }
-        to   { opacity: 1; transform: translateY(0); }
+      /* enter from right (user pressed next) */
+      .gt-sheet-content.dir-next {
+        animation: gt-slide-in-r .44s ease both;
+      }
+      /* enter from left (user pressed prev) */
+      .gt-sheet-content.dir-prev {
+        animation: gt-slide-in-l .44s ease both;
+      }
+      /* exit to left (next was pressed — old content leaves left) */
+      .gt-sheet-content.is-exiting-next {
+        animation: gt-slide-out-l .16s ease-in both;
+      }
+      /* exit to right (prev was pressed — old content leaves right) */
+      .gt-sheet-content.is-exiting-prev {
+        animation: gt-slide-out-r .16s ease-in both;
+      }
+      /* image rotation on enter — makes it feel physical like the GSAP reference */
+      .gt-sheet-content.dir-next .gt-sheet-img,
+      .gt-sheet-content.dir-next .gt-sheet-img-empty {
+        animation: gt-img-spin-r .44s ease both;
+      }
+      .gt-sheet-content.dir-prev .gt-sheet-img,
+      .gt-sheet-content.dir-prev .gt-sheet-img-empty {
+        animation: gt-img-spin-l .44s ease both;
+      }
+      /* staggered text reveal */
+      .gt-sheet-content.dir-next .gt-sheet-name,
+      .gt-sheet-content.dir-prev .gt-sheet-name {
+        animation: gt-text-rise .32s .06s ease both;
+      }
+      .gt-sheet-content.dir-next .gt-sheet-desc,
+      .gt-sheet-content.dir-prev .gt-sheet-desc {
+        animation: gt-text-rise .32s .12s ease both;
+      }
+      .gt-sheet-content.dir-next .gt-sheet-price,
+      .gt-sheet-content.dir-prev .gt-sheet-price {
+        animation: gt-text-rise .32s .17s ease both;
       }
       .gt-sheet-img {
         width: 100%;
