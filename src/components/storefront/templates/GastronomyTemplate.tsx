@@ -1,12 +1,15 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { ShoppingBag, X, Plus, Minus, MessageCircle } from 'lucide-react';
+import { ShoppingBag, X, Plus, Minus, MessageCircle, UtensilsCrossed } from 'lucide-react';
 import { CheckoutForm } from '../CheckoutForm';
 import { OrderSuccess } from '../OrderSuccess';
 import { useStorefrontCart } from '../useStorefrontCart';
 import { formatGuaranies } from '@/lib/utils';
 import type { Branch, Service } from '@/types';
+
+const GOOGLE_FONTS_HREF =
+  'https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,600;0,700;1,400;1,600&family=DM+Sans:wght@300;400;500;600;700&display=swap';
 
 interface GastronomyTemplateProps {
   branch: Branch;
@@ -25,11 +28,14 @@ function slugify(value: string): string {
 }
 
 /**
- * Gastronomy vertical — "fuego/ámbar" identity inspired by the Tatapiriri
- * reference menu: dark ink-black/ember/amber palette, display serif for
- * headings + mono for prices/labels, category nav, ticket-style rows with a
- * dashed separator, and a slide-in cart drawer with WhatsApp handoff.
- * Categories are derived from real service.category values, not hardcoded.
+ * Gastronomy vertical — warm linen/terracotta identity ("La Pizzería"
+ * reference palette): cream/charcoal/ember light palette with an equivalent
+ * dark variant, Playfair Display for the business name, product names and
+ * prices, DM Sans for everything else. A page-level hero (business name +
+ * circular photo, no per-product mockup chrome, no swipe) sits above the
+ * category nav. Categories are derived from real service.category values,
+ * not hardcoded. Catalog/cart/checkout behavior is unchanged — only the
+ * visual skin moved from the previous ember/ink-black identity.
  */
 export function GastronomyTemplate({ branch, services }: GastronomyTemplateProps) {
   const {
@@ -67,9 +73,16 @@ export function GastronomyTemplate({ branch, services }: GastronomyTemplateProps
     }));
   }, [services]);
 
+  // No dedicated "cover image" field on branches — the hero photo is the
+  // first catalog service that has one, following the same category/name
+  // order `getCatalog` already provides. With no image anywhere, fall back
+  // to a decorative gradient circle instead of a broken-image icon.
+  const heroImage = useMemo(() => services.find((s) => s.image_url)?.image_url ?? null, [services]);
+
   if (step === 'success' && result && whatsappHref) {
     return (
       <div className="gastro-shell">
+        <link rel="stylesheet" href={GOOGLE_FONTS_HREF} />
         <nav className="gastro-nav">
           <span className="gastro-brand-name">{branch.name}</span>
         </nav>
@@ -82,6 +95,7 @@ export function GastronomyTemplate({ branch, services }: GastronomyTemplateProps
   if (step === 'checkout') {
     return (
       <div className="gastro-shell">
+        <link rel="stylesheet" href={GOOGLE_FONTS_HREF} />
         <nav className="gastro-nav">
           <span className="gastro-brand-name">{branch.name}</span>
           <button type="button" className="gastro-cart-btn" onClick={backToCatalog}>
@@ -104,7 +118,23 @@ export function GastronomyTemplate({ branch, services }: GastronomyTemplateProps
 
   return (
     <div className="gastro-shell">
+      <link rel="stylesheet" href={GOOGLE_FONTS_HREF} />
       <div className="gastro-grain" aria-hidden="true" />
+
+      <header className="gastro-hero">
+        <div className={`gastro-hero-circle${heroImage ? '' : ' gastro-hero-circle--fallback'}`}>
+          {heroImage ? (
+            // eslint-disable-next-line @next/next/no-img-element -- storefront images come from arbitrary Supabase Storage URLs, not part of the Next.js image pipeline.
+            <img src={heroImage} alt={branch.name} />
+          ) : (
+            <UtensilsCrossed size={40} strokeWidth={1.5} aria-hidden="true" />
+          )}
+        </div>
+        <h1 className="gastro-hero-name">{branch.name}</h1>
+        <p className="gastro-hero-tagline">
+          Elegí tus productos y armá tu pedido — te confirmamos todo por WhatsApp.
+        </p>
+      </header>
 
       <nav className="gastro-nav">
         <div className="gastro-brand">
@@ -123,15 +153,6 @@ export function GastronomyTemplate({ branch, services }: GastronomyTemplateProps
           Pedido <span className="gastro-cart-count">{itemCount}</span>
         </button>
       </nav>
-
-      <section className="gastro-hero">
-        <div className="gastro-ember-glow" aria-hidden="true" />
-        <div className="gastro-hero-content">
-          <div className="gastro-eyebrow">Menú online</div>
-          <h1>{branch.name}</h1>
-          <p>Elegí tus productos y armá tu pedido — te confirmamos todo por WhatsApp.</p>
-        </div>
-      </section>
 
       {categories.map((cat, idx) => (
         <section className="gastro-category" id={cat.slug} key={cat.slug}>
@@ -264,36 +285,114 @@ function GastroStyles() {
   return (
     <style>{`
       .gastro-shell {
-        --ink-black: #140e0b;
-        --char: #1c1512;
-        --brick: #2b1c14;
-        --ember: #b8531f;
-        --ember-bright: #e0692a;
-        --amber: #e8a566;
-        --amber-dim: #c98a55;
-        --cream: #fdf6ee;
-        --parchment: #e9dcc9;
-        --brass: #c2966a;
-        --gastro-line: rgba(232, 165, 102, 0.18);
-        --font-display: Georgia, 'Iowan Old Style', 'Palatino Linotype', serif;
-        --font-mono: ui-monospace, 'SFMono-Regular', monospace;
+        --linen: #F7F2EC;
+        --linen-2: #EEE7DC;
+        --charcoal: #1C1714;
+        --ember: #C4783A;
+        --ember-lo: rgba(196, 120, 58, .15);
+        --smoke: #8A7E74;
+        --ash: #E0D8CF;
+        --card: #FDFAF6;
+        --white: #FFFFFF;
+        --shadow: rgba(28, 23, 20, .12);
+        --glow: rgba(196, 120, 58, .22);
+        --font-display: 'Playfair Display', Georgia, 'Iowan Old Style', 'Palatino Linotype', serif;
+        --font-body: 'DM Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
         position: relative;
         min-height: 100vh;
-        background: var(--ink-black);
-        color: var(--cream);
-        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+        background: var(--linen);
+        color: var(--charcoal);
+        font-family: var(--font-body);
+        color-scheme: light;
         /* overflow-x: clip instead of hidden — clip prevents horizontal overflow
            without creating a new scroll container, so position: sticky on
            .gastro-nav continues to stick to the viewport correctly. */
         overflow-x: clip;
       }
+      @media (prefers-color-scheme: dark) {
+        :root:not([data-theme]) .gastro-shell {
+          --linen: #1C1714;
+          --linen-2: #241F1B;
+          --charcoal: #F0EBE2;
+          --ember: #D4894A;
+          --ember-lo: rgba(212, 137, 74, .18);
+          --smoke: #9A8E84;
+          --ash: #3A322C;
+          --card: #261F1A;
+          --white: #2E261F;
+          --shadow: rgba(0, 0, 0, .4);
+          --glow: rgba(212, 137, 74, .3);
+          color-scheme: dark;
+        }
+      }
+      :root[data-theme='dark'] .gastro-shell {
+        --linen: #1C1714;
+        --linen-2: #241F1B;
+        --charcoal: #F0EBE2;
+        --ember: #D4894A;
+        --ember-lo: rgba(212, 137, 74, .18);
+        --smoke: #9A8E84;
+        --ash: #3A322C;
+        --card: #261F1A;
+        --white: #2E261F;
+        --shadow: rgba(0, 0, 0, .4);
+        --glow: rgba(212, 137, 74, .3);
+        color-scheme: dark;
+      }
       .gastro-grain {
         position: fixed;
         inset: 0;
         pointer-events: none;
-        opacity: 0.04;
-        background-image: radial-gradient(circle, rgba(232,165,102,0.5) 1px, transparent 1px);
+        opacity: 0.035;
+        background-image: radial-gradient(circle, rgba(196,120,58,0.5) 1px, transparent 1px);
         background-size: 3px 3px;
+      }
+      .gastro-hero {
+        position: relative;
+        z-index: 1;
+        padding: 48px 20px 36px;
+        text-align: center;
+        max-width: 520px;
+        margin: 0 auto;
+      }
+      .gastro-hero-circle {
+        width: clamp(120px, 32vw, 176px);
+        height: clamp(120px, 32vw, 176px);
+        margin: 0 auto 20px;
+        border-radius: 50%;
+        overflow: hidden;
+        box-shadow:
+          0 0 0 5px var(--card),
+          0 0 0 6px var(--ash),
+          0 16px 50px var(--shadow),
+          0 0 60px var(--glow);
+      }
+      .gastro-hero-circle img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        display: block;
+      }
+      .gastro-hero-circle--fallback {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: radial-gradient(circle, var(--ember-lo), var(--card));
+        color: var(--ember);
+      }
+      .gastro-hero-name {
+        font-family: var(--font-display);
+        font-weight: 700;
+        font-size: clamp(28px, 7vw, 44px);
+        margin: 0 0 12px;
+        color: var(--charcoal);
+      }
+      .gastro-hero-tagline {
+        font-family: var(--font-body);
+        font-size: 14px;
+        line-height: 1.7;
+        color: var(--smoke);
+        margin: 0;
       }
       .gastro-nav {
         position: sticky;
@@ -305,14 +404,16 @@ function GastroStyles() {
         flex-wrap: wrap;
         row-gap: 10px;
         padding: 14px 20px;
-        background: linear-gradient(180deg, rgba(20,14,11,0.95), rgba(20,14,11,0.75));
+        background: rgba(247, 242, 236, 0.9);
+        background: color-mix(in srgb, var(--linen) 90%, transparent);
         backdrop-filter: blur(10px);
-        border-bottom: 1px solid var(--gastro-line);
+        border-bottom: 1px solid var(--ash);
       }
       .gastro-brand-name {
         font-family: var(--font-display);
+        font-weight: 700;
         font-size: 18px;
-        color: var(--cream);
+        color: var(--charcoal);
       }
       .gastro-nav-links {
         display: flex;
@@ -323,29 +424,29 @@ function GastroStyles() {
         order: 3;
         flex-basis: 100%;
         overflow-x: auto;
-        border-top: 1px dashed var(--gastro-line);
+        border-top: 1px dashed var(--ash);
         padding-top: 10px;
       }
       .gastro-nav-links a {
-        font-family: var(--font-mono);
-        font-size: 10px;
-        letter-spacing: 1px;
+        font-family: var(--font-body);
+        font-size: 12px;
+        font-weight: 600;
+        letter-spacing: 0.4px;
         text-transform: uppercase;
-        color: var(--parchment);
+        color: var(--smoke);
         text-decoration: none;
-        opacity: 0.75;
         white-space: nowrap;
       }
       .gastro-cart-btn {
         display: flex;
         align-items: center;
         gap: 8px;
-        background: transparent;
-        border: 1px solid var(--gastro-line);
-        color: var(--cream);
-        font-family: var(--font-mono);
-        font-size: 11px;
-        letter-spacing: 1px;
+        background: var(--card);
+        border: 1px solid var(--ash);
+        color: var(--charcoal);
+        font-family: var(--font-body);
+        font-weight: 600;
+        font-size: 12px;
         padding: 8px 14px;
         border-radius: 100px;
         cursor: pointer;
@@ -354,69 +455,14 @@ function GastroStyles() {
         min-width: 18px;
         height: 18px;
         border-radius: 50%;
-        background: var(--ember-bright);
-        color: var(--ink-black);
+        background: var(--ember);
+        color: var(--white);
         display: inline-flex;
         align-items: center;
         justify-content: center;
         font-size: 10px;
-        font-weight: 600;
+        font-weight: 700;
         padding: 0 4px;
-      }
-      .gastro-hero {
-        position: relative;
-        padding: 60px 20px 50px;
-        text-align: center;
-        overflow: hidden;
-      }
-      .gastro-hero::before {
-        content: '';
-        position: absolute;
-        inset: 0;
-        background:
-          radial-gradient(ellipse 60% 40% at 50% 105%, rgba(224,105,42,0.35), transparent 70%),
-          linear-gradient(180deg, var(--ink-black) 0%, var(--char) 60%, var(--brick) 100%);
-        z-index: 0;
-      }
-      .gastro-ember-glow {
-        position: absolute;
-        bottom: -20%;
-        left: 50%;
-        transform: translateX(-50%);
-        width: 500px;
-        height: 500px;
-        max-width: 160vw;
-        background: radial-gradient(circle, rgba(224,105,42,0.28) 0%, transparent 65%);
-        filter: blur(10px);
-        z-index: 0;
-      }
-      .gastro-hero-content {
-        position: relative;
-        z-index: 1;
-        max-width: 600px;
-        margin: 0 auto;
-      }
-      .gastro-eyebrow {
-        font-family: var(--font-mono);
-        font-size: 11px;
-        letter-spacing: 3px;
-        text-transform: uppercase;
-        color: var(--amber);
-        margin-bottom: 16px;
-      }
-      .gastro-hero-content h1 {
-        font-family: var(--font-display);
-        font-weight: 400;
-        font-size: clamp(32px, 8vw, 56px);
-        margin: 0 0 16px;
-        color: var(--cream);
-      }
-      .gastro-hero-content p {
-        font-size: 14px;
-        line-height: 1.7;
-        color: var(--parchment);
-        opacity: 0.85;
-        margin: 0;
       }
       .gastro-category {
         position: relative;
@@ -427,18 +473,19 @@ function GastroStyles() {
         scroll-margin-top: 90px;
       }
       .gastro-cat-tag {
-        font-family: var(--font-mono);
-        font-size: 10px;
+        font-family: var(--font-body);
+        font-size: 11px;
+        font-weight: 700;
         letter-spacing: 2px;
-        color: var(--ember-bright);
+        color: var(--ember);
         margin-bottom: 8px;
       }
       .gastro-cat-head h2 {
         font-family: var(--font-display);
+        font-weight: 700;
         font-size: clamp(24px, 5vw, 34px);
         margin: 0 0 24px;
-        color: var(--cream);
-        font-weight: 400;
+        color: var(--charcoal);
       }
       .gastro-ticket-grid {
         display: grid;
@@ -449,24 +496,24 @@ function GastroStyles() {
         grid-template-columns: 1fr auto;
         gap: 14px;
         align-items: start;
-        padding: 18px 2px;
-        border-bottom: 1px dashed var(--gastro-line);
-      }
-      .gastro-ticket:first-child {
-        border-top: 1px dashed var(--gastro-line);
+        padding: 18px 12px;
+        border-bottom: 1px solid var(--ash);
+        background: var(--card);
+        border-radius: 12px;
+        margin-bottom: 10px;
       }
       .gastro-ticket-name {
         font-family: var(--font-display);
+        font-weight: 700;
         font-size: 18px;
-        color: var(--cream);
+        color: var(--charcoal);
         margin: 0 0 6px;
-        font-weight: 400;
       }
       .gastro-ticket-desc {
+        font-family: var(--font-body);
         font-size: 12.5px;
         line-height: 1.6;
-        color: var(--parchment);
-        opacity: 0.72;
+        color: var(--smoke);
         margin: 0;
       }
       .gastro-ticket-right {
@@ -477,19 +524,21 @@ function GastroStyles() {
         gap: 8px;
       }
       .gastro-ticket-price {
-        font-family: var(--font-mono);
-        font-size: 14px;
-        color: var(--amber);
+        font-family: var(--font-display);
+        font-weight: 700;
+        font-size: 16px;
+        color: var(--ember);
         white-space: nowrap;
       }
       .gastro-ticket-add {
-        font-family: var(--font-mono);
-        font-size: 10px;
-        letter-spacing: 1px;
+        font-family: var(--font-body);
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: 0.4px;
         text-transform: uppercase;
-        color: var(--brass);
-        background: none;
-        border: 1px solid var(--gastro-line);
+        color: var(--ember);
+        background: var(--ember-lo);
+        border: 1px solid transparent;
         padding: 6px 12px;
         border-radius: 100px;
         cursor: pointer;
@@ -497,34 +546,35 @@ function GastroStyles() {
         min-height: 32px;
       }
       .gastro-ticket-add:hover {
-        border-color: var(--ember-bright);
-        color: var(--amber);
+        border-color: var(--ember);
       }
       .gastro-footer {
         position: relative;
         z-index: 1;
         padding: 60px 20px 90px;
         text-align: center;
-        border-top: 1px solid var(--gastro-line);
+        border-top: 1px solid var(--ash);
         margin-top: 40px;
       }
       .gastro-fire-mark {
         font-family: var(--font-display);
-        font-size: 14px;
-        color: var(--amber);
         font-style: italic;
+        font-weight: 600;
+        font-size: 14px;
+        color: var(--ember);
         margin-bottom: 8px;
       }
       .gastro-footer h3 {
         font-family: var(--font-display);
+        font-weight: 700;
         font-size: 24px;
-        color: var(--cream);
-        font-weight: 400;
+        color: var(--charcoal);
         margin: 0 0 10px;
       }
       .gastro-footer p {
+        font-family: var(--font-body);
         font-size: 13px;
-        color: var(--brass);
+        color: var(--smoke);
         max-width: 380px;
         margin: 0 auto;
       }
@@ -533,18 +583,19 @@ function GastroStyles() {
         bottom: 20px;
         right: 20px;
         z-index: 60;
-        background: var(--ember-bright);
-        color: var(--ink-black);
+        background: var(--ember);
+        color: var(--white);
         border: none;
         border-radius: 100px;
         padding: 13px 18px;
+        font-family: var(--font-body);
         font-size: 13px;
-        font-weight: 600;
+        font-weight: 700;
         display: flex;
         align-items: center;
         gap: 8px;
         cursor: pointer;
-        box-shadow: 0 8px 24px rgba(184,83,31,0.4);
+        box-shadow: 0 8px 24px var(--shadow), 0 0 40px var(--glow);
       }
       @media (min-width: 761px) {
         .gastro-fab { display: none; }
@@ -552,7 +603,7 @@ function GastroStyles() {
       .gastro-overlay {
         position: fixed;
         inset: 0;
-        background: rgba(10,7,5,0.7);
+        background: rgba(20, 15, 12, 0.55);
         z-index: 90;
         opacity: 0;
         pointer-events: none;
@@ -569,8 +620,8 @@ function GastroStyles() {
         height: 100%;
         width: min(400px, 92vw);
         z-index: 91;
-        background: var(--char);
-        border-left: 1px solid var(--gastro-line);
+        background: var(--card);
+        border-left: 1px solid var(--ash);
         transform: translateX(100%);
         transition: transform 0.3s ease;
         display: flex;
@@ -581,22 +632,22 @@ function GastroStyles() {
       }
       .gastro-drawer-head {
         padding: 20px;
-        border-bottom: 1px solid var(--gastro-line);
+        border-bottom: 1px solid var(--ash);
         display: flex;
         align-items: center;
         justify-content: space-between;
       }
       .gastro-drawer-head h3 {
         font-family: var(--font-display);
+        font-weight: 700;
         font-size: 18px;
-        color: var(--cream);
+        color: var(--charcoal);
         margin: 0;
-        font-weight: 400;
       }
       .gastro-drawer-close {
         background: none;
         border: none;
-        color: var(--brass);
+        color: var(--smoke);
         cursor: pointer;
         display: flex;
       }
@@ -606,7 +657,8 @@ function GastroStyles() {
         padding: 8px 20px;
       }
       .gastro-cart-empty {
-        color: var(--brass);
+        font-family: var(--font-body);
+        color: var(--smoke);
         font-size: 13px;
         padding: 30px 0;
         text-align: center;
@@ -616,17 +668,20 @@ function GastroStyles() {
         justify-content: space-between;
         align-items: center;
         padding: 14px 0;
-        border-bottom: 1px dashed var(--gastro-line);
+        border-bottom: 1px dashed var(--ash);
         gap: 10px;
       }
       .gastro-cart-item-name {
+        font-family: var(--font-body);
+        font-weight: 500;
         font-size: 14px;
-        color: var(--cream);
+        color: var(--charcoal);
       }
       .gastro-cart-item-price {
-        font-family: var(--font-mono);
+        font-family: var(--font-display);
+        font-weight: 600;
         font-size: 12px;
-        color: var(--brass);
+        color: var(--smoke);
         margin-top: 3px;
       }
       .gastro-qty-ctrl {
@@ -638,9 +693,9 @@ function GastroStyles() {
         width: 26px;
         height: 26px;
         border-radius: 50%;
-        border: 1px solid var(--gastro-line);
-        background: none;
-        color: var(--amber);
+        border: 1px solid var(--ash);
+        background: var(--linen);
+        color: var(--ember);
         cursor: pointer;
         display: flex;
         align-items: center;
@@ -648,32 +703,35 @@ function GastroStyles() {
       }
       .gastro-drawer-foot {
         padding: 16px 20px 24px;
-        border-top: 1px solid var(--gastro-line);
+        border-top: 1px solid var(--ash);
       }
       .gastro-cart-total {
         display: flex;
         justify-content: space-between;
-        font-family: var(--font-mono);
+        font-family: var(--font-body);
+        font-weight: 600;
         font-size: 14px;
-        color: var(--cream);
+        color: var(--charcoal);
         margin-bottom: 14px;
       }
       .gastro-cart-total strong {
-        color: var(--amber);
-        font-size: 17px;
+        font-family: var(--font-display);
+        color: var(--ember);
+        font-size: 18px;
       }
       .gastro-whatsapp-btn {
         width: 100%;
         padding: 14px;
         border: none;
-        border-radius: 6px;
+        border-radius: 8px;
         cursor: pointer;
-        background: var(--ember-bright);
-        color: var(--ink-black);
+        background: var(--charcoal);
+        color: var(--card);
+        font-family: var(--font-body);
         font-size: 13px;
-        letter-spacing: 0.5px;
+        letter-spacing: 0.4px;
         text-transform: uppercase;
-        font-weight: 600;
+        font-weight: 700;
         display: flex;
         align-items: center;
         justify-content: center;
@@ -686,19 +744,20 @@ function GastroStyles() {
       }
 
       /* ── Checkout & success inside gastro context ── */
-      .gastro-shell { color-scheme: dark; }
-
       .gastro-checkout-page {
+        position: relative;
+        z-index: 1;
         max-width: 540px;
         margin: 0 auto;
         padding: 32px 20px 80px;
       }
       .gastro-checkout-eyebrow {
-        font-family: var(--font-mono);
+        font-family: var(--font-body);
         font-size: 11px;
-        letter-spacing: 3px;
+        font-weight: 700;
+        letter-spacing: 2px;
         text-transform: uppercase;
-        color: var(--amber);
+        color: var(--ember);
         margin-bottom: 28px;
       }
       .gastro-shell .checkout-form {
@@ -706,50 +765,56 @@ function GastroStyles() {
         padding: 0;
       }
       .gastro-shell .checkout-back-btn {
-        color: var(--brass);
-        font-family: var(--font-mono);
-        font-size: 10px;
-        letter-spacing: 1.5px;
+        color: var(--smoke);
+        font-family: var(--font-body);
+        font-size: 12px;
+        font-weight: 600;
+        letter-spacing: 0.4px;
         text-transform: uppercase;
         min-height: unset;
       }
-      .gastro-shell .checkout-back-btn:hover { color: var(--amber); }
+      .gastro-shell .checkout-back-btn:hover { color: var(--ember); }
       .gastro-shell label {
-        font-family: var(--font-mono);
-        font-size: 10px;
-        letter-spacing: 1.5px;
+        font-family: var(--font-body);
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: 0.6px;
         text-transform: uppercase;
-        color: var(--parchment);
-        opacity: 0.75;
+        color: var(--smoke);
       }
       .gastro-shell input,
       .gastro-shell textarea,
       .gastro-shell select {
-        background: rgba(255, 255, 255, 0.06);
-        border: 1px solid var(--gastro-line);
-        border-radius: 4px;
-        color: var(--cream);
+        font-family: var(--font-body);
+        background: var(--card);
+        border: 1px solid var(--ash);
+        border-radius: 8px;
+        color: var(--charcoal);
       }
       .gastro-shell input:focus,
       .gastro-shell textarea:focus,
       .gastro-shell select:focus {
         outline: none;
-        border-color: var(--ember-bright);
-        background: rgba(255, 255, 255, 0.09);
+        border-color: var(--ember);
+        background: var(--white);
       }
-      .gastro-shell .checkout-error { color: #fca5a5; }
+      .gastro-shell .checkout-error { color: #B3261E; }
+      :root[data-theme='dark'] .gastro-shell .checkout-error { color: #FF8A80; }
+      @media (prefers-color-scheme: dark) {
+        :root:not([data-theme]) .gastro-shell .checkout-error { color: #FF8A80; }
+      }
       .gastro-shell .checkout-submit-btn {
-        background: var(--ember-bright);
-        color: var(--ink-black);
-        border-radius: 4px;
-        font-family: var(--font-mono);
-        font-size: 11px;
+        background: var(--ember);
+        color: var(--white);
+        border-radius: 8px;
+        font-family: var(--font-body);
+        font-size: 12px;
         font-weight: 700;
-        letter-spacing: 1.5px;
+        letter-spacing: 0.6px;
         text-transform: uppercase;
       }
       .gastro-shell .checkout-submit-btn:hover:not(:disabled) {
-        background: var(--amber);
+        filter: brightness(0.94);
       }
 
       /* Success page */
@@ -758,33 +823,34 @@ function GastroStyles() {
         padding: 80px 24px;
         max-width: 480px;
         margin: 0 auto;
+        position: relative;
+        z-index: 1;
       }
       .gastro-shell .order-success h2 {
         font-family: var(--font-display);
         font-size: clamp(22px, 5vw, 32px);
-        font-weight: 400;
-        color: var(--cream);
+        font-weight: 700;
+        color: var(--charcoal);
         margin-bottom: 12px;
       }
       .gastro-shell .order-success p {
-        font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+        font-family: var(--font-body);
         font-size: 14px;
-        color: var(--parchment);
-        opacity: 0.75;
+        color: var(--smoke);
         margin-bottom: 32px;
         line-height: 1.6;
       }
       .gastro-shell .whatsapp-btn {
-        background: var(--ember-bright);
-        color: var(--ink-black);
-        border-radius: 4px;
-        font-family: var(--font-mono);
-        font-size: 11px;
+        background: var(--charcoal);
+        color: var(--card);
+        border-radius: 8px;
+        font-family: var(--font-body);
+        font-size: 12px;
         font-weight: 700;
-        letter-spacing: 1.5px;
+        letter-spacing: 0.6px;
         text-transform: uppercase;
       }
-      .gastro-shell .whatsapp-btn:hover { background: var(--amber); }
+      .gastro-shell .whatsapp-btn:hover { filter: brightness(1.1); }
     `}</style>
   );
 }
