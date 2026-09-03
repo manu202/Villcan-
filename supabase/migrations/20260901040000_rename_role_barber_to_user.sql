@@ -4,34 +4,29 @@
 --
 -- After this migration, valid roles are: 'admin' | 'user'
 
--- ============================================================================
--- 1. Data migration
--- ============================================================================
+-- CORRECTION (orchestrator, before applying): this migration as originally
+-- written assumed `profiles.role` still exists and tried to update/constrain
+-- it, and redefined handle_new_user() to insert a `role` column into
+-- profiles. Both are wrong — profiles.role was already dropped entirely in
+-- 20260831120001_user_fixes.sql (bug #4: it was dead code, the real
+-- authorization source of truth is user_branch_access.role only). Applying
+-- the original would have failed outright ("column role does not exist")
+-- and, had it been written to succeed some other way, would have
+-- reintroduced the exact bug #4 already fixed. Removed the profiles.role
+-- data migration, its constraint section entirely, and the `role` column
+-- from the handle_new_user() insert — everything else (user_branch_access
+-- rename, RLS policies, RPCs) is unchanged from the original.
 
-update public.profiles
-  set role = 'user'
-  where role = 'barber';
+-- ============================================================================
+-- 1. Data migration — user_branch_access only (profiles has no role column)
+-- ============================================================================
 
 update public.user_branch_access
   set role = 'user'
   where role = 'barber';
 
 -- ============================================================================
--- 2. Constraints and defaults — profiles
--- ============================================================================
-
-alter table public.profiles
-  drop constraint if exists profiles_role_check;
-
-alter table public.profiles
-  alter column role set default 'user';
-
-alter table public.profiles
-  add constraint profiles_role_check
-  check (role = any (array['admin'::text, 'user'::text]));
-
--- ============================================================================
--- 3. Constraints and defaults — user_branch_access
+-- 2. Constraints and defaults — user_branch_access
 -- ============================================================================
 
 alter table public.user_branch_access
@@ -43,28 +38,6 @@ alter table public.user_branch_access
 alter table public.user_branch_access
   add constraint user_branch_access_role_check
   check (role = any (array['admin'::text, 'user'::text]));
-
--- ============================================================================
--- 4. handle_new_user trigger: default role 'barber' → 'user'
--- ============================================================================
-
-create or replace function public.handle_new_user()
-returns trigger
-language plpgsql
-security definer
-set search_path = 'public'
-as $$
-begin
-  insert into public.profiles (id, email, full_name, role)
-  values (
-    new.id,
-    new.email,
-    coalesce(new.raw_user_meta_data->>'full_name', new.email),
-    'user'
-  );
-  return new;
-end;
-$$;
 
 -- ============================================================================
 -- 5. RLS policies — movements
@@ -398,13 +371,8 @@ $$;
 
 -- Rollback (manual):
 -- update public.user_branch_access set role = 'barber' where role = 'user';
--- update public.profiles set role = 'barber' where role = 'user';
--- alter table public.profiles drop constraint if exists profiles_role_check;
--- alter table public.profiles alter column role set default 'barber';
--- alter table public.profiles add constraint profiles_role_check
---   check (role = any (array['admin'::text, 'barber'::text]));
 -- alter table public.user_branch_access drop constraint if exists user_branch_access_role_check;
 -- alter table public.user_branch_access alter column role set default 'barber';
 -- alter table public.user_branch_access add constraint user_branch_access_role_check
 --   check (role = any (array['admin'::text, 'barber'::text]));
--- (recreate handle_new_user with 'barber', recreate policies with 'barber')
+-- (recreate policies/RPCs with 'barber')
