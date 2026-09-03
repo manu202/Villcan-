@@ -46,6 +46,8 @@ export function GastronomyTemplate({ branch, services }: GastronomyTemplateProps
   const [exiting, setExiting] = useState(false);
   const dragRef = useRef<{ startX: number; startY: number; active: boolean; captured: boolean; touchId: number | null }>({ startX: 0, startY: 0, active: false, captured: false, touchId: null });
   const exitTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const sheetRef = useRef<HTMLDivElement>(null);
+  const whatsappLinkRef = useRef<HTMLAnchorElement>(null);
 
   const categories = useMemo(() => groupByCategory(services), [services]);
 
@@ -77,34 +79,6 @@ export function GastronomyTemplate({ branch, services }: GastronomyTemplateProps
   };
   const goPrev = () => { if (selectedIdx !== null && hasPrev) navigate(selectedIdx - 1, 'prev'); };
   const goNext = () => { if (selectedIdx !== null && hasNext) navigate(selectedIdx + 1, 'next'); };
-
-  const onSheetTouchStart = (e: React.TouchEvent<HTMLDivElement>) => {
-    if (e.touches.length !== 1) return;
-    dragRef.current = { startX: e.touches[0].clientX, startY: e.touches[0].clientY, active: true, captured: false, touchId: e.touches[0].identifier };
-  };
-  const onSheetTouchMove = (e: React.TouchEvent<HTMLDivElement>) => {
-    if (!dragRef.current.active || dragRef.current.captured) return;
-    const touch = Array.from(e.touches).find(t => t.identifier === dragRef.current.touchId);
-    if (!touch) return;
-    const dx = Math.abs(touch.clientX - dragRef.current.startX);
-    const dy = Math.abs(touch.clientY - dragRef.current.startY);
-    if (dx > 10 && dx > dy * 1.5) {
-      e.preventDefault();
-      dragRef.current.captured = true;
-    } else if (dy > 10) {
-      dragRef.current.active = false;
-    }
-  };
-  const onSheetTouchEnd = (e: React.TouchEvent<HTMLDivElement>) => {
-    if (!dragRef.current.active) return;
-    const touch = Array.from(e.changedTouches).find(t => t.identifier === dragRef.current.touchId);
-    if (!touch) return;
-    dragRef.current.active = false;
-    const dx = touch.clientX - dragRef.current.startX;
-    if (Math.abs(dx) < 48) return;
-    if (dx < 0) goNext();
-    else goPrev();
-  };
 
   const onSheetPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
     if (dragRef.current.active) return;
@@ -150,12 +124,53 @@ export function GastronomyTemplate({ branch, services }: GastronomyTemplateProps
     return () => { document.body.style.overflow = ''; };
   }, [cartOpen, selected]);
 
+  useEffect(() => {
+    const el = sheetRef.current;
+    if (!el) return;
+    const handler = (e: TouchEvent) => {
+      const touch = e.changedTouches[0];
+      if (!touch) return;
+      if (e.type === 'touchstart') {
+        dragRef.current = { startX: touch.clientX, startY: touch.clientY, active: true, captured: false, touchId: touch.identifier };
+        return;
+      }
+      if (e.type === 'touchmove') {
+        if (!dragRef.current.active || dragRef.current.captured) return;
+        const dx = Math.abs(touch.clientX - dragRef.current.startX);
+        const dy = Math.abs(touch.clientY - dragRef.current.startY);
+        if (dx > 10 && dx > dy * 1.5) {
+          e.preventDefault();
+          dragRef.current.captured = true;
+        } else if (dy > 10) {
+          dragRef.current.active = false;
+        }
+        return;
+      }
+      if (e.type === 'touchend') {
+        if (!dragRef.current.active) return;
+        dragRef.current.active = false;
+        const dx = touch.clientX - dragRef.current.startX;
+        if (Math.abs(dx) < 48) return;
+        if (dx < 0) goNext();
+        else goPrev();
+      }
+    };
+    el.addEventListener('touchstart', handler, { passive: false });
+    el.addEventListener('touchmove', handler, { passive: false });
+    el.addEventListener('touchend', handler, { passive: false });
+    return () => {
+      el.removeEventListener('touchstart', handler);
+      el.removeEventListener('touchmove', handler);
+      el.removeEventListener('touchend', handler);
+    };
+  }, [goNext, goPrev]);
+
   // When the order is confirmed, go directly to WhatsApp
   useEffect(() => {
-    if (step === 'success' && whatsappHref) {
-      window.location.href = whatsappHref;
+    if (step === 'success' && whatsappLinkRef.current) {
+      whatsappLinkRef.current.click();
     }
-  }, [step, whatsappHref]);
+  }, [step]);
 
   const sheetQty = selected ? (cart[selected.id] ?? 0) : 0;
 
@@ -176,6 +191,7 @@ export function GastronomyTemplate({ branch, services }: GastronomyTemplateProps
           <p className="gt-confirmed-hint">Abriendo WhatsApp…</p>
           {whatsappHref && (
             <a
+              ref={whatsappLinkRef}
               href={whatsappHref}
               target="_blank"
               rel="noreferrer"
@@ -317,6 +333,7 @@ export function GastronomyTemplate({ branch, services }: GastronomyTemplateProps
         aria-hidden="true"
       />
       <div
+        ref={sheetRef}
         className={`gt-sheet${sheetIsOpen ? ' is-open' : ''}`}
         role="dialog"
         aria-modal="true"
@@ -326,9 +343,6 @@ export function GastronomyTemplate({ branch, services }: GastronomyTemplateProps
         onPointerMove={onSheetPointerMove}
         onPointerUp={onSheetPointerUp}
         onPointerCancel={onSheetPointerCancel}
-        onTouchStart={onSheetTouchStart}
-        onTouchMove={onSheetTouchMove}
-        onTouchEnd={onSheetTouchEnd}
       >
         {selected && (
           <>
