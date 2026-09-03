@@ -44,7 +44,7 @@ export function GastronomyTemplate({ branch, services }: GastronomyTemplateProps
   const [selectedIdx, setSelectedIdx] = useState<number | null>(null);
   const [navDir, setNavDir] = useState<'next' | 'prev' | null>(null);
   const [exiting, setExiting] = useState(false);
-  const dragRef = useRef<{ startX: number; startY: number; active: boolean; captured: boolean }>({ startX: 0, startY: 0, active: false, captured: false });
+  const dragRef = useRef<{ startX: number; startY: number; active: boolean; captured: boolean; touchId: number | null }>({ startX: 0, startY: 0, active: false, captured: false, touchId: null });
   const exitTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const categories = useMemo(() => groupByCategory(services), [services]);
@@ -78,11 +78,40 @@ export function GastronomyTemplate({ branch, services }: GastronomyTemplateProps
   const goPrev = () => { if (selectedIdx !== null && hasPrev) navigate(selectedIdx - 1, 'prev'); };
   const goNext = () => { if (selectedIdx !== null && hasNext) navigate(selectedIdx + 1, 'next'); };
 
+  const onSheetTouchStart = (e: React.TouchEvent<HTMLDivElement>) => {
+    if (e.touches.length !== 1) return;
+    dragRef.current = { startX: e.touches[0].clientX, startY: e.touches[0].clientY, active: true, captured: false, touchId: e.touches[0].identifier };
+  };
+  const onSheetTouchMove = (e: React.TouchEvent<HTMLDivElement>) => {
+    if (!dragRef.current.active || dragRef.current.captured) return;
+    const touch = Array.from(e.touches).find(t => t.identifier === dragRef.current.touchId);
+    if (!touch) return;
+    const dx = Math.abs(touch.clientX - dragRef.current.startX);
+    const dy = Math.abs(touch.clientY - dragRef.current.startY);
+    if (dx > 10 && dx > dy * 1.5) {
+      e.preventDefault();
+      dragRef.current.captured = true;
+    } else if (dy > 10) {
+      dragRef.current.active = false;
+    }
+  };
+  const onSheetTouchEnd = (e: React.TouchEvent<HTMLDivElement>) => {
+    if (!dragRef.current.active) return;
+    const touch = Array.from(e.changedTouches).find(t => t.identifier === dragRef.current.touchId);
+    if (!touch) return;
+    dragRef.current.active = false;
+    const dx = touch.clientX - dragRef.current.startX;
+    if (Math.abs(dx) < 48) return;
+    if (dx < 0) goNext();
+    else goPrev();
+  };
+
   const onSheetPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
-    dragRef.current = { startX: e.clientX, startY: e.clientY, active: true, captured: false };
+    if (dragRef.current.active) return;
+    dragRef.current = { startX: e.clientX, startY: e.clientY, active: true, captured: false, touchId: null };
   };
   const onSheetPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
-    if (!dragRef.current.active || dragRef.current.captured) return;
+    if (!dragRef.current.active || dragRef.current.captured || dragRef.current.touchId !== null) return;
     const dx = Math.abs(e.clientX - dragRef.current.startX);
     const dy = Math.abs(e.clientY - dragRef.current.startY);
     if (dx > 10 && dx > dy * 1.5) {
@@ -93,7 +122,7 @@ export function GastronomyTemplate({ branch, services }: GastronomyTemplateProps
     }
   };
   const onSheetPointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
-    if (!dragRef.current.active) return;
+    if (!dragRef.current.active || dragRef.current.touchId !== null) return;
     dragRef.current.active = false;
     const dx = e.clientX - dragRef.current.startX;
     if (Math.abs(dx) < 48) return;
@@ -124,7 +153,7 @@ export function GastronomyTemplate({ branch, services }: GastronomyTemplateProps
   // When the order is confirmed, go directly to WhatsApp
   useEffect(() => {
     if (step === 'success' && whatsappHref) {
-      window.open(whatsappHref, '_blank', 'noreferrer');
+      window.location.href = whatsappHref;
     }
   }, [step, whatsappHref]);
 
@@ -297,6 +326,9 @@ export function GastronomyTemplate({ branch, services }: GastronomyTemplateProps
         onPointerMove={onSheetPointerMove}
         onPointerUp={onSheetPointerUp}
         onPointerCancel={onSheetPointerCancel}
+        onTouchStart={onSheetTouchStart}
+        onTouchMove={onSheetTouchMove}
+        onTouchEnd={onSheetTouchEnd}
       >
         {selected && (
           <>
