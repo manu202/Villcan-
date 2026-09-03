@@ -1050,6 +1050,7 @@ function GtStyles() {
         overflow-y: auto;
         flex: 1;
         animation: gt-sheet-open .22s ease both;
+        touch-action: none;
       }
       /* enter from right (user pressed next) */
       .gt-sheet-content.dir-next {
