@@ -47,7 +47,6 @@ export function GastronomyTemplate({ branch, services }: GastronomyTemplateProps
   const dragRef = useRef<{ startX: number; startY: number; active: boolean; captured: boolean; touchId: number | null }>({ startX: 0, startY: 0, active: false, captured: false, touchId: null });
   const exitTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const sheetRef = useRef<HTMLDivElement>(null);
-  const whatsappLinkRef = useRef<HTMLAnchorElement>(null);
 
   const categories = useMemo(() => groupByCategory(services), [services]);
 
@@ -167,10 +166,10 @@ export function GastronomyTemplate({ branch, services }: GastronomyTemplateProps
 
   // When the order is confirmed, go directly to WhatsApp
   useEffect(() => {
-    if (step === 'success' && whatsappLinkRef.current) {
-      whatsappLinkRef.current.click();
+    if (step === 'success' && whatsappHref) {
+      window.location.href = whatsappHref;
     }
-  }, [step]);
+  }, [step, whatsappHref]);
 
   const sheetQty = selected ? (cart[selected.id] ?? 0) : 0;
 
@@ -191,10 +190,7 @@ export function GastronomyTemplate({ branch, services }: GastronomyTemplateProps
           <p className="gt-confirmed-hint">Abriendo WhatsApp…</p>
           {whatsappHref && (
             <a
-              ref={whatsappLinkRef}
               href={whatsappHref}
-              target="_blank"
-              rel="noreferrer"
               className="gt-confirmed-link"
             >
               Abrir WhatsApp manualmente
