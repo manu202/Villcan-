@@ -1,8 +1,9 @@
 'use client';
 
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import {
   ShoppingBag, X, Plus, Minus, MessageCircle, UtensilsCrossed,
+  ChevronLeft, ChevronRight,
 } from 'lucide-react';
 import { CheckoutForm } from '../CheckoutForm';
 import { OrderSuccess } from '../OrderSuccess';
@@ -41,19 +42,46 @@ export function GastronomyTemplate({ branch, services }: GastronomyTemplateProps
   } = useStorefrontCart(branch, services);
 
   const [cartOpen, setCartOpen] = useState(false);
-  const [selected, setSelected] = useState<Service | null>(null);
+  const [selectedIdx, setSelectedIdx] = useState<number | null>(null);
+  const dragRef = useRef<{ startX: number; active: boolean }>({ startX: 0, active: false });
 
   const categories = useMemo(() => groupByCategory(services), [services]);
 
+  const selected = selectedIdx !== null ? services[selectedIdx] : null;
+  const hasPrev = selectedIdx !== null && selectedIdx > 0;
+  const hasNext = selectedIdx !== null && selectedIdx < services.length - 1;
+
+  const openSheet = (item: Service) =>
+    setSelectedIdx(services.findIndex(s => s.id === item.id));
+  const closeSheet = () => setSelectedIdx(null);
+  const goPrev = () => selectedIdx !== null && hasPrev && setSelectedIdx(selectedIdx - 1);
+  const goNext = () => selectedIdx !== null && hasNext && setSelectedIdx(selectedIdx + 1);
+
+  const onSheetPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    dragRef.current = { startX: e.clientX, active: true };
+  };
+  const onSheetPointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (!dragRef.current.active) return;
+    dragRef.current.active = false;
+    const dx = e.clientX - dragRef.current.startX;
+    if (Math.abs(dx) < 48) return;
+    if (dx < 0) goNext();
+    else goPrev();
+  };
+
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key !== 'Escape') return;
-      if (selected) { setSelected(null); return; }
-      if (cartOpen) setCartOpen(false);
+      if (selected) {
+        if (e.key === 'Escape') { closeSheet(); return; }
+        if (e.key === 'ArrowRight') { goNext(); return; }
+        if (e.key === 'ArrowLeft') { goPrev(); return; }
+      }
+      if (cartOpen && e.key === 'Escape') setCartOpen(false);
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [selected, cartOpen]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selected, cartOpen, selectedIdx]);
 
   useEffect(() => {
     document.body.style.overflow = cartOpen || selected ? 'hidden' : '';
@@ -103,6 +131,8 @@ export function GastronomyTemplate({ branch, services }: GastronomyTemplateProps
       </div>
     );
   }
+
+  const sheetIsOpen = selectedIdx !== null;
 
   return (
     <div className="gt">
@@ -166,7 +196,7 @@ export function GastronomyTemplate({ branch, services }: GastronomyTemplateProps
                       key={item.id}
                       type="button"
                       className="gt-ticket"
-                      onClick={() => setSelected(item)}
+                      onClick={() => openSheet(item)}
                       aria-label={`${item.name}${qty > 0 ? ` — ${qty} en pedido` : ''}`}
                     >
                       <div className="gt-ticket-info">
@@ -201,84 +231,114 @@ export function GastronomyTemplate({ branch, services }: GastronomyTemplateProps
 
       {/* ── PRODUCT SHEET ── */}
       <div
-        className={`gt-sheet-scrim${selected ? ' is-open' : ''}`}
-        onClick={() => setSelected(null)}
+        className={`gt-sheet-scrim${sheetIsOpen ? ' is-open' : ''}`}
+        onClick={closeSheet}
         aria-hidden="true"
       />
       <div
-        className={`gt-sheet${selected ? ' is-open' : ''}`}
+        className={`gt-sheet${sheetIsOpen ? ' is-open' : ''}`}
         role="dialog"
         aria-modal="true"
         aria-label={selected?.name ?? 'Producto'}
-        aria-hidden={!selected}
+        aria-hidden={!sheetIsOpen}
+        onPointerDown={onSheetPointerDown}
+        onPointerUp={onSheetPointerUp}
       >
         {selected && (
           <>
-            <button
-              type="button"
-              className="gt-sheet-close"
-              onClick={() => setSelected(null)}
-              aria-label="Cerrar"
-            >
-              <X size={17} aria-hidden="true" />
-            </button>
-
-            {selected.image_url ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={selected.image_url}
-                alt={selected.name}
-                className="gt-sheet-img"
-                draggable={false}
-              />
-            ) : (
-              <div className="gt-sheet-img-empty" aria-hidden="true">
-                <UtensilsCrossed size={38} strokeWidth={1.2} />
-              </div>
-            )}
-
-            <div className="gt-sheet-body">
-              <h3 className="gt-sheet-name">{selected.name}</h3>
-              {selected.description && (
-                <p className="gt-sheet-desc">{selected.description}</p>
-              )}
-              <p className="gt-sheet-price">{formatGuaranies(selected.price)}</p>
-            </div>
-
-            <div className="gt-sheet-foot">
-              {sheetQty > 0 && (
-                <div className="gt-qty-row">
-                  <button
-                    type="button"
-                    className="gt-qty-btn"
-                    aria-label="Restar uno"
-                    onClick={() => decrement(selected.id)}
-                  >
-                    <Minus size={14} aria-hidden="true" />
-                  </button>
-                  <span className="gt-qty-n">{sheetQty}</span>
-                  <button
-                    type="button"
-                    className="gt-qty-btn"
-                    aria-label="Sumar uno"
-                    onClick={handleSheetAdd}
-                  >
-                    <Plus size={14} aria-hidden="true" />
-                  </button>
-                </div>
-              )}
+            {/* Nav: prev · counter · next · close */}
+            <div className="gt-sheet-nav">
               <button
                 type="button"
-                className="gt-sheet-cta"
-                onClick={() => {
-                  if (sheetQty === 0) addToCart(selected);
-                  setSelected(null);
-                }}
+                className="gt-sheet-nav-btn"
+                onClick={(e) => { e.stopPropagation(); goPrev(); }}
+                disabled={!hasPrev}
+                aria-label="Producto anterior"
               >
-                {sheetQty > 0
-                  ? `Ver pedido · ${formatGuaranies(total)}`
-                  : 'Agregar al pedido'}
+                <ChevronLeft size={18} aria-hidden="true" />
               </button>
+              <span className="gt-sheet-nav-pos">
+                {selectedIdx! + 1} / {services.length}
+              </span>
+              <button
+                type="button"
+                className="gt-sheet-nav-btn"
+                onClick={(e) => { e.stopPropagation(); goNext(); }}
+                disabled={!hasNext}
+                aria-label="Producto siguiente"
+              >
+                <ChevronRight size={18} aria-hidden="true" />
+              </button>
+              <button
+                type="button"
+                className="gt-sheet-close"
+                onClick={(e) => { e.stopPropagation(); closeSheet(); }}
+                aria-label="Cerrar"
+              >
+                <X size={17} aria-hidden="true" />
+              </button>
+            </div>
+
+            {/* key= triggers fade animation on product change */}
+            <div key={selected.id} className="gt-sheet-content">
+              {selected.image_url ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={selected.image_url}
+                  alt={selected.name}
+                  className="gt-sheet-img"
+                  draggable={false}
+                />
+              ) : (
+                <div className="gt-sheet-img-empty" aria-hidden="true">
+                  <UtensilsCrossed size={38} strokeWidth={1.2} />
+                </div>
+              )}
+
+              <div className="gt-sheet-body">
+                <h3 className="gt-sheet-name">{selected.name}</h3>
+                {selected.description && (
+                  <p className="gt-sheet-desc">{selected.description}</p>
+                )}
+                <p className="gt-sheet-price">{formatGuaranies(selected.price)}</p>
+              </div>
+
+              <div className="gt-sheet-foot">
+                {sheetQty > 0 && (
+                  <div className="gt-qty-row">
+                    <button
+                      type="button"
+                      className="gt-qty-btn"
+                      aria-label="Restar uno"
+                      onClick={(e) => { e.stopPropagation(); decrement(selected.id); }}
+                    >
+                      <Minus size={14} aria-hidden="true" />
+                    </button>
+                    <span className="gt-qty-n">{sheetQty}</span>
+                    <button
+                      type="button"
+                      className="gt-qty-btn"
+                      aria-label="Sumar uno"
+                      onClick={(e) => { e.stopPropagation(); handleSheetAdd(); }}
+                    >
+                      <Plus size={14} aria-hidden="true" />
+                    </button>
+                  </div>
+                )}
+                <button
+                  type="button"
+                  className="gt-sheet-cta"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (sheetQty === 0) addToCart(selected);
+                    closeSheet();
+                  }}
+                >
+                  {sheetQty > 0
+                    ? `Ver pedido · ${formatGuaranies(total)}`
+                    : 'Agregar al pedido'}
+                </button>
+              </div>
             </div>
           </>
         )}
@@ -803,11 +863,58 @@ function GtStyles() {
           transform: translate(-50%, 0);
         }
       }
+      /* hint dots for swipe navigation */
+      .gt-sheet-dots {
+        display: flex;
+        justify-content: center;
+        gap: 5px;
+        padding: 8px 0 0;
+      }
+      .gt-sheet-dot {
+        width: 5px; height: 5px; border-radius: 50%;
+        background: var(--line);
+        transition: background .2s, transform .2s;
+      }
+      .gt-sheet-dot.active {
+        background: var(--amber);
+        transform: scale(1.25);
+      }
+      /* sheet nav row (prev · pos · next · close) */
+      .gt-sheet-nav {
+        display: flex;
+        align-items: center;
+        gap: 0;
+        padding: 10px 14px 10px 10px;
+        border-bottom: 1px solid var(--line);
+        flex-shrink: 0;
+      }
+      .gt-sheet-nav-btn {
+        width: 36px;
+        height: 36px;
+        border: none;
+        background: transparent;
+        color: var(--smoke);
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 8px;
+        transition: background .15s, color .15s;
+      }
+      .gt-sheet-nav-btn:hover:not(:disabled) {
+        background: rgba(255,255,255,.06);
+        color: var(--cream);
+      }
+      .gt-sheet-nav-btn:disabled { opacity: .25; cursor: not-allowed; }
+      .gt-sheet-nav-pos {
+        flex: 1;
+        text-align: center;
+        font-family: var(--fm);
+        font-size: 10px;
+        letter-spacing: 1.2px;
+        color: var(--smoke);
+      }
       .gt-sheet-close {
-        position: absolute;
-        top: 14px;
-        right: 14px;
-        z-index: 2;
         width: 30px;
         height: 30px;
         border-radius: 50%;
@@ -819,8 +926,21 @@ function GtStyles() {
         align-items: center;
         justify-content: center;
         transition: background .18s;
+        flex-shrink: 0;
       }
       .gt-sheet-close:hover { background: rgba(255,255,255,.15); }
+      /* content fade-slide animation on product change */
+      .gt-sheet-content {
+        display: flex;
+        flex-direction: column;
+        overflow-y: auto;
+        flex: 1;
+        animation: gt-sheet-in .18s ease;
+      }
+      @keyframes gt-sheet-in {
+        from { opacity: 0; transform: translateY(6px); }
+        to   { opacity: 1; transform: translateY(0); }
+      }
       .gt-sheet-img {
         width: 100%;
         aspect-ratio: 16/9;
