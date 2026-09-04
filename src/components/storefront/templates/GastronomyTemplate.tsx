@@ -33,6 +33,90 @@ function groupByCategory(services: Service[]): [string, Service[]][] {
   return [...map.entries()];
 }
 
+function FireCanvas() {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    // Small fire grid — CSS upscaling creates natural smooth blur
+    const W = 100;
+    const H = 180;
+    canvas.width = W;
+    canvas.height = H;
+
+    const ctx = canvas.getContext('2d', { alpha: false })!;
+    // Extra rows at bottom for seeding
+    const heat = new Float32Array(W * (H + 3));
+    const img = ctx.createImageData(W, H);
+    const px = img.data;
+
+    let animId: number;
+    let t = 0;
+
+    function tick() {
+      t += 0.04;
+
+      // Seed bottom 3 rows with turbulent fire
+      for (let x = 0; x < W; x++) {
+        const n =
+          Math.sin(x * 0.2 + t * 1.1) * 28 +
+          Math.sin(x * 0.45 - t * 0.75) * 18 +
+          Math.sin(x * 0.08 + t * 0.45) * 20 +
+          (Math.random() - 0.3) * 35;
+        const v = Math.min(255, Math.max(205, 238 + n));
+        heat[(H + 2) * W + x] = v;
+        heat[(H + 1) * W + x] = Math.max(180, v - 22);
+        heat[H * W + x] = Math.max(145, v - 48);
+      }
+
+      // Diffuse heat upward
+      for (let y = 0; y < H; y++) {
+        for (let x = 0; x < W; x++) {
+          const xl = Math.max(0, x - 1);
+          const xr = Math.min(W - 1, x + 1);
+          heat[y * W + x] = Math.max(0,
+            (heat[(y + 1) * W + x] +
+             heat[(y + 1) * W + xl] +
+             heat[(y + 1) * W + xr] +
+             heat[(y + 2) * W + x]) / 4.12 - 0.42,
+          );
+        }
+      }
+
+      // Map heat to fire colors
+      for (let i = 0; i < W * H; i++) {
+        const h = heat[i];
+        const o = i * 4;
+        if (h < 6) {
+          px[o] = 8; px[o + 1] = 2; px[o + 2] = 1; px[o + 3] = 255;
+        } else if (h < 65) {
+          const s = h / 65;
+          px[o] = (8 + s * 132) | 0; px[o + 1] = (2 + s * 8) | 0; px[o + 2] = 1; px[o + 3] = 255;
+        } else if (h < 145) {
+          const s = (h - 65) / 80;
+          px[o] = (140 + s * 115) | 0; px[o + 1] = (10 + s * 95) | 0; px[o + 2] = 0; px[o + 3] = 255;
+        } else if (h < 215) {
+          const s = (h - 145) / 70;
+          px[o] = 255; px[o + 1] = (105 + s * 130) | 0; px[o + 2] = (s * 14) | 0; px[o + 3] = 255;
+        } else {
+          const s = Math.min(1, (h - 215) / 40);
+          px[o] = 255; px[o + 1] = (235 + s * 20) | 0; px[o + 2] = (14 + s * 220) | 0; px[o + 3] = 255;
+        }
+      }
+
+      ctx.putImageData(img, 0, 0);
+      animId = requestAnimationFrame(tick);
+    }
+
+    tick();
+    return () => cancelAnimationFrame(animId);
+  }, []);
+
+  return <canvas ref={canvasRef} className="gt-fire-canvas" aria-hidden="true" />;
+}
+
 export function GastronomyTemplate({ branch, services }: GastronomyTemplateProps) {
   const {
     cart, lines, total, itemCount, step,
@@ -51,8 +135,6 @@ export function GastronomyTemplate({ branch, services }: GastronomyTemplateProps
   const heroRef = useRef<HTMLElement>(null);
   const { scrollYProgress } = useScroll({ target: heroRef, offset: ['start start', 'end start'] });
   const navFlameOpacity = useTransform(scrollYProgress, [0.45, 0.85], [0, 1]);
-  const heroFlameOpacity = useTransform(scrollYProgress, [0, 0.55], [1, 0]);
-  const heroFlameY = useTransform(scrollYProgress, [0, 0.6], [0, -24]);
   const scrollIndicatorOpacity = useTransform(scrollYProgress, [0, 0.15], [1, 0]);
 
   const categories = useMemo(() => groupByCategory(services), [services]);
@@ -237,7 +319,7 @@ export function GastronomyTemplate({ branch, services }: GastronomyTemplateProps
   return (
     <div className="gt">
       <link rel="stylesheet" href={FONTS} />
-      <div className="gt-grain" aria-hidden="true" />
+      <FireCanvas />
 
       {/* ── NAV ── */}
       <nav className="gt-nav" aria-label="Navegación principal">
@@ -272,90 +354,7 @@ export function GastronomyTemplate({ branch, services }: GastronomyTemplateProps
 
       {/* ── HERO ── */}
       <header ref={heroRef} className="gt-hero">
-        {/* Tatakua illustration with animated fire */}
-        <motion.div
-          className="gt-tatakua-wrap"
-          style={{ opacity: heroFlameOpacity, y: heroFlameY }}
-          aria-hidden="true"
-        >
-          <svg className="gt-tatakua-svg" viewBox="0 0 240 260" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <defs>
-              <radialGradient id="domeGrad" cx="38%" cy="32%" r="65%">
-                <stop offset="0%" stopColor="#7B4520" />
-                <stop offset="55%" stopColor="#5C3317" />
-                <stop offset="100%" stopColor="#3A1F0A" />
-              </radialGradient>
-              <radialGradient id="mouthGrad" cx="50%" cy="38%" r="62%">
-                <stop offset="0%" stopColor="#C04008" />
-                <stop offset="60%" stopColor="#3A0C02" />
-                <stop offset="100%" stopColor="#0A0200" />
-              </radialGradient>
-              <radialGradient id="emberGrad" cx="50%" cy="30%" r="70%">
-                <stop offset="0%" stopColor="#FF8020" />
-                <stop offset="100%" stopColor="#8B2A00" stopOpacity="0" />
-              </radialGradient>
-              <filter id="flameBlur" x="-50%" y="-50%" width="200%" height="200%">
-                <feGaussianBlur stdDeviation="5" />
-              </filter>
-              <filter id="softGlow" x="-30%" y="-30%" width="160%" height="160%">
-                <feGaussianBlur stdDeviation="8" result="blur" />
-                <feMerge><feMergeNode in="blur" /><feMergeNode in="SourceGraphic" /></feMerge>
-              </filter>
-            </defs>
-
-            {/* Stone base */}
-            <rect x="30" y="210" width="180" height="24" rx="6" fill="#2A1206" />
-            <rect x="36" y="206" width="168" height="8" rx="4" fill="#3D1C0A" />
-
-            {/* Dome body */}
-            <path d="M 30,210 C 30,95 210,95 210,210 Z" fill="url(#domeGrad)" />
-
-            {/* Dome clay texture lines */}
-            <path d="M 55,205 C 50,140 90,100 120,96" stroke="#4A2810" strokeWidth="1.5" opacity="0.45" fill="none" />
-            <path d="M 185,205 C 190,140 150,100 120,96" stroke="#4A2810" strokeWidth="1.5" opacity="0.45" fill="none" />
-            <path d="M 75,210 C 68,160 88,115 120,98" stroke="#7B4520" strokeWidth="1" opacity="0.22" fill="none" />
-            <path d="M 165,210 C 172,160 152,115 120,98" stroke="#7B4520" strokeWidth="1" opacity="0.22" fill="none" />
-
-            {/* Dome rim highlight */}
-            <path d="M 30,210 C 30,95 210,95 210,210" stroke="#9B6535" strokeWidth="2" opacity="0.5" fill="none" />
-
-            {/* Mouth shadow */}
-            <ellipse cx="120" cy="172" rx="65" ry="46" fill="#1A0802" opacity="0.7" />
-
-            {/* Mouth opening */}
-            <ellipse cx="120" cy="168" rx="58" ry="40" fill="url(#mouthGrad)" />
-
-            {/* Ember glow inside mouth */}
-            <ellipse cx="120" cy="196" rx="42" ry="10" fill="url(#emberGrad)" opacity="0.6" />
-            <ellipse cx="120" cy="168" rx="36" ry="20" fill="#FF4A08" opacity="0.08" />
-
-            {/* Mouth rim */}
-            <ellipse cx="120" cy="168" rx="58" ry="40" stroke="#7B3010" strokeWidth="1.5" opacity="0.7" fill="none" />
-
-            {/* Ambient flame glow halo (soft, blurred) */}
-            <ellipse cx="120" cy="80" rx="44" ry="28" fill="#FF6010" opacity="0.18" filter="url(#flameBlur)" />
-
-            {/* FLAMES — CSS animated via classes */}
-            {/* Far left small flame */}
-            <path className="gt-f gt-f-ll" d="M 90,100 C 84,86 80,68 88,52 C 91,62 96,74 88,100 Z" fill="#E86020" />
-            {/* Left flame */}
-            <path className="gt-f gt-f-l" d="M 104,100 C 96,82 93,58 104,38 C 108,52 114,70 106,100 Z" fill="#F07020" />
-            {/* Center main flame (tallest) */}
-            <path className="gt-f gt-f-c" d="M 120,100 C 108,72 106,42 120,10 C 134,42 132,72 120,100 Z" fill="#FF8020" />
-            {/* Center inner bright */}
-            <path className="gt-f gt-f-c-i" d="M 120,96 C 112,72 112,50 120,26 C 128,50 128,72 120,96 Z" fill="#FFC040" />
-            {/* Center tip white-hot */}
-            <path className="gt-f gt-f-tip" d="M 120,82 C 116,68 116,54 120,40 C 124,54 124,68 120,82 Z" fill="#FFF4C0" />
-            {/* Right flame */}
-            <path className="gt-f gt-f-r" d="M 136,100 C 144,82 147,58 136,38 C 132,52 126,70 134,100 Z" fill="#F07020" />
-            {/* Far right small flame */}
-            <path className="gt-f gt-f-rr" d="M 150,100 C 156,86 160,68 152,52 C 149,62 144,74 152,100 Z" fill="#E86020" />
-          </svg>
-        </motion.div>
-
-        {/* Ambient glow (always visible) */}
         <div className="gt-hero-glow" aria-hidden="true" />
-
         <div className="gt-hero-content">
           <p className="gt-hero-eyebrow">Menú</p>
           <h1 className="gt-hero-name">{branch.name}</h1>
@@ -377,35 +376,37 @@ export function GastronomyTemplate({ branch, services }: GastronomyTemplateProps
               className="gt-section"
               aria-labelledby={`hl-${slugify(cat)}`}
             >
-              <div className="gt-section-head">
-                <h2 id={`hl-${slugify(cat)}`} className="gt-section-title">{cat}</h2>
-              </div>
-              <div className="gt-tickets">
-                {items.map((item) => {
-                  const qty = cart[item.id] ?? 0;
-                  return (
-                    <button
-                      key={item.id}
-                      type="button"
-                      className="gt-ticket"
-                      onClick={() => openSheet(item)}
-                      aria-label={`${item.name}${qty > 0 ? ` — ${qty} en pedido` : ''}`}
-                    >
-                      <div className="gt-ticket-info">
-                        <span className="gt-ticket-name">{item.name}</span>
-                        {item.description && (
-                          <span className="gt-ticket-desc">{item.description}</span>
-                        )}
-                      </div>
-                      <div className="gt-ticket-right">
-                        <span className="gt-ticket-price">{formatGuaranies(item.price)}</span>
-                        {qty > 0 && (
-                          <span className="gt-ticket-qty">{qty} ×</span>
-                        )}
-                      </div>
-                    </button>
-                  );
-                })}
+              <div className="gt-glass-card">
+                <div className="gt-section-head">
+                  <h2 id={`hl-${slugify(cat)}`} className="gt-section-title">{cat}</h2>
+                </div>
+                <div className="gt-tickets">
+                  {items.map((item) => {
+                    const qty = cart[item.id] ?? 0;
+                    return (
+                      <button
+                        key={item.id}
+                        type="button"
+                        className="gt-ticket"
+                        onClick={() => openSheet(item)}
+                        aria-label={`${item.name}${qty > 0 ? ` — ${qty} en pedido` : ''}`}
+                      >
+                        <div className="gt-ticket-info">
+                          <span className="gt-ticket-name">{item.name}</span>
+                          {item.description && (
+                            <span className="gt-ticket-desc">{item.description}</span>
+                          )}
+                        </div>
+                        <div className="gt-ticket-right">
+                          <span className="gt-ticket-price">{formatGuaranies(item.price)}</span>
+                          {qty > 0 && (
+                            <span className="gt-ticket-qty">{qty} ×</span>
+                          )}
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
             </section>
           ))
@@ -641,11 +642,11 @@ export function GastronomyTemplate({ branch, services }: GastronomyTemplateProps
 function GtStyles() {
   return (
     <style>{`
-      /* ── TOKENS: dark-first ── */
+      /* ── TOKENS: dark-first (fire theme) ── */
       .gt {
-        --bg:       #140e0b;
-        --surf:     #1c1512;
-        --surf-hi:  #251c17;
+        --bg:       #080200;
+        --surf:     #130a05;
+        --surf-hi:  #1c1008;
         --ember:    #c4602a;
         --ember-b:  #e0692a;
         --amber:    #e8a566;
@@ -655,15 +656,17 @@ function GtStyles() {
         --parch:    #e9dcc9;
         --smoke:    #9a8070;
         --line:     rgba(232,165,102,.14);
-        --shadow:   rgba(10,6,4,.55);
+        --shadow:   rgba(4,1,0,.8);
         --glow:     rgba(196,96,42,.30);
+        --glass-bg: rgba(8,3,1,.55);
+        --glass-bd: rgba(200,100,40,.18);
         --fd: 'Playfair Display', Georgia, 'Iowan Old Style', serif;
         --fb: 'Work Sans', system-ui, sans-serif;
         --fm: 'JetBrains Mono', ui-monospace, monospace;
 
         position: relative;
         min-height: 100svh;
-        background: var(--bg);
+        background: transparent;
         color: var(--cream);
         font-family: var(--fb);
         display: flex;
@@ -672,17 +675,14 @@ function GtStyles() {
         color-scheme: dark;
       }
 
-      /* always dark — brand colors, no light override */
-
-      /* ── GRAIN TEXTURE ── */
-      .gt-grain {
+      /* ── FIRE CANVAS (fixed background layer) ── */
+      .gt-fire-canvas {
         position: fixed;
         inset: 0;
-        pointer-events: none;
-        z-index: 1;
-        opacity: .045;
-        mix-blend-mode: overlay;
-        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+        width: 100%;
+        height: 100%;
+        display: block;
+        z-index: 0;
       }
 
       /* ── NAV ── */
@@ -694,10 +694,10 @@ function GtStyles() {
         align-items: center;
         gap: 14px;
         padding: 13px 22px;
-        background: color-mix(in srgb, var(--bg) 82%, transparent);
-        backdrop-filter: blur(14px);
-        -webkit-backdrop-filter: blur(14px);
-        border-bottom: 1px solid var(--line);
+        background: rgba(6,2,0,.75);
+        backdrop-filter: blur(24px) saturate(1.3);
+        -webkit-backdrop-filter: blur(24px) saturate(1.3);
+        border-bottom: 1px solid rgba(200,90,30,.25);
       }
       .gt-brand {
         font-family: var(--fd);
@@ -735,9 +735,9 @@ function GtStyles() {
         display: flex;
         align-items: center;
         gap: 6px;
-        border: 1px solid var(--line);
+        border: 1px solid rgba(200,100,40,.28);
         border-radius: 100px;
-        background: transparent;
+        background: rgba(200,100,40,.08);
         color: var(--cream);
         font-family: var(--fm);
         font-size: 10px;
@@ -751,7 +751,7 @@ function GtStyles() {
       }
       .gt-cart-trigger:hover {
         border-color: var(--ember-b);
-        background: rgba(196,96,42,.1);
+        background: rgba(196,96,42,.18);
       }
       .gt-badge {
         min-width: 17px;
@@ -807,81 +807,39 @@ function GtStyles() {
         text-align: center;
         min-height: 100svh;
         padding: 88px 24px 80px;
-        overflow: hidden;
       }
-
-      /* ── TATAKUA ── */
-      .gt-tatakua-wrap {
+      .gt-hero::before {
+        content: '';
         position: absolute;
-        top: 0; left: 0; right: 0; bottom: 0;
-        display: flex;
-        align-items: flex-end;
-        justify-content: center;
+        inset: 0;
+        background: radial-gradient(ellipse 68% 60% at 50% 50%,
+          rgba(0,0,0,.52) 0%, rgba(0,0,0,.28) 48%, transparent 72%);
         pointer-events: none;
-        will-change: opacity, transform;
+        z-index: 0;
       }
-      .gt-tatakua-svg {
-        width: min(340px, 80vw);
-        height: auto;
-        filter: drop-shadow(0 0 40px rgba(200,80,20,0.35)) drop-shadow(0 0 80px rgba(180,60,10,0.2));
-        transform-origin: bottom center;
+      .gt-hero-glow {
+        position: absolute;
+        bottom: -10%;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 800px;
+        height: 400px;
+        max-width: 160vw;
+        background: radial-gradient(ellipse, rgba(196,96,42,.22) 0%, transparent 68%);
+        filter: blur(8px);
+        pointer-events: none;
+        z-index: 0;
+        animation: gt-pulse 7s ease-in-out infinite;
       }
-
-      /* Flame path keyframe animations */
+      @keyframes gt-pulse {
+        0%, 100% { opacity: .5; transform: translateX(-50%) scale(1); }
+        50%       { opacity: 1; transform: translateX(-50%) scale(1.12); }
+      }
       @keyframes gt-flame-flicker {
         0%, 100% { opacity: 1;   transform: scaleY(1)    scaleX(1);    }
         25%      { opacity: .88; transform: scaleY(1.06) scaleX(.96);  }
         50%      { opacity: .95; transform: scaleY(.94)  scaleX(1.04); }
         75%      { opacity: .9;  transform: scaleY(1.03) scaleX(.97);  }
-      }
-      @keyframes gt-flame-sway-l {
-        0%, 100% { transform: skewX(0deg) scaleY(1); }
-        33%      { transform: skewX(7deg) scaleY(1.08) translateY(-3px); }
-        66%      { transform: skewX(-4deg) scaleY(.96) translateY(1px); }
-      }
-      @keyframes gt-flame-sway-r {
-        0%, 100% { transform: skewX(0deg) scaleY(1); }
-        33%      { transform: skewX(-7deg) scaleY(1.08) translateY(-3px); }
-        66%      { transform: skewX(4deg) scaleY(.96) translateY(1px); }
-      }
-      @keyframes gt-flame-center-sway {
-        0%, 100% { transform: scaleY(1) scaleX(1) translateY(0); }
-        20%      { transform: scaleY(1.08) scaleX(.94) translateY(-5px); }
-        50%      { transform: scaleY(.96) scaleX(1.04) translateY(3px); }
-        80%      { transform: scaleY(1.05) scaleX(.96) translateY(-3px); }
-      }
-      @keyframes gt-flame-tip-pulse {
-        0%, 100% { opacity: .9; transform: scaleY(1); }
-        40%      { opacity: 1;  transform: scaleY(1.12) translateY(-4px); }
-        70%      { opacity: .7; transform: scaleY(.9) translateY(2px); }
-      }
-
-      /* Apply animations to each flame path */
-      .gt-f { transform-origin: bottom center; }
-      .gt-f-ll { animation: gt-flame-sway-l 2.1s ease-in-out infinite; }
-      .gt-f-l  { animation: gt-flame-sway-l 1.7s ease-in-out infinite .4s; }
-      .gt-f-c  { animation: gt-flame-center-sway 2.3s ease-in-out infinite; }
-      .gt-f-c-i{ animation: gt-flame-center-sway 1.9s ease-in-out infinite .2s; }
-      .gt-f-tip{ animation: gt-flame-tip-pulse 1.5s ease-in-out infinite .1s; }
-      .gt-f-r  { animation: gt-flame-sway-r 1.7s ease-in-out infinite .6s; }
-      .gt-f-rr { animation: gt-flame-sway-r 2.1s ease-in-out infinite .1s; }
-
-      .gt-hero-glow {
-        position: absolute;
-        bottom: -20%;
-        left: 50%;
-        transform: translateX(-50%);
-        width: 700px;
-        height: 560px;
-        max-width: 160vw;
-        background: radial-gradient(ellipse, var(--glow) 0%, transparent 66%);
-        filter: blur(6px);
-        pointer-events: none;
-        animation: gt-pulse 7s ease-in-out infinite;
-      }
-      @keyframes gt-pulse {
-        0%, 100% { opacity: .6; transform: translateX(-50%) scale(1); }
-        50%       { opacity: 1; transform: translateX(-50%) scale(1.1); }
       }
       .gt-hero-content { position: relative; z-index: 1; }
       .gt-hero-eyebrow {
@@ -895,6 +853,7 @@ function GtStyles() {
         align-items: center;
         justify-content: center;
         gap: 10px;
+        text-shadow: 0 1px 8px rgba(0,0,0,.9);
       }
       .gt-hero-eyebrow::before,
       .gt-hero-eyebrow::after {
@@ -913,6 +872,7 @@ function GtStyles() {
         line-height: 1;
         letter-spacing: -.4px;
         text-wrap: balance;
+        text-shadow: 0 2px 24px rgba(0,0,0,.9), 0 1px 4px rgba(0,0,0,.8);
       }
       .gt-scroll-indicator {
         position: absolute;
@@ -935,10 +895,6 @@ function GtStyles() {
         100% { opacity: 0; transform: scaleY(1); }
       }
 
-      @media (prefers-reduced-motion: reduce) {
-        .gt-f, .gt-nav-flame-outer, .gt-nav-flame-inner, .gt-nav-flame-tip { animation: none; }
-      }
-
       /* ── CATALOG ── */
       .gt-catalog {
         position: relative;
@@ -946,13 +902,15 @@ function GtStyles() {
         max-width: 860px;
         width: 100%;
         margin: 0 auto;
-        padding: 0 24px 140px;
+        padding: 24px 16px 140px;
+        display: flex;
+        flex-direction: column;
+        gap: 20px;
       }
-      .gt-section { padding-top: 64px; }
-      .gt-section-head { margin-bottom: 28px; }
+      .gt-section-head { margin-bottom: 24px; }
       .gt-section-title {
         font-family: var(--fd);
-        font-size: clamp(28px, 5vw, 44px);
+        font-size: clamp(26px, 5vw, 40px);
         font-weight: 400;
         color: var(--cream);
         margin: 0;
@@ -966,6 +924,17 @@ function GtStyles() {
         letter-spacing: 1px;
       }
 
+      /* ── GLASS CARD ── */
+      .gt-glass-card {
+        background: var(--glass-bg);
+        backdrop-filter: blur(20px) saturate(1.2);
+        -webkit-backdrop-filter: blur(20px) saturate(1.2);
+        border: 1px solid var(--glass-bd);
+        border-radius: 20px;
+        padding: 28px 22px;
+        box-shadow: 0 8px 32px rgba(0,0,0,.5), inset 0 1px 0 rgba(255,130,50,.07);
+      }
+
       /* ── TICKET LIST ── */
       .gt-tickets {
         display: grid;
@@ -977,8 +946,8 @@ function GtStyles() {
         grid-template-columns: 1fr auto;
         gap: 20px;
         align-items: start;
-        padding: 22px 6px;
-        border-bottom: 1px dashed var(--line);
+        padding: 20px 4px;
+        border-bottom: 1px dashed rgba(200,120,50,.22);
         text-align: left;
         background: none;
         border-top: none;
@@ -988,8 +957,8 @@ function GtStyles() {
         color: inherit;
         transition: padding-left .22s;
       }
-      .gt-ticket:first-child { border-top: 1px dashed var(--line); }
-      .gt-ticket:hover { padding-left: 14px; }
+      .gt-ticket:first-child { border-top: 1px dashed rgba(200,120,50,.22); }
+      .gt-ticket:hover { padding-left: 12px; }
       .gt-ticket:hover .gt-ticket-name { color: var(--amber); }
       .gt-ticket-info {
         display: flex;
@@ -1585,6 +1554,7 @@ function GtStyles() {
 
       /* ── REDUCED MOTION ── */
       @media (prefers-reduced-motion: reduce) {
+        .gt-nav-flame-outer, .gt-nav-flame-inner, .gt-nav-flame-tip { animation: none; }
         .gt-hero-glow { animation: none; }
         .gt-scroll-line { animation: none; }
         .gt-sheet,
