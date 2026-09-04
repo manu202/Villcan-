@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useMemo, useEffect, useRef } from 'react';
+import { motion, useScroll, useTransform } from 'framer-motion';
 import {
   ShoppingBag, X, Plus, Minus, MessageCircle, UtensilsCrossed,
   ChevronLeft, ChevronRight,
@@ -47,6 +48,12 @@ export function GastronomyTemplate({ branch, services }: GastronomyTemplateProps
   const dragRef = useRef<{ startX: number; startY: number; active: boolean; captured: boolean; touchId: number | null }>({ startX: 0, startY: 0, active: false, captured: false, touchId: null });
   const exitTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const sheetRef = useRef<HTMLDivElement>(null);
+  const heroRef = useRef<HTMLElement>(null);
+  const { scrollYProgress } = useScroll({ target: heroRef, offset: ['start start', 'end start'] });
+  const navFlameOpacity = useTransform(scrollYProgress, [0.45, 0.85], [0, 1]);
+  const heroFlameOpacity = useTransform(scrollYProgress, [0, 0.55], [1, 0]);
+  const heroFlameY = useTransform(scrollYProgress, [0, 0.6], [0, -24]);
+  const scrollIndicatorOpacity = useTransform(scrollYProgress, [0, 0.15], [1, 0]);
 
   const categories = useMemo(() => groupByCategory(services), [services]);
 
@@ -234,7 +241,16 @@ export function GastronomyTemplate({ branch, services }: GastronomyTemplateProps
 
       {/* ── NAV ── */}
       <nav className="gt-nav" aria-label="Navegación principal">
-        <span className="gt-brand">{branch.name}</span>
+        <span className="gt-brand">
+          <motion.span className="gt-nav-fire" style={{ opacity: navFlameOpacity }} aria-hidden="true">
+            <svg width="14" height="20" viewBox="0 0 14 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M7 18C7 18 1 14 1 8.5C1 5.5 3.5 2 7 2C10.5 2 13 5.5 13 8.5C13 14 7 18 7 18Z" fill="#E86A1A" className="gt-nav-flame-outer"/>
+              <path d="M7 15C7 15 4 12.5 4 9.5C4 7.5 5.5 5.5 7 5.5C8.5 5.5 10 7.5 10 9.5C10 12.5 7 15 7 15Z" fill="#FFB340" className="gt-nav-flame-inner"/>
+              <path d="M7 12C7 12 5.5 10.5 5.5 9C5.5 8 6.2 7 7 7C7.8 7 8.5 8 8.5 9C8.5 10.5 7 12 7 12Z" fill="#FFF0A0" className="gt-nav-flame-tip"/>
+            </svg>
+          </motion.span>
+          {branch.name}
+        </span>
         <ul className="gt-nav-cats">
           {categories.map(([cat]) => (
             <li key={cat}>
@@ -255,15 +271,98 @@ export function GastronomyTemplate({ branch, services }: GastronomyTemplateProps
       </nav>
 
       {/* ── HERO ── */}
-      <header className="gt-hero">
+      <header ref={heroRef} className="gt-hero">
+        {/* Tatakua illustration with animated fire */}
+        <motion.div
+          className="gt-tatakua-wrap"
+          style={{ opacity: heroFlameOpacity, y: heroFlameY }}
+          aria-hidden="true"
+        >
+          <svg className="gt-tatakua-svg" viewBox="0 0 240 260" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+              <radialGradient id="domeGrad" cx="38%" cy="32%" r="65%">
+                <stop offset="0%" stopColor="#7B4520" />
+                <stop offset="55%" stopColor="#5C3317" />
+                <stop offset="100%" stopColor="#3A1F0A" />
+              </radialGradient>
+              <radialGradient id="mouthGrad" cx="50%" cy="38%" r="62%">
+                <stop offset="0%" stopColor="#C04008" />
+                <stop offset="60%" stopColor="#3A0C02" />
+                <stop offset="100%" stopColor="#0A0200" />
+              </radialGradient>
+              <radialGradient id="emberGrad" cx="50%" cy="30%" r="70%">
+                <stop offset="0%" stopColor="#FF8020" />
+                <stop offset="100%" stopColor="#8B2A00" stopOpacity="0" />
+              </radialGradient>
+              <filter id="flameBlur" x="-50%" y="-50%" width="200%" height="200%">
+                <feGaussianBlur stdDeviation="5" />
+              </filter>
+              <filter id="softGlow" x="-30%" y="-30%" width="160%" height="160%">
+                <feGaussianBlur stdDeviation="8" result="blur" />
+                <feMerge><feMergeNode in="blur" /><feMergeNode in="SourceGraphic" /></feMerge>
+              </filter>
+            </defs>
+
+            {/* Stone base */}
+            <rect x="30" y="210" width="180" height="24" rx="6" fill="#2A1206" />
+            <rect x="36" y="206" width="168" height="8" rx="4" fill="#3D1C0A" />
+
+            {/* Dome body */}
+            <path d="M 30,210 C 30,95 210,95 210,210 Z" fill="url(#domeGrad)" />
+
+            {/* Dome clay texture lines */}
+            <path d="M 55,205 C 50,140 90,100 120,96" stroke="#4A2810" strokeWidth="1.5" opacity="0.45" fill="none" />
+            <path d="M 185,205 C 190,140 150,100 120,96" stroke="#4A2810" strokeWidth="1.5" opacity="0.45" fill="none" />
+            <path d="M 75,210 C 68,160 88,115 120,98" stroke="#7B4520" strokeWidth="1" opacity="0.22" fill="none" />
+            <path d="M 165,210 C 172,160 152,115 120,98" stroke="#7B4520" strokeWidth="1" opacity="0.22" fill="none" />
+
+            {/* Dome rim highlight */}
+            <path d="M 30,210 C 30,95 210,95 210,210" stroke="#9B6535" strokeWidth="2" opacity="0.5" fill="none" />
+
+            {/* Mouth shadow */}
+            <ellipse cx="120" cy="172" rx="65" ry="46" fill="#1A0802" opacity="0.7" />
+
+            {/* Mouth opening */}
+            <ellipse cx="120" cy="168" rx="58" ry="40" fill="url(#mouthGrad)" />
+
+            {/* Ember glow inside mouth */}
+            <ellipse cx="120" cy="196" rx="42" ry="10" fill="url(#emberGrad)" opacity="0.6" />
+            <ellipse cx="120" cy="168" rx="36" ry="20" fill="#FF4A08" opacity="0.08" />
+
+            {/* Mouth rim */}
+            <ellipse cx="120" cy="168" rx="58" ry="40" stroke="#7B3010" strokeWidth="1.5" opacity="0.7" fill="none" />
+
+            {/* Ambient flame glow halo (soft, blurred) */}
+            <ellipse cx="120" cy="80" rx="44" ry="28" fill="#FF6010" opacity="0.18" filter="url(#flameBlur)" />
+
+            {/* FLAMES — CSS animated via classes */}
+            {/* Far left small flame */}
+            <path className="gt-f gt-f-ll" d="M 90,100 C 84,86 80,68 88,52 C 91,62 96,74 88,100 Z" fill="#E86020" />
+            {/* Left flame */}
+            <path className="gt-f gt-f-l" d="M 104,100 C 96,82 93,58 104,38 C 108,52 114,70 106,100 Z" fill="#F07020" />
+            {/* Center main flame (tallest) */}
+            <path className="gt-f gt-f-c" d="M 120,100 C 108,72 106,42 120,10 C 134,42 132,72 120,100 Z" fill="#FF8020" />
+            {/* Center inner bright */}
+            <path className="gt-f gt-f-c-i" d="M 120,96 C 112,72 112,50 120,26 C 128,50 128,72 120,96 Z" fill="#FFC040" />
+            {/* Center tip white-hot */}
+            <path className="gt-f gt-f-tip" d="M 120,82 C 116,68 116,54 120,40 C 124,54 124,68 120,82 Z" fill="#FFF4C0" />
+            {/* Right flame */}
+            <path className="gt-f gt-f-r" d="M 136,100 C 144,82 147,58 136,38 C 132,52 126,70 134,100 Z" fill="#F07020" />
+            {/* Far right small flame */}
+            <path className="gt-f gt-f-rr" d="M 150,100 C 156,86 160,68 152,52 C 149,62 144,74 152,100 Z" fill="#E86020" />
+          </svg>
+        </motion.div>
+
+        {/* Ambient glow (always visible) */}
         <div className="gt-hero-glow" aria-hidden="true" />
+
         <div className="gt-hero-content">
           <p className="gt-hero-eyebrow">Menú</p>
           <h1 className="gt-hero-name">{branch.name}</h1>
         </div>
-        <div className="gt-scroll-indicator" aria-hidden="true">
+        <motion.div className="gt-scroll-indicator" style={{ opacity: scrollIndicatorOpacity }} aria-hidden="true">
           <span className="gt-scroll-line" />
-        </div>
+        </motion.div>
       </header>
 
       {/* ── CATALOG ── */}
@@ -683,6 +782,20 @@ function GtStyles() {
       .gt-back-btn:hover { color: var(--amber); }
       .gt-nav-spacer { flex: 0 0 80px; }
 
+      /* ── NAV FLAME ── */
+      .gt-nav-fire {
+        display: inline-flex;
+        align-items: center;
+        margin-right: 6px;
+        vertical-align: middle;
+        position: relative;
+        top: -1px;
+        will-change: opacity;
+      }
+      .gt-nav-flame-outer { animation: gt-flame-flicker 1.8s ease-in-out infinite; }
+      .gt-nav-flame-inner { animation: gt-flame-flicker 1.4s ease-in-out infinite .3s; }
+      .gt-nav-flame-tip   { animation: gt-flame-flicker 1.1s ease-in-out infinite .1s; }
+
       /* ── HERO ── */
       .gt-hero {
         position: relative;
@@ -692,12 +805,70 @@ function GtStyles() {
         align-items: center;
         justify-content: center;
         text-align: center;
-        padding: 88px 24px 68px;
+        min-height: 100svh;
+        padding: 88px 24px 80px;
         overflow: hidden;
       }
+
+      /* ── TATAKUA ── */
+      .gt-tatakua-wrap {
+        position: absolute;
+        top: 0; left: 0; right: 0; bottom: 0;
+        display: flex;
+        align-items: flex-end;
+        justify-content: center;
+        pointer-events: none;
+        will-change: opacity, transform;
+      }
+      .gt-tatakua-svg {
+        width: min(340px, 80vw);
+        height: auto;
+        filter: drop-shadow(0 0 40px rgba(200,80,20,0.35)) drop-shadow(0 0 80px rgba(180,60,10,0.2));
+        transform-origin: bottom center;
+      }
+
+      /* Flame path keyframe animations */
+      @keyframes gt-flame-flicker {
+        0%, 100% { opacity: 1;   transform: scaleY(1)    scaleX(1);    }
+        25%      { opacity: .88; transform: scaleY(1.06) scaleX(.96);  }
+        50%      { opacity: .95; transform: scaleY(.94)  scaleX(1.04); }
+        75%      { opacity: .9;  transform: scaleY(1.03) scaleX(.97);  }
+      }
+      @keyframes gt-flame-sway-l {
+        0%, 100% { transform: skewX(0deg) scaleY(1); }
+        33%      { transform: skewX(7deg) scaleY(1.08) translateY(-3px); }
+        66%      { transform: skewX(-4deg) scaleY(.96) translateY(1px); }
+      }
+      @keyframes gt-flame-sway-r {
+        0%, 100% { transform: skewX(0deg) scaleY(1); }
+        33%      { transform: skewX(-7deg) scaleY(1.08) translateY(-3px); }
+        66%      { transform: skewX(4deg) scaleY(.96) translateY(1px); }
+      }
+      @keyframes gt-flame-center-sway {
+        0%, 100% { transform: scaleY(1) scaleX(1) translateY(0); }
+        20%      { transform: scaleY(1.08) scaleX(.94) translateY(-5px); }
+        50%      { transform: scaleY(.96) scaleX(1.04) translateY(3px); }
+        80%      { transform: scaleY(1.05) scaleX(.96) translateY(-3px); }
+      }
+      @keyframes gt-flame-tip-pulse {
+        0%, 100% { opacity: .9; transform: scaleY(1); }
+        40%      { opacity: 1;  transform: scaleY(1.12) translateY(-4px); }
+        70%      { opacity: .7; transform: scaleY(.9) translateY(2px); }
+      }
+
+      /* Apply animations to each flame path */
+      .gt-f { transform-origin: bottom center; }
+      .gt-f-ll { animation: gt-flame-sway-l 2.1s ease-in-out infinite; }
+      .gt-f-l  { animation: gt-flame-sway-l 1.7s ease-in-out infinite .4s; }
+      .gt-f-c  { animation: gt-flame-center-sway 2.3s ease-in-out infinite; }
+      .gt-f-c-i{ animation: gt-flame-center-sway 1.9s ease-in-out infinite .2s; }
+      .gt-f-tip{ animation: gt-flame-tip-pulse 1.5s ease-in-out infinite .1s; }
+      .gt-f-r  { animation: gt-flame-sway-r 1.7s ease-in-out infinite .6s; }
+      .gt-f-rr { animation: gt-flame-sway-r 2.1s ease-in-out infinite .1s; }
+
       .gt-hero-glow {
         position: absolute;
-        bottom: -30%;
+        bottom: -20%;
         left: 50%;
         transform: translateX(-50%);
         width: 700px;
@@ -709,8 +880,8 @@ function GtStyles() {
         animation: gt-pulse 7s ease-in-out infinite;
       }
       @keyframes gt-pulse {
-        0%, 100% { opacity: .7; transform: translateX(-50%) scale(1); }
-        50%       { opacity: 1; transform: translateX(-50%) scale(1.07); }
+        0%, 100% { opacity: .6; transform: translateX(-50%) scale(1); }
+        50%       { opacity: 1; transform: translateX(-50%) scale(1.1); }
       }
       .gt-hero-content { position: relative; z-index: 1; }
       .gt-hero-eyebrow {
@@ -745,10 +916,11 @@ function GtStyles() {
       }
       .gt-scroll-indicator {
         position: absolute;
-        bottom: 22px;
+        bottom: 28px;
         left: 50%;
         transform: translateX(-50%);
         z-index: 1;
+        will-change: opacity;
       }
       .gt-scroll-line {
         display: block;
@@ -761,6 +933,10 @@ function GtStyles() {
         0%   { opacity: 0; transform: scaleY(.2); transform-origin: top; }
         45%  { opacity: 1; transform: scaleY(1); }
         100% { opacity: 0; transform: scaleY(1); }
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        .gt-f, .gt-nav-flame-outer, .gt-nav-flame-inner, .gt-nav-flame-tip { animation: none; }
       }
 
       /* ── CATALOG ── */
