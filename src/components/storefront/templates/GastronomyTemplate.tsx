@@ -805,8 +805,8 @@ function GtStyles() {
         align-items: center;
         justify-content: center;
         text-align: center;
-        min-height: 100svh;
-        padding: 88px 24px 80px;
+        min-height: 60svh;
+        padding: 72px 24px 56px;
       }
       .gt-hero::before {
         content: '';
