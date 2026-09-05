@@ -327,9 +327,10 @@ export function GastronomyTemplate({ branch, services }: GastronomyTemplateProps
         <link rel="stylesheet" href={FONTS} />
         <FireCanvas />
         <nav className="gt-nav">
-          <button type="button" className="gt-back-btn" onClick={backToCatalog}>← Menú</button>
-          <span className="gt-brand">{branch.name}</span>
-          <span className="gt-nav-spacer" />
+          <div className="gt-nav-top">
+            <button type="button" className="gt-back-btn" onClick={backToCatalog}>← Menú</button>
+            <span className="gt-brand">{branch.name}</span>
+          </div>
         </nav>
         <div className="gt-checkout-wrap">
           <p className="gt-checkout-eyebrow">Confirmá tu pedido</p>
