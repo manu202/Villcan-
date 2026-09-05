@@ -383,6 +383,14 @@ export function GastronomyTemplate({ branch, services }: GastronomyTemplateProps
 
       {/* ── HERO ── */}
       <header ref={heroRef} className="gt-hero">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src="/hero-tatapiriri.jpg"
+          alt=""
+          className="gt-hero-img"
+          aria-hidden="true"
+          draggable={false}
+        />
         <div className="gt-hero-glow" aria-hidden="true" />
         <div className="gt-hero-content">
           <p className="gt-hero-eyebrow">Menú</p>
@@ -846,14 +854,27 @@ function GtStyles() {
         min-height: 60svh;
         padding: 72px 24px 56px;
       }
+      .gt-hero-img {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        object-position: center 55%;
+        opacity: .52;
+        z-index: 0;
+        pointer-events: none;
+        user-select: none;
+      }
       .gt-hero::before {
         content: '';
         position: absolute;
         inset: 0;
-        background: radial-gradient(ellipse 68% 60% at 50% 50%,
-          rgba(0,0,0,.52) 0%, rgba(0,0,0,.28) 48%, transparent 72%);
+        background:
+          linear-gradient(to bottom, rgba(0,0,0,.45) 0%, transparent 40%, rgba(0,0,0,.6) 100%),
+          radial-gradient(ellipse 70% 55% at 50% 50%, rgba(0,0,0,.35) 0%, transparent 70%);
         pointer-events: none;
-        z-index: 0;
+        z-index: 1;
       }
       .gt-hero-glow {
         position: absolute;
@@ -879,7 +900,7 @@ function GtStyles() {
         50%      { opacity: .95; transform: scaleY(.94)  scaleX(1.04); }
         75%      { opacity: .9;  transform: scaleY(1.03) scaleX(.97);  }
       }
-      .gt-hero-content { position: relative; z-index: 1; }
+      .gt-hero-content { position: relative; z-index: 2; }
       .gt-hero-eyebrow {
         font-family: var(--fm);
         font-size: 10px;
