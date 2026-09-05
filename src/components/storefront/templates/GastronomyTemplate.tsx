@@ -12,7 +12,7 @@ import { formatGuaranies } from '@/lib/utils';
 import type { Branch, Service } from '@/types';
 
 const FONTS =
-  'https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400;1,600&family=Work+Sans:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap';
+  'https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Oswald:wght@400;500;600;700&family=Work+Sans:wght@300;400;500;600&display=swap';
 
 interface GastronomyTemplateProps {
   branch: Branch;
@@ -715,9 +715,10 @@ function GtStyles() {
         --glow:     rgba(196,96,42,.30);
         --glass-bg: rgba(8,3,1,.55);
         --glass-bd: rgba(200,100,40,.18);
-        --fd: 'Playfair Display', Georgia, 'Iowan Old Style', serif;
+        --fd: 'Bebas Neue', 'Arial Black', Impact, sans-serif;
+        --fh: 'Oswald', 'Arial Narrow', sans-serif;
         --fb: 'Work Sans', system-ui, sans-serif;
-        --fm: 'JetBrains Mono', ui-monospace, monospace;
+        --fm: 'Oswald', 'Arial Narrow', sans-serif;
 
         position: relative;
         min-height: 100svh;
@@ -760,12 +761,14 @@ function GtStyles() {
         padding: 0 18px 10px;
       }
       .gt-brand {
-        font-family: var(--fd);
-        font-size: 17px;
+        font-family: var(--fh);
+        font-size: 20px;
         font-weight: 700;
+        letter-spacing: .5px;
         color: var(--cream);
         flex-shrink: 0;
         white-space: nowrap;
+        text-transform: uppercase;
       }
       .gt-nav-cats {
         display: flex;
@@ -967,29 +970,31 @@ function GtStyles() {
       }
       .gt-hero-name {
         font-family: var(--fd);
-        font-size: clamp(40px, 9vw, 80px);
-        font-weight: 700;
+        font-size: clamp(68px, 20vw, 140px);
+        font-weight: 400;
         color: var(--cream);
         margin: 0;
-        line-height: 1;
-        letter-spacing: -.4px;
+        line-height: .92;
+        letter-spacing: 2px;
+        text-transform: uppercase;
         text-wrap: balance;
-        text-shadow: 0 2px 24px rgba(0,0,0,.9), 0 1px 4px rgba(0,0,0,.8);
+        text-shadow: 0 2px 32px rgba(0,0,0,.9), 0 1px 4px rgba(0,0,0,.8);
       }
       .gt-hero-sub {
-        font-family: var(--fd);
-        font-size: clamp(14px, 3.8vw, 22px);
+        font-family: var(--fh);
+        font-size: clamp(13px, 3.5vw, 18px);
         font-weight: 400;
-        font-style: italic;
         color: var(--amber);
-        margin: 20px 0 0;
-        line-height: 1.55;
+        margin: 18px 0 0;
+        line-height: 1.6;
         text-align: center;
-        text-shadow: 0 1px 12px rgba(0,0,0,.95), 0 0 32px rgba(0,0,0,.7);
+        letter-spacing: .5px;
+        text-shadow: 0 1px 12px rgba(0,0,0,.95);
         opacity: .92;
         text-wrap: balance;
+        text-transform: uppercase;
       }
-      .gt-hero-sub em { font-style: normal; color: var(--parch); }
+      .gt-hero-sub em { font-style: normal; color: var(--parch); font-weight: 300; text-transform: none; }
       .gt-scroll-indicator {
         position: absolute;
         bottom: 28px;
@@ -1026,10 +1031,13 @@ function GtStyles() {
       .gt-section-head { margin-bottom: 24px; }
       .gt-section-title {
         font-family: var(--fd);
-        font-size: clamp(26px, 5vw, 40px);
+        font-size: clamp(34px, 7vw, 52px);
         font-weight: 400;
+        letter-spacing: 2px;
+        text-transform: uppercase;
         color: var(--cream);
         margin: 0;
+        line-height: 1;
       }
       .gt-empty {
         text-align: center;
@@ -1083,9 +1091,11 @@ function GtStyles() {
         min-width: 0;
       }
       .gt-ticket-name {
-        font-family: var(--fd);
-        font-size: 19px;
-        font-weight: 400;
+        font-family: var(--fh);
+        font-size: 17px;
+        font-weight: 600;
+        letter-spacing: .3px;
+        text-transform: uppercase;
         color: var(--cream);
         transition: color .2s;
         text-wrap: balance;
