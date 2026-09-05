@@ -753,29 +753,39 @@ function GtStyles() {
         display: flex;
         list-style: none;
         margin: 0;
-        padding: 0;
-        gap: 0;
+        padding: 0 4px;
+        gap: 4px;
         overflow-x: auto;
         scrollbar-width: none;
+        mask-image: linear-gradient(to right, transparent 0%, #000 8%, #000 88%, transparent 100%);
+        -webkit-mask-image: linear-gradient(to right, transparent 0%, #000 8%, #000 88%, transparent 100%);
       }
       .gt-nav-cats::-webkit-scrollbar { display: none; }
       .gt-nav-cat {
         font-family: var(--fm);
         font-size: 10px;
-        letter-spacing: 1.1px;
+        letter-spacing: 1px;
         text-transform: uppercase;
         color: var(--parch);
         text-decoration: none;
-        padding: 5px 11px;
+        padding: 5px 12px;
         white-space: nowrap;
+        border-radius: 100px;
+        border: 1px solid transparent;
         opacity: .6;
-        transition: opacity .2s, color .2s;
+        transition: opacity .2s, color .2s, border-color .2s, background .2s;
       }
-      .gt-nav-cat:hover { opacity: 1; color: var(--amber); }
+      .gt-nav-cat:hover {
+        opacity: 1;
+        color: var(--amber);
+        background: rgba(196,96,42,.1);
+        border-color: rgba(200,100,40,.2);
+      }
       .gt-nav-cat.is-active {
         opacity: 1;
         color: var(--amber);
-        border-bottom: 1.5px solid var(--amber-d);
+        background: rgba(196,96,42,.15);
+        border-color: rgba(200,100,40,.4);
       }
       .gt-cart-trigger {
         display: flex;
@@ -871,10 +881,21 @@ function GtStyles() {
         position: absolute;
         inset: 0;
         background:
-          linear-gradient(to bottom, rgba(0,0,0,.45) 0%, transparent 40%, rgba(0,0,0,.6) 100%),
+          linear-gradient(to bottom, rgba(0,0,0,.45) 0%, transparent 35%, rgba(0,0,0,.6) 75%, var(--bg) 100%),
           radial-gradient(ellipse 70% 55% at 50% 50%, rgba(0,0,0,.35) 0%, transparent 70%);
         pointer-events: none;
         z-index: 1;
+      }
+      .gt-hero::after {
+        content: '';
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        height: 50%;
+        background: linear-gradient(to bottom, transparent 0%, var(--bg) 100%);
+        pointer-events: none;
+        z-index: 2;
       }
       .gt-hero-glow {
         position: absolute;
@@ -900,7 +921,8 @@ function GtStyles() {
         50%      { opacity: .95; transform: scaleY(.94)  scaleX(1.04); }
         75%      { opacity: .9;  transform: scaleY(1.03) scaleX(.97);  }
       }
-      .gt-hero-content { position: relative; z-index: 2; }
+      .gt-hero-content { position: relative; z-index: 3; }
+      .gt-scroll-indicator { z-index: 3; }
       .gt-hero-eyebrow {
         font-family: var(--fm);
         font-size: 10px;
