@@ -404,6 +404,10 @@ export function GastronomyTemplate({ branch, services }: GastronomyTemplateProps
         <div className="gt-hero-content">
           <p className="gt-hero-eyebrow">Menú</p>
           <h1 className="gt-hero-name">{branch.name}</h1>
+          <p className="gt-hero-sub">
+            Al puro estilo napolitano<br />
+            <em>El fuego<br />no descansa.</em>
+          </p>
         </div>
         <motion.div className="gt-scroll-indicator" style={{ opacity: scrollIndicatorOpacity }} aria-hidden="true">
           <span className="gt-scroll-line" />
@@ -876,7 +880,9 @@ function GtStyles() {
         justify-content: center;
         text-align: center;
         min-height: 100svh;
-        padding: 80px 24px 72px;
+        padding: 0 24px;
+        padding-top: max(72px, 10svh);
+        padding-bottom: max(72px, 10svh);
       }
       .gt-hero-img {
         position: absolute;
@@ -969,6 +975,20 @@ function GtStyles() {
         text-wrap: balance;
         text-shadow: 0 2px 24px rgba(0,0,0,.9), 0 1px 4px rgba(0,0,0,.8);
       }
+      .gt-hero-sub {
+        font-family: var(--fd);
+        font-size: clamp(14px, 3.8vw, 22px);
+        font-weight: 400;
+        font-style: italic;
+        color: var(--amber);
+        margin: 20px 0 0;
+        line-height: 1.55;
+        text-align: center;
+        text-shadow: 0 1px 12px rgba(0,0,0,.95), 0 0 32px rgba(0,0,0,.7);
+        opacity: .92;
+        text-wrap: balance;
+      }
+      .gt-hero-sub em { font-style: normal; color: var(--parch); }
       .gt-scroll-indicator {
         position: absolute;
         bottom: 28px;
