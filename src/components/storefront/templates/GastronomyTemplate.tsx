@@ -129,6 +129,7 @@ export function GastronomyTemplate({ branch, services }: GastronomyTemplateProps
   const [selectedIdx, setSelectedIdx] = useState<number | null>(null);
   const [navDir, setNavDir] = useState<'next' | 'prev' | null>(null);
   const [exiting, setExiting] = useState(false);
+  const [activeCategory, setActiveCategory] = useState<string>('');
   const dragRef = useRef<{ startX: number; startY: number; active: boolean; captured: boolean; touchId: number | null }>({ startX: 0, startY: 0, active: false, captured: false, touchId: null });
   const exitTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const sheetRef = useRef<HTMLDivElement>(null);
@@ -253,6 +254,28 @@ export function GastronomyTemplate({ branch, services }: GastronomyTemplateProps
     };
   }, [goNext, goPrev]);
 
+  useEffect(() => {
+    if (categories.length === 0) return;
+    const obs = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          if (entry.isIntersecting) {
+            const matched = categories.find(([cat]) => slugify(cat) === entry.target.id);
+            if (matched) setActiveCategory(matched[0]);
+          }
+        }
+      },
+      { rootMargin: '-50px 0px -62% 0px', threshold: 0 },
+    );
+    for (const [cat] of categories) {
+      const el = document.getElementById(slugify(cat));
+      if (el) obs.observe(el);
+    }
+    // init to first visible category
+    setActiveCategory(categories[0][0]);
+    return () => obs.disconnect();
+  }, [categories]);
+
   // When the order is confirmed, go directly to WhatsApp
   useEffect(() => {
     if (step === 'success' && whatsappHref) {
@@ -336,7 +359,12 @@ export function GastronomyTemplate({ branch, services }: GastronomyTemplateProps
         <ul className="gt-nav-cats">
           {categories.map(([cat]) => (
             <li key={cat}>
-              <a href={`#${slugify(cat)}`} className="gt-nav-cat">{cat}</a>
+              <a
+                href={`#${slugify(cat)}`}
+                className={`gt-nav-cat${activeCategory === cat ? ' is-active' : ''}`}
+              >
+                {cat}
+              </a>
             </li>
           ))}
         </ul>
@@ -731,6 +759,11 @@ function GtStyles() {
         transition: opacity .2s, color .2s;
       }
       .gt-nav-cat:hover { opacity: 1; color: var(--amber); }
+      .gt-nav-cat.is-active {
+        opacity: 1;
+        color: var(--amber);
+        border-bottom: 1.5px solid var(--amber-d);
+      }
       .gt-cart-trigger {
         display: flex;
         align-items: center;
