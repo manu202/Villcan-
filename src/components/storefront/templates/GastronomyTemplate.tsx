@@ -130,6 +130,7 @@ export function GastronomyTemplate({ branch, services }: GastronomyTemplateProps
   const [navDir, setNavDir] = useState<'next' | 'prev' | null>(null);
   const [exiting, setExiting] = useState(false);
   const [activeCategory, setActiveCategory] = useState<string>('');
+  const navCatsRef = useRef<HTMLUListElement>(null);
   const dragRef = useRef<{ startX: number; startY: number; active: boolean; captured: boolean; touchId: number | null }>({ startX: 0, startY: 0, active: false, captured: false, touchId: null });
   const exitTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const sheetRef = useRef<HTMLDivElement>(null);
@@ -276,6 +277,12 @@ export function GastronomyTemplate({ branch, services }: GastronomyTemplateProps
     return () => obs.disconnect();
   }, [categories]);
 
+  useEffect(() => {
+    if (!activeCategory || !navCatsRef.current) return;
+    const active = navCatsRef.current.querySelector('.is-active') as HTMLElement | null;
+    if (active) active.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+  }, [activeCategory]);
+
   // When the order is confirmed, go directly to WhatsApp
   useEffect(() => {
     if (step === 'success' && whatsappHref) {
@@ -347,17 +354,29 @@ export function GastronomyTemplate({ branch, services }: GastronomyTemplateProps
 
       {/* ── NAV ── */}
       <nav className="gt-nav" aria-label="Navegación principal">
-        <span className="gt-brand">
-          <motion.span className="gt-nav-fire" style={{ opacity: navFlameOpacity }} aria-hidden="true">
-            <svg width="14" height="20" viewBox="0 0 14 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M7 18C7 18 1 14 1 8.5C1 5.5 3.5 2 7 2C10.5 2 13 5.5 13 8.5C13 14 7 18 7 18Z" fill="#E86A1A" className="gt-nav-flame-outer"/>
-              <path d="M7 15C7 15 4 12.5 4 9.5C4 7.5 5.5 5.5 7 5.5C8.5 5.5 10 7.5 10 9.5C10 12.5 7 15 7 15Z" fill="#FFB340" className="gt-nav-flame-inner"/>
-              <path d="M7 12C7 12 5.5 10.5 5.5 9C5.5 8 6.2 7 7 7C7.8 7 8.5 8 8.5 9C8.5 10.5 7 12 7 12Z" fill="#FFF0A0" className="gt-nav-flame-tip"/>
-            </svg>
-          </motion.span>
-          {branch.name}
-        </span>
-        <ul className="gt-nav-cats">
+        <div className="gt-nav-top">
+          <span className="gt-brand">
+            <motion.span className="gt-nav-fire" style={{ opacity: navFlameOpacity }} aria-hidden="true">
+              <svg width="14" height="20" viewBox="0 0 14 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M7 18C7 18 1 14 1 8.5C1 5.5 3.5 2 7 2C10.5 2 13 5.5 13 8.5C13 14 7 18 7 18Z" fill="#E86A1A" className="gt-nav-flame-outer"/>
+                <path d="M7 15C7 15 4 12.5 4 9.5C4 7.5 5.5 5.5 7 5.5C8.5 5.5 10 7.5 10 9.5C10 12.5 7 15 7 15Z" fill="#FFB340" className="gt-nav-flame-inner"/>
+                <path d="M7 12C7 12 5.5 10.5 5.5 9C5.5 8 6.2 7 7 7C7.8 7 8.5 8 8.5 9C8.5 10.5 7 12 7 12Z" fill="#FFF0A0" className="gt-nav-flame-tip"/>
+              </svg>
+            </motion.span>
+            {branch.name}
+          </span>
+          <button
+            type="button"
+            className="gt-cart-trigger"
+            onClick={() => setCartOpen(true)}
+            aria-label={`Ver pedido — ${itemCount} ítems`}
+          >
+            <ShoppingBag size={14} aria-hidden="true" />
+            Pedido
+            {itemCount > 0 && <span className="gt-badge">{itemCount}</span>}
+          </button>
+        </div>
+        <ul className="gt-nav-cats" ref={navCatsRef}>
           {categories.map(([cat]) => (
             <li key={cat}>
               <a
@@ -369,16 +388,6 @@ export function GastronomyTemplate({ branch, services }: GastronomyTemplateProps
             </li>
           ))}
         </ul>
-        <button
-          type="button"
-          className="gt-cart-trigger"
-          onClick={() => setCartOpen(true)}
-          aria-label={`Ver pedido — ${itemCount} ítems`}
-        >
-          <ShoppingBag size={14} aria-hidden="true" />
-          Pedido
-          {itemCount > 0 && <span className="gt-badge">{itemCount}</span>}
-        </button>
       </nav>
 
       {/* ── HERO ── */}
@@ -732,13 +741,18 @@ function GtStyles() {
         top: 0;
         z-index: 50;
         display: flex;
-        align-items: center;
-        gap: 14px;
-        padding: 13px 22px;
-        background: rgba(6,2,0,.75);
+        flex-direction: column;
+        padding: 10px 0 0;
+        background: rgba(6,2,0,.82);
         backdrop-filter: blur(24px) saturate(1.3);
         -webkit-backdrop-filter: blur(24px) saturate(1.3);
         border-bottom: 1px solid rgba(200,90,30,.25);
+      }
+      .gt-nav-top {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0 18px 10px;
       }
       .gt-brand {
         font-family: var(--fd);
@@ -749,16 +763,16 @@ function GtStyles() {
         white-space: nowrap;
       }
       .gt-nav-cats {
-        flex: 1;
         display: flex;
         list-style: none;
         margin: 0;
-        padding: 0 4px;
-        gap: 4px;
+        padding: 6px 18px 10px;
+        gap: 6px;
         overflow-x: auto;
         scrollbar-width: none;
-        mask-image: linear-gradient(to right, transparent 0%, #000 8%, #000 88%, transparent 100%);
-        -webkit-mask-image: linear-gradient(to right, transparent 0%, #000 8%, #000 88%, transparent 100%);
+        mask-image: linear-gradient(to right, transparent 0%, #000 10%, #000 88%, transparent 100%);
+        -webkit-mask-image: linear-gradient(to right, transparent 0%, #000 10%, #000 88%, transparent 100%);
+        border-top: 1px solid rgba(200,90,30,.14);
       }
       .gt-nav-cats::-webkit-scrollbar { display: none; }
       .gt-nav-cat {
@@ -861,8 +875,8 @@ function GtStyles() {
         align-items: center;
         justify-content: center;
         text-align: center;
-        min-height: 60svh;
-        padding: 72px 24px 56px;
+        min-height: 100svh;
+        padding: 80px 24px 72px;
       }
       .gt-hero-img {
         position: absolute;
