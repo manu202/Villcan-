@@ -318,6 +318,7 @@ export function GastronomyTemplate({ branch, services }: GastronomyTemplateProps
     return (
       <div className="gt">
         <link rel="stylesheet" href={FONTS} />
+        <FireCanvas />
         <nav className="gt-nav">
           <button type="button" className="gt-back-btn" onClick={backToCatalog}>← Menú</button>
           <span className="gt-brand">{branch.name}</span>
@@ -670,6 +671,10 @@ export function GastronomyTemplate({ branch, services }: GastronomyTemplateProps
 function GtStyles() {
   return (
     <style>{`
+      /* prevent white flash before canvas renders */
+      html, body { background: #080200; margin: 0; }
+      .gt-fire-canvas { background: #080200; }
+
       /* ── TOKENS: dark-first (fire theme) ── */
       .gt {
         --bg:       #080200;
@@ -1536,6 +1541,13 @@ function GtStyles() {
         max-width: 520px;
         margin: 0 auto;
         padding: 36px 24px 100px;
+        /* map generic CheckoutForm tokens to fire theme */
+        --text-primary:      var(--cream);
+        --text-secondary:    var(--smoke);
+        --surface:           rgba(19,10,5,.85);
+        --border:            rgba(200,100,40,.22);
+        --accent:            var(--ember-b);
+        --accent-foreground: #fff;
       }
       .gt-checkout-eyebrow {
         font-family: var(--fm);
