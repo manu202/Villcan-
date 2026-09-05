@@ -48,7 +48,7 @@ export function CheckoutForm({ submitting, errorMessage, onSubmit, onBack }: Che
   return (
     <form className="checkout-form" onSubmit={handleSubmit}>
       <button type="button" className="checkout-back-btn" onClick={onBack}>
-        ← Volver al carrito
+        ← Volver al menú
       </button>
 
       <label>

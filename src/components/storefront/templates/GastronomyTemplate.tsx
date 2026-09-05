@@ -302,6 +302,7 @@ export function GastronomyTemplate({ branch, services }: GastronomyTemplateProps
     return (
       <div className="gt">
         <link rel="stylesheet" href={FONTS} />
+        <FireCanvas />
         <div className="gt-confirmed">
           <div className="gt-confirmed-icon">✓</div>
           <p className="gt-confirmed-title">¡Pedido confirmado!</p>
@@ -400,6 +401,7 @@ export function GastronomyTemplate({ branch, services }: GastronomyTemplateProps
           className="gt-hero-img"
           aria-hidden="true"
           draggable={false}
+          fetchPriority="high"
         />
         <div className="gt-hero-glow" aria-hidden="true" />
         <div className="gt-hero-content">
@@ -695,6 +697,7 @@ function GtStyles() {
     <style>{`
       /* prevent white flash before canvas renders */
       html, body { background: #080200; margin: 0; }
+      html { scroll-behavior: smooth; }
       .gt-fire-canvas { background: #080200; }
 
       /* ── TOKENS: dark-first (fire theme) ── */
@@ -790,11 +793,14 @@ function GtStyles() {
         text-transform: uppercase;
         color: var(--parch);
         text-decoration: none;
-        padding: 5px 12px;
+        padding: 9px 14px;
         white-space: nowrap;
         border-radius: 100px;
         border: 1px solid transparent;
         opacity: .6;
+        display: inline-flex;
+        align-items: center;
+        min-height: 36px;
         transition: opacity .2s, color .2s, border-color .2s, background .2s;
       }
       .gt-nav-cat:hover {
@@ -825,7 +831,7 @@ function GtStyles() {
         flex-shrink: 0;
         white-space: nowrap;
         transition: border-color .2s, background .2s;
-        min-height: 34px;
+        min-height: 44px;
       }
       .gt-cart-trigger:hover {
         border-color: var(--ember-b);
@@ -1028,6 +1034,7 @@ function GtStyles() {
         flex-direction: column;
         gap: 20px;
       }
+      .gt-section { scroll-margin-top: 120px; }
       .gt-section-head { margin-bottom: 24px; }
       .gt-section-title {
         font-family: var(--fd);
@@ -1082,8 +1089,10 @@ function GtStyles() {
         transition: padding-left .22s;
       }
       .gt-ticket:first-child { border-top: 1px dashed rgba(200,120,50,.22); }
-      .gt-ticket:hover { padding-left: 12px; }
-      .gt-ticket:hover .gt-ticket-name { color: var(--amber); }
+      @media (hover: hover) {
+        .gt-ticket:hover { padding-left: 12px; }
+        .gt-ticket:hover .gt-ticket-name { color: var(--amber); }
+      }
       .gt-ticket-info {
         display: flex;
         flex-direction: column;
@@ -1158,6 +1167,11 @@ function GtStyles() {
       }
       .gt-fab:hover { background: var(--ember-b); }
       @media (max-width: 767px) { .gt-fab { display: flex; } }
+      @supports (padding-bottom: env(safe-area-inset-bottom)) {
+        .gt-fab { bottom: calc(20px + env(safe-area-inset-bottom, 0px)); }
+        .gt-sheet-foot { padding-bottom: max(28px, calc(14px + env(safe-area-inset-bottom, 0px))); }
+        .gt-drawer-foot { padding-bottom: max(28px, calc(14px + env(safe-area-inset-bottom, 0px))); }
+      }
 
       /* ── PRODUCT SHEET ── */
       .gt-sheet-scrim {
@@ -1233,8 +1247,8 @@ function GtStyles() {
         flex-shrink: 0;
       }
       .gt-sheet-nav-btn {
-        width: 36px;
-        height: 36px;
+        width: 44px;
+        height: 44px;
         border: none;
         background: transparent;
         color: var(--smoke);
@@ -1259,8 +1273,8 @@ function GtStyles() {
         color: var(--smoke);
       }
       .gt-sheet-close {
-        width: 30px;
-        height: 30px;
+        width: 40px;
+        height: 40px;
         border-radius: 50%;
         background: rgba(255,255,255,.08);
         border: none;
@@ -1317,7 +1331,7 @@ function GtStyles() {
         overflow-y: auto;
         flex: 1;
         animation: gt-sheet-open .22s ease both;
-        touch-action: none;
+        touch-action: pan-y;
       }
       /* enter from right (user pressed next) */
       .gt-sheet-content.dir-next {
@@ -1461,8 +1475,8 @@ function GtStyles() {
       .gt-qty-btn:hover { background: rgba(196,96,42,.14); }
       .gt-qty-btn:disabled { opacity: .3; cursor: not-allowed; }
       .gt-qty-btn.sm {
-        width: 28px;
-        height: 28px;
+        width: 36px;
+        height: 36px;
         border-radius: 50%;
         border: 1px solid var(--line);
         background: var(--surf-hi);
