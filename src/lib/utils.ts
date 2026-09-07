@@ -105,3 +105,14 @@ export function getMovementFlow(
   // apertura and cierre are transfers (move money between accounts)
   return 'transfer';
 }
+
+export function formatRelativeTime(date: string | Date, now = Date.now()): string {
+  const diff = Math.floor((now - new Date(date).getTime()) / 1000);
+  if (diff < 60) return 'Ahora mismo';
+  if (diff < 3600) return `Hace ${Math.floor(diff / 60)} min`;
+  return `Hace ${Math.floor(diff / 3600)} h`;
+}
+
+export function isOlderThan(date: string | Date, minutes: number, now = Date.now()): boolean {
+  return (now - new Date(date).getTime()) > minutes * 60 * 1000;
+}
