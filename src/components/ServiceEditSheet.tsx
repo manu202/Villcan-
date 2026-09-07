@@ -94,7 +94,7 @@ export function ServiceEditSheet({ serviceId, onClose, onSaved }: ServiceEditShe
   if (loading) {
     return (
       <div style={{ display: 'flex', justifyContent: 'center', padding: '32px' }}>
-        <Spinner size={28} color="black" />
+        <Spinner size={36} color="black" />
       </div>
     );
   }

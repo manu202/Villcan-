@@ -32,6 +32,8 @@ const BASE_SERVICE: Service = {
   is_active: true,
   is_available: true,
   branch_id: 'b1',
+  cost: null,
+  created_at: '2026-01-01T00:00:00Z',
 };
 
 describe('ServiceCard — layout', () => {

@@ -111,7 +111,7 @@ describe('MovementDetailSheet — tipo servicio', () => {
   it('muestra el monto cobrado en la sección de servicio', async () => {
     render(<MovementDetailSheet movementId="m1" onClose={vi.fn()} />);
     await waitFor(() => {
-      const serviceSection = screen.getByText('Lomo Completo').closest('.mds-info-row')!;
+      const serviceSection = screen.getByText('Lomo Completo').closest('.mds-info-row') as HTMLElement;
       expect(within(serviceSection).getByText('₲ 25000')).toBeTruthy();
     });
   });
