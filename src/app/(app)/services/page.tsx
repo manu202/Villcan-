@@ -1,12 +1,14 @@
 'use client';
 
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import Link from 'next/link';
-import { formatGuaranies } from '@/lib/utils';
 import { createClient } from '@/lib/supabase/client';
 import { useBranch } from '@/contexts/BranchContext';
 import { useSettings } from '@/contexts/SettingsContext';
 import { ErrorState } from '@/components/ErrorState';
+import { AppSheet } from '@/components/AppSheet';
+import { ServiceCard } from '@/components/ServiceCard';
+import { ServiceEditSheet } from '@/components/ServiceEditSheet';
 import type { Service } from '@/types';
 
 export default function ServicesPage() {
@@ -16,67 +18,64 @@ export default function ServicesPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   const [reloadToken, setReloadToken] = useState(0);
+  const [selectedServiceId, setSelectedServiceId] = useState<string | null>(null);
 
-  // Use ref to always have current branch value inside async functions
   const currentBranchRef = useRef(currentBranch);
-  useEffect(() => {
-    currentBranchRef.current = currentBranch;
-  }, [currentBranch]);
+  useEffect(() => { currentBranchRef.current = currentBranch; }, [currentBranch]);
+
+  const loadServices = useCallback(async () => {
+    const branch = currentBranchRef.current;
+    setLoading(true);
+    setError(false);
+    const supabase = createClient();
+
+    let query = supabase
+      .from('services')
+      .select('id, name, price, is_active, is_available, branch_id')
+      .eq('is_active', true)
+      .order('name');
+
+    if (branch) {
+      query = query.or(`branch_id.eq.${branch.id},branch_id.is.null`);
+    } else {
+      query = query.is('branch_id', null);
+    }
+
+    const { data, error: fetchError } = await query;
+
+    if (fetchError) {
+      setError(true);
+    } else if (data) {
+      setServices(data as Service[]);
+    }
+    setLoading(false);
+  }, []);
 
   useEffect(() => {
     if (!initialized) return;
-
-    let cancelled = false;
-
-    const loadServices = async () => {
-      const branch = currentBranchRef.current;
-      setLoading(true);
-      setError(false);
-      const supabase = createClient();
-
-      // Show: services from current branch + global services (branch_id IS NULL)
-      let query = supabase
-        .from('services')
-        .select('id, name, price, is_active, branch_id')
-        .eq('is_active', true)
-        .order('name');
-
-      // Apply branch filter: current branch OR global (null)
-      if (branch) {
-        query = query.or(`branch_id.eq.${branch.id},branch_id.is.null`);
-      } else {
-        // No branch selected, only show global services
-        query = query.is('branch_id', null);
-      }
-
-      const { data, error: fetchError } = await query;
-
-      if (cancelled) return;
-
-      if (fetchError) {
-        setError(true);
-      } else if (data) {
-        setServices(data as Service[]);
-      }
-      setLoading(false);
-    };
     loadServices();
+  }, [initialized, loadServices, reloadToken]);
 
-    return () => {
-      cancelled = true;
-    };
-  }, [initialized, reloadToken]);
+  const handleToggle = async (id: string, available: boolean) => {
+    setServices((prev) =>
+      prev.map((s) => (s.id === id ? { ...s, is_available: available } : s))
+    );
+    const supabase = createClient();
+    await supabase.from('services').update({ is_available: available }).eq('id', id);
+  };
+
+  const handleServiceClick = (id: string) => {
+    setSelectedServiceId(id);
+  };
 
   return (
     <div className="page">
       <header className="page-header flex-header">
         <div>
           <h1 className="page-title">{settings.services_label}</h1>
-          {loading ? (
-            <p className="page-subtitle">...</p>
-          ) : !error ? (
+          {!loading && !error && (
             <p className="page-subtitle">{services.length} {settings.services_label.toLowerCase()}</p>
-          ) : null}
+          )}
         </div>
         <Link href="/services/new" className="btn-add">+Nuevo</Link>
       </header>
@@ -96,27 +95,33 @@ export default function ServicesPage() {
         ) : (
           <ul className="service-list">
             {services.map((s) => (
-              <li key={s.id}>
-                <Link href={`/services/${s.id}`} className="service-item">
-                  <div className="service-info">
-                    <span className="service-name">{s.name}</span>
-                  </div>
-                  <div className="service-actions">
-                    <span className="service-price">{formatGuaranies(s.price)}</span>
-                    <span className="service-arrow">›</span>
-                  </div>
-                </Link>
-              </li>
+              <ServiceCard
+                key={s.id}
+                service={s}
+                onToggle={handleToggle}
+                onClick={handleServiceClick}
+              />
             ))}
           </ul>
         )}
       </section>
 
+      <AppSheet
+        open={selectedServiceId !== null}
+        onOpenChange={(open) => { if (!open) setSelectedServiceId(null); }}
+        title="Editar servicio"
+      >
+        {selectedServiceId && (
+          <ServiceEditSheet
+            serviceId={selectedServiceId}
+            onClose={() => setSelectedServiceId(null)}
+            onSaved={loadServices}
+          />
+        )}
+      </AppSheet>
+
       <style>{`
-        .page {
-          max-width: 480px;
-          margin: 0 auto;
-        }
+        .page { max-width: 480px; margin: 0 auto; }
 
         .flex-header {
           display: flex;
@@ -151,62 +156,14 @@ export default function ServicesPage() {
           color: var(--text-secondary);
         }
 
-        .empty-state p {
-          margin-bottom: 16px;
-        }
+        .empty-state p { margin-bottom: 16px; }
 
         .service-list {
           list-style: none;
           display: flex;
           flex-direction: column;
-          gap: 1px;
-          background: var(--border);
-          border-radius: 12px;
-          overflow: hidden;
-        }
-
-        .service-item {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          padding: 16px 20px;
-          background: var(--surface);
-          text-decoration: none;
-          color: inherit;
-        }
-
-        .service-item:active {
-          background: var(--surface-elevated);
-        }
-
-        .service-info {
-          display: flex;
-          flex-direction: column;
-          gap: 2px;
-        }
-
-        .service-name {
-          font-size: 15px;
-          font-weight: 500;
-          color: var(--text-primary);
-        }
-
-        .service-actions {
-          display: flex;
-          align-items: center;
-          gap: 12px;
-        }
-
-        .service-price {
-          font-size: 15px;
-          font-weight: 600;
-          color: var(--text-primary);
-          font-variant-numeric: tabular-nums;
-        }
-
-        .service-arrow {
-          font-size: 20px;
-          color: var(--text-muted);
+          gap: 8px;
+          padding: 0;
         }
       `}</style>
     </div>
