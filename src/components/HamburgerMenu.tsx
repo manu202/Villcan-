@@ -7,22 +7,15 @@ import {
   Sun,
   Moon,
   Monitor,
-  LayoutDashboard,
-  ArrowRightLeft,
-  Users,
-  Package,
   BarChart3,
   Archive,
   Settings,
-  ShoppingBag,
   X,
   type LucideIcon,
 } from 'lucide-react';
 import { AuthButton } from './AuthButton';
 import { BranchSelector } from './BranchSelector';
 import { useTheme, type ThemePreference } from '@/contexts/ThemeContext';
-import { usePendingOrdersCount } from '@/hooks/usePendingOrdersCount';
-import { useSettings } from '@/contexts/SettingsContext';
 import { useBranch } from '@/contexts/BranchContext';
 
 const THEME_CYCLE: ThemePreference[] = ['system', 'light', 'dark'];
@@ -68,16 +61,6 @@ interface NavSection {
   items: NavItem[];
 }
 
-// "Errores de usuarios" (/errors) intentionally has no entry here anymore —
-// it moved into Configuración (see /settings CARDS, "Soporte"). The route
-// itself still exists, only the menu link was removed.
-const OPERACION_ITEMS: NavItem[] = [
-  { label: 'Caja', href: '/', icon: LayoutDashboard },
-  { label: 'Movimientos', href: '/movements', icon: ArrowRightLeft },
-  { label: 'Pedidos', href: '/orders', icon: ShoppingBag },
-  { label: 'Contactos', href: '/contacts', icon: Users },
-];
-
 const ANALISIS_ITEMS: NavItem[] = [
   { label: 'Reportes', href: '/reports', icon: BarChart3 },
   { label: 'Cierres de Caja', href: '/closings', icon: Archive },
@@ -90,8 +73,6 @@ const CONFIGURACION_ITEMS: NavItem[] = [
 export function HamburgerMenu() {
   const [isOpen, setIsOpen] = useState(false);
   const pathname = usePathname();
-  const pendingOrdersCount = usePendingOrdersCount();
-  const { settings } = useSettings();
   const { branches } = useBranch();
 
   const isAdminAnywhere = branches.some((b) => b.user_role === 'admin');
@@ -100,8 +81,6 @@ export function HamburgerMenu() {
   // lets other verticals (restaurant, retail) rename this module (e.g. "Productos",
   // "Menú"). Icon is a neutral `Package` instead of `Scissors` for the same reason.
   const navSections: NavSection[] = [
-    { label: 'OPERACIÓN', items: OPERACION_ITEMS },
-    { label: 'CATÁLOGO', items: [{ label: settings.services_label, href: '/services', icon: Package }] },
     { label: 'ANÁLISIS', items: ANALISIS_ITEMS },
     ...(isAdminAnywhere ? [{ label: 'CONFIGURACIÓN', items: CONFIGURACION_ITEMS }] : []),
   ];

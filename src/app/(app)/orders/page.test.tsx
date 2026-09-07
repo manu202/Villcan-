@@ -89,27 +89,12 @@ describe('OrdersPage (REQ: incoming orders panel)', () => {
     expect((screen.getByRole('combobox') as HTMLSelectElement).disabled).toBe(false);
   });
 
-  it('links each order row to its detail page and shows a "Nuevo pedido" link', async () => {
-    queryResult = Promise.resolve({
-      data: [
-        {
-          id: 'order-1',
-          order_code: 'A1B2C3',
-          customer_name: 'Juan',
-          status: 'pending',
-          total: 40000,
-          created_at: '2026-08-31T10:00:00Z',
-          branch_id: 'branch-1',
-        },
-      ],
-      error: null,
-    });
-
+  it('shows a "Nuevo pedido" link', async () => {
+    queryResult = Promise.resolve({ data: [], error: null });
     render(<OrdersPage />);
-
-    await waitFor(() => expect(screen.getByText('A1B2C3')).toBeTruthy());
-    expect(screen.getByText('A1B2C3').closest('a')?.getAttribute('href')).toBe('/orders/order-1');
-    expect(screen.getByRole('link', { name: /nuevo pedido/i }).getAttribute('href')).toBe('/orders/new');
+    await waitFor(() => {
+      expect(screen.getByRole('link', { name: /nuevo pedido/i }).getAttribute('href')).toBe('/orders/new');
+    });
   });
 
   it('"Notificar cliente" opens a wa.me link built from the customer phone and current status (REQ: order-notify-customer)', async () => {
@@ -144,5 +129,71 @@ describe('OrdersPage (REQ: incoming orders panel)', () => {
     );
 
     openSpy.mockRestore();
+  });
+
+  it('shows a relative timestamp on each order card', async () => {
+    queryResult = Promise.resolve({
+      data: [
+        {
+          id: 'o1',
+          order_code: 'A1B2C3',
+          customer_name: 'Juan',
+          status: 'pending',
+          total: 40000,
+          created_at: '2026-01-01T10:00:00Z',
+          branch_id: 'branch-1',
+        },
+      ],
+      error: null,
+    });
+
+    render(<OrdersPage />);
+
+    await waitFor(() => expect(screen.getByText('A1B2C3')).toBeTruthy());
+    expect(screen.getByTestId('order-timestamp-o1')).toBeTruthy();
+  });
+
+  it('marks urgent cards when a pending order is older than 10 minutes', async () => {
+    queryResult = Promise.resolve({
+      data: [
+        {
+          id: 'o1',
+          order_code: 'A1B2C3',
+          customer_name: 'Juan',
+          status: 'pending',
+          total: 40000,
+          created_at: '2026-01-01T10:00:00Z',
+          branch_id: 'branch-1',
+        },
+      ],
+      error: null,
+    });
+
+    render(<OrdersPage />);
+
+    await waitFor(() => expect(screen.getByText('A1B2C3')).toBeTruthy());
+    expect(screen.getByTestId('order-card-o1').getAttribute('data-urgent')).toBe('true');
+  });
+
+  it('does not mark recent pending orders as urgent', async () => {
+    queryResult = Promise.resolve({
+      data: [
+        {
+          id: 'o1',
+          order_code: 'A1B2C3',
+          customer_name: 'Juan',
+          status: 'pending',
+          total: 40000,
+          created_at: new Date().toISOString(),
+          branch_id: 'branch-1',
+        },
+      ],
+      error: null,
+    });
+
+    render(<OrdersPage />);
+
+    await waitFor(() => expect(screen.getByText('A1B2C3')).toBeTruthy());
+    expect(screen.getByTestId('order-card-o1').getAttribute('data-urgent')).toBeNull();
   });
 });

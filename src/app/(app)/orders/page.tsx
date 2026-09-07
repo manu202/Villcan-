@@ -3,7 +3,7 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
 import Link from 'next/link';
 import { MessageCircle, ChevronDown } from 'lucide-react';
-import { formatGuaranies } from '@/lib/utils';
+import { formatGuaranies, formatRelativeTime, isOlderThan } from '@/lib/utils';
 import { createClient } from '@/lib/supabase/client';
 import { useBranch } from '@/contexts/BranchContext';
 import { useSettings } from '@/contexts/SettingsContext';
@@ -11,6 +11,8 @@ import { ErrorState } from '@/components/ErrorState';
 import { EmptyState } from '@/components/EmptyState';
 import { buildStatusNotificationMessage, buildWhatsAppLink } from '@/lib/storefront';
 import { ORDER_STATUS_LABELS, type Order, type OrderStatus } from '@/types';
+import { AppSheet } from '@/components/AppSheet';
+import { OrderDetailSheet } from '@/components/OrderDetailSheet';
 
 const STATUS_TABS: Array<{ value: OrderStatus | 'all'; label: string }> = [
   { value: 'all', label: 'Todos' },
@@ -32,6 +34,7 @@ export default function OrdersPage() {
   const [error, setError] = useState(false);
   const [statusFilter, setStatusFilter] = useState<OrderStatus | 'all'>('all');
   const [reloadToken, setReloadToken] = useState(0);
+  const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
 
   const currentBranchRef = useRef(currentBranch);
   useEffect(() => { currentBranchRef.current = currentBranch; }, [currentBranch]);
@@ -108,13 +111,21 @@ export default function OrdersPage() {
         ) : (
           <ul className="order-list">
             {visibleOrders.map((order) => (
-              <li key={order.id} className="order-item">
+              <li
+                key={order.id}
+                className="order-item"
+                data-testid={`order-card-${order.id}`}
+                data-urgent={isOlderThan(order.created_at, 10) && order.status === 'pending' ? 'true' : undefined}
+              >
                 <Link href={`/orders/${order.id}`} className="order-info">
                   <div className="order-row-top">
                     <span className="order-code">{order.order_code}</span>
                     <span className="order-amount">{formatGuaranies(order.total)}</span>
                   </div>
                   <span className="order-customer">{order.customer_name}</span>
+                  <span data-testid={`order-timestamp-${order.id}`} className="order-timestamp">
+                    {formatRelativeTime(order.created_at)}
+                  </span>
                 </Link>
                 <div className="order-actions" onClick={(e) => e.stopPropagation()}>
                   <div className="status-pill-wrap">
@@ -229,7 +240,21 @@ export default function OrdersPage() {
           transition: color 0.15s;
         }
         .notify-btn:hover { color: var(--text-primary); }
+
+        .order-timestamp { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+
+        [data-urgent="true"] { border-left: 3px solid #ef4444; }
       `}</style>
+
+      <AppSheet
+        open={selectedOrderId !== null}
+        onOpenChange={(open) => { if (!open) setSelectedOrderId(null); }}
+        title="Detalle del pedido"
+      >
+        {selectedOrderId && (
+          <OrderDetailSheet orderId={selectedOrderId} onClose={() => setSelectedOrderId(null)} />
+        )}
+      </AppSheet>
     </div>
   );
 }

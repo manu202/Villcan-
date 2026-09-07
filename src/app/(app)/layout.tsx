@@ -1,4 +1,5 @@
 import { HamburgerMenu } from '@/components/HamburgerMenu';
+import { BottomNav } from '@/components/BottomNav';
 import { BranchProvider } from '@/contexts/BranchContext';
 import { SettingsProvider } from '@/contexts/SettingsContext';
 import { AuthGuard } from '@/components/AuthGuard';
@@ -28,7 +29,8 @@ export default function AppLayout({
       <SettingsProvider>
         <AuthGuard>
           <HamburgerMenu />
-          <main className="main-content">{children}</main>
+          <main className="main-content" style={{ paddingBottom: 'calc(56px + env(safe-area-inset-bottom))' }}>{children}</main>
+          <BottomNav />
         </AuthGuard>
       </SettingsProvider>
     </BranchProvider>

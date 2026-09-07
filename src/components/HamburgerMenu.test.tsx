@@ -3,7 +3,7 @@ import { render, screen } from '@testing-library/react';
 import { HamburgerMenu } from './HamburgerMenu';
 
 vi.mock('next/navigation', () => ({
-  usePathname: () => '/services',
+  usePathname: () => '/reports',
 }));
 
 vi.mock('./AuthButton', () => ({
@@ -18,65 +18,28 @@ vi.mock('@/contexts/ThemeContext', () => ({
   useTheme: () => ({ theme: 'system', setTheme: vi.fn() }),
 }));
 
-vi.mock('@/hooks/usePendingOrdersCount', () => ({
-  usePendingOrdersCount: () => 0,
-}));
-
-const mockUseSettings = vi.fn();
-vi.mock('@/contexts/SettingsContext', () => ({
-  useSettings: () => mockUseSettings(),
-}));
-
 const mockUseBranch = vi.fn();
 vi.mock('@/contexts/BranchContext', () => ({
   useBranch: () => mockUseBranch(),
 }));
 
-describe('HamburgerMenu services nav item (business_settings.services_label)', () => {
+describe('HamburgerMenu — secondary navigation sections', () => {
   beforeEach(() => {
     mockUseBranch.mockReturnValue({ branches: [{ id: 'b1', user_role: 'admin' }] });
   });
 
-  it('uses services_label from settings instead of a hardcoded "Servicios"', () => {
-    mockUseSettings.mockReturnValue({ settings: { services_label: 'Menú' } });
-
+  it('renders ANÁLISIS and CONFIGURACIÓN section headers', () => {
     render(<HamburgerMenu />);
 
-    expect(screen.getByText('Menú')).toBeTruthy();
-    expect(screen.queryByText('Servicios')).toBeNull();
-  });
-
-  it('falls back to the default label "Servicios" when settings say so', () => {
-    mockUseSettings.mockReturnValue({ settings: { services_label: 'Servicios' } });
-
-    render(<HamburgerMenu />);
-
-    expect(screen.getByText('Servicios')).toBeTruthy();
-  });
-
-  it('does not use the barbershop-specific Scissors icon for the module link', () => {
-    mockUseSettings.mockReturnValue({ settings: { services_label: 'Productos' } });
-
-    const { container } = render(<HamburgerMenu />);
-
-    // lucide-react icons render as <svg class="lucide lucide-scissors ...">
-    expect(container.querySelector('.lucide-scissors')).toBeNull();
-  });
-});
-
-describe('HamburgerMenu grouped sections (IA reorg)', () => {
-  beforeEach(() => {
-    mockUseSettings.mockReturnValue({ settings: { services_label: 'Servicios' } });
-    mockUseBranch.mockReturnValue({ branches: [{ id: 'b1', user_role: 'admin' }] });
-  });
-
-  it('renders the four section headers', () => {
-    render(<HamburgerMenu />);
-
-    expect(screen.getByText('OPERACIÓN')).toBeTruthy();
-    expect(screen.getByText('CATÁLOGO')).toBeTruthy();
     expect(screen.getByText('ANÁLISIS')).toBeTruthy();
     expect(screen.getByText('CONFIGURACIÓN')).toBeTruthy();
+  });
+
+  it('does not render OPERACIÓN or CATÁLOGO (moved to BottomNav)', () => {
+    render(<HamburgerMenu />);
+
+    expect(screen.queryByText('OPERACIÓN')).toBeNull();
+    expect(screen.queryByText('CATÁLOGO')).toBeNull();
   });
 
   it('no longer links to /errors ("Errores de usuarios" removed from the menu)', () => {
@@ -86,15 +49,19 @@ describe('HamburgerMenu grouped sections (IA reorg)', () => {
     expect(screen.queryByRole('link', { name: /errores/i })).toBeNull();
   });
 
-  it('still renders all the remaining nav items', () => {
+  it('renders secondary nav links: Reportes, Cierres de Caja, Configuración', () => {
     render(<HamburgerMenu />);
 
-    expect(screen.getByRole('link', { name: /^caja$/i })).toBeTruthy();
-    expect(screen.getByRole('link', { name: /movimientos/i })).toBeTruthy();
-    expect(screen.getByRole('link', { name: /pedidos/i })).toBeTruthy();
-    expect(screen.getByRole('link', { name: /contactos/i })).toBeTruthy();
     expect(screen.getByRole('link', { name: /reportes/i })).toBeTruthy();
     expect(screen.getByRole('link', { name: /cierres de caja/i })).toBeTruthy();
     expect(screen.getByRole('link', { name: /^configuración$/i })).toBeTruthy();
+  });
+
+  it('does not render primary nav links (Caja, Pedidos, Movimientos, Catálogo) — those are in BottomNav', () => {
+    render(<HamburgerMenu />);
+
+    expect(screen.queryByRole('link', { name: /^caja$/i })).toBeNull();
+    expect(screen.queryByRole('link', { name: /pedidos/i })).toBeNull();
+    expect(screen.queryByRole('link', { name: /movimientos/i })).toBeNull();
   });
 });
