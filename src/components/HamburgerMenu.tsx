@@ -17,6 +17,7 @@ import { AuthButton } from './AuthButton';
 import { BranchSelector } from './BranchSelector';
 import { useTheme, type ThemePreference } from '@/contexts/ThemeContext';
 import { useBranch } from '@/contexts/BranchContext';
+import { usePendingOrdersCount } from '@/hooks/usePendingOrdersCount';
 
 const THEME_CYCLE: ThemePreference[] = ['system', 'light', 'dark'];
 
@@ -74,6 +75,7 @@ export function HamburgerMenu() {
   const [isOpen, setIsOpen] = useState(false);
   const pathname = usePathname();
   const { branches } = useBranch();
+  const pendingOrdersCount = usePendingOrdersCount();
 
   const isAdminAnywhere = branches.some((b) => b.user_role === 'admin');
 
