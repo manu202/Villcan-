@@ -13,9 +13,10 @@ interface CartSheetProps {
   onIncrement: (serviceId: string) => void;
   onDecrement: (serviceId: string) => void;
   onCheckout: () => void;
+  checkoutLabel?: string;
 }
 
-export function CartSheet({ lines, onIncrement, onDecrement, onCheckout }: CartSheetProps) {
+export function CartSheet({ lines, onIncrement, onDecrement, onCheckout, checkoutLabel }: CartSheetProps) {
   const total = lines.reduce((sum, line) => sum + line.service.price * line.qty, 0);
 
   if (lines.length === 0) {
@@ -45,7 +46,7 @@ export function CartSheet({ lines, onIncrement, onDecrement, onCheckout }: CartS
         <span>{formatGuaranies(total)}</span>
       </div>
       <button type="button" className="cart-checkout-btn" onClick={onCheckout}>
-        Continuar pedido
+        {checkoutLabel ?? 'Continuar pedido'}
       </button>
 
       <style>{`

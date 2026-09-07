@@ -74,10 +74,22 @@ vi.mock('@/lib/supabase/client', () => ({
   }),
 }));
 
+async function navigateToCatalogPaymentStep() {
+  // Wait for services to load and click "Agregar" to add to cart
+  await waitFor(() => screen.getByText('Agregar'));
+  fireEvent.click(screen.getByText('Agregar'));
+  // CartSheet appears with the continue button
+  await waitFor(() => screen.getByText('Continuar con el pago →'));
+  fireEvent.click(screen.getByText('Continuar con el pago →'));
+  // Now on payment step: contact search + payment method visible
+  await waitFor(() => screen.getByPlaceholderText('Buscar cliente...'));
+}
+
 describe('MovementForm contact-search race condition guard', () => {
   beforeEach(() => {
     contactFromCalls = 0;
     contactDeferreds = [createDeferred(), createDeferred()];
+    servicesData = [{ id: 'svc-1', name: 'Corte', price: 100000 }];
     mockUseBranch.mockReturnValue({
       currentBranch: { id: 'branch-1', name: 'Centro' },
       isLoading: false,
@@ -86,6 +98,9 @@ describe('MovementForm contact-search race condition guard', () => {
 
   it('ignores a stale ("ju") response that resolves after a fresher ("juan") response', async () => {
     render(<MovementForm initialType="servicio" />);
+
+    // Navigate catalog → payment step where contact search lives
+    await navigateToCatalogPaymentStep();
 
     const searchInput = screen.getByPlaceholderText('Buscar cliente...');
 
@@ -143,44 +158,39 @@ describe('MovementForm dirty-guard on back-tap (REQ-DIRTY-1)', () => {
   beforeEach(() => {
     contactFromCalls = 0;
     contactDeferreds = [createDeferred(), createDeferred()];
+    servicesData = [{ id: 'svc-1', name: 'Corte', price: 100000 }];
     mockUseBranch.mockReturnValue({
       currentBranch: { id: 'branch-1', name: 'Centro' },
       isLoading: false,
     });
   });
 
-  it('clean form back-tap changes step silently (no ConfirmModal)', async () => {
+  it('clean catalog back-tap (empty cart) changes step silently (no ConfirmModal)', async () => {
     render(<MovementForm initialType="servicio" />);
 
-    // Sanity: we're on the details step.
-    expect(screen.getByPlaceholderText('Buscar cliente...')).toBeTruthy();
-
+    // We're on the catalog step (no items in cart = not dirty).
+    await waitFor(() => screen.getByText('Nueva Venta'));
     fireEvent.click(screen.getByText('←'));
 
-    // No confirm dialog, and it navigated back to type selection.
+    // No confirm dialog, navigated back to type selection.
     expect(screen.queryByRole('dialog')).toBeNull();
     await waitFor(() => expect(screen.getByText('Seleccionar tipo')).toBeTruthy());
   });
 
-  it('dirty form back-tap shows ConfirmModal and blocks step change until confirm/cancel', async () => {
+  it('dirty catalog (item in cart) back-tap shows ConfirmModal', async () => {
     render(<MovementForm initialType="servicio" />);
 
-    const searchInput = screen.getByPlaceholderText('Buscar cliente...');
-    fireEvent.change(searchInput, { target: { value: 'juan' } });
+    // Add an item to cart (now dirty).
+    await waitFor(() => screen.getByText('Agregar'));
+    fireEvent.click(screen.getByText('Agregar'));
 
     fireEvent.click(screen.getByText('←'));
 
-    // Modal shown, step unchanged.
+    // Modal shown, still on catalog step.
     expect(screen.getByRole('dialog')).toBeTruthy();
-    expect(screen.getByPlaceholderText('Buscar cliente...')).toBeTruthy();
+    expect(screen.getByText('Nueva Venta')).toBeTruthy();
 
-    // Cancel dismisses the modal only, data untouched.
-    fireEvent.click(screen.getByText('Cancelar'));
-    expect(screen.queryByRole('dialog')).toBeNull();
-    expect((screen.getByPlaceholderText('Buscar cliente...') as HTMLInputElement).value).toBe('juan');
-
-    // Now confirm discard -> back to type step.
-    fireEvent.click(screen.getByText('←'));
+    // Confirm discard -> back to type step.
     fireEvent.click(screen.getByText('Descartar'));
     await waitFor(() => expect(screen.getByText('Seleccionar tipo')).toBeTruthy());
   });
@@ -271,6 +281,10 @@ describe('commission_pct frozen at insert, servicio branch only (REQ-PROFIT-1/2)
   async function fillAndSubmitServicio() {
     render(<MovementForm initialType="servicio" />);
 
+    // Step 1: catalog — add service to cart
+    await navigateToCatalogPaymentStep();
+
+    // Step 2: payment — optional contact + payment method
     const searchInput = screen.getByPlaceholderText('Buscar cliente...');
     fireEvent.change(searchInput, { target: { value: 'juan' } });
     await waitFor(() => expect(contactFromCalls).toBe(1));
@@ -280,9 +294,6 @@ describe('commission_pct frozen at insert, servicio branch only (REQ-PROFIT-1/2)
     });
     await waitFor(() => screen.getByText('Juan Perez'));
     fireEvent.click(screen.getByText('Juan Perez'));
-
-    await waitFor(() => screen.getByText('Corte'));
-    fireEvent.click(screen.getByText('Corte'));
 
     fireEvent.click(screen.getByText('Transferencia'));
 

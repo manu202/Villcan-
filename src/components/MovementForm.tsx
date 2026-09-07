@@ -16,6 +16,8 @@ import type { MovementType, PaymentMethod, Service, Contact } from '@/types';
 import { formatGuaranies, parseGuaranies, escapeSearchQuery } from '@/lib/utils';
 import { ContactForm } from './ContactForm';
 import { ConfirmModal } from './ConfirmModal';
+import { ServiceCard } from './storefront/ServiceCard';
+import { CartSheet, type CartLine } from './storefront/CartSheet';
 import { createClient } from '@/lib/supabase/client';
 import { getCurrentUserId } from '@/lib/auth';
 import { useBranch } from '@/contexts/BranchContext';
@@ -27,7 +29,7 @@ interface MovementFormProps {
   showToast?: (message: string, type?: 'success' | 'error') => void;
 }
 
-type FormStep = 'type' | 'details';
+type FormStep = 'type' | 'catalog' | 'payment' | 'details';
 
 const movementTypes: { value: MovementType; label: string; description: string; icon: LucideIcon }[] = [
   { value: 'servicio', label: 'Venta', description: 'Cobro de servicio o producto', icon: ShoppingCart },
@@ -82,7 +84,9 @@ export function MovementForm({ initialType, showToast }: MovementFormProps) {
   const router = useRouter();
   const { currentBranch } = useBranch();
   const { settings } = useSettings();
-  const [step, setStep] = useState<FormStep>(initialType ? 'details' : 'type');
+  const [step, setStep] = useState<FormStep>(
+    initialType ? (initialType === 'servicio' ? 'catalog' : 'details') : 'type'
+  );
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showNewContact, setShowNewContact] = useState(false);
   const [showDiscardConfirm, setShowDiscardConfirm] = useState(false);
@@ -91,24 +95,47 @@ export function MovementForm({ initialType, showToast }: MovementFormProps) {
   // Form state
   const [type, setType] = useState<MovementType | ''>(initialType || '');
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod | ''>('');
-  const [amountCharged, setAmountCharged] = useState('');
   const [income, setIncome] = useState('');
   const [fuente, setFuente] = useState<typeof fuentes[number] | ''>('');
   const [comment, setComment] = useState('');
 
+  // Cart state (for servicio catalog flow)
+  const [cart, setCart] = useState<Record<string, number>>({});
+
   // For servicio
   const [selectedContact, setSelectedContact] = useState<Contact | null>(null);
   const [contactSearch, setContactSearch] = useState('');
-  const [serviceId, setServiceId] = useState('');
   const [services, setServices] = useState<Service[]>([]);
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [contactsLoading, setContactsLoading] = useState(false);
 
-  // Calculated change for efectivo
-  const amountChargedNum = parseGuaranies(amountCharged);
+  // Cart helpers
+  const cartLines: CartLine[] = services
+    .filter((s) => (cart[s.id] ?? 0) > 0)
+    .map((s) => ({ service: s, qty: cart[s.id] }));
+
+  const cartTotal = cartLines.reduce((sum, l) => sum + l.service.price * l.qty, 0);
+
+  const addToCart = (service: Service) => {
+    setCart((prev) => ({ ...prev, [service.id]: (prev[service.id] ?? 0) + 1 }));
+  };
+  const incrementCart = (serviceId: string) => {
+    setCart((prev) => ({ ...prev, [serviceId]: (prev[serviceId] ?? 0) + 1 }));
+  };
+  const decrementCart = (serviceId: string) => {
+    setCart((prev) => {
+      const next = { ...prev };
+      const qty = (next[serviceId] ?? 0) - 1;
+      if (qty <= 0) delete next[serviceId];
+      else next[serviceId] = qty;
+      return next;
+    });
+  };
+
+  // Calculated change for efectivo (servicio uses cartTotal; others use income directly)
   const incomeNum = parseGuaranies(income);
-  const change = paymentMethod === 'efectivo' && incomeNum > amountChargedNum
-    ? incomeNum - amountChargedNum
+  const change = paymentMethod === 'efectivo' && incomeNum > cartTotal && cartTotal > 0
+    ? incomeNum - cartTotal
     : 0;
 
   // Load services from Supabase — branch-specific + global (branch_id IS NULL)
@@ -170,22 +197,14 @@ export function MovementForm({ initialType, showToast }: MovementFormProps) {
 
   const handleTypeSelect = (t: MovementType) => {
     setType(t);
-    setStep('details');
-  };
-
-  const handleServiceSelect = (servicePrice: number) => {
-    setAmountCharged(servicePrice.toString());
-    // For transferencia/POS, auto-fill income with price
-    if (paymentMethod === 'transferencia' || paymentMethod === 'pos') {
-      setIncome(servicePrice.toString());
-    }
+    setStep(t === 'servicio' ? 'catalog' : 'details');
   };
 
   const handlePaymentMethodSelect = (method: PaymentMethod) => {
     setPaymentMethod(method);
-    // Auto-fill income for non-cash methods
-    if ((method === 'transferencia' || method === 'pos') && amountCharged) {
-      setIncome(amountCharged);
+    // Auto-fill income for non-cash methods in non-servicio types
+    if ((method === 'transferencia' || method === 'pos') && income) {
+      setIncome(income);
     }
   };
 
@@ -219,19 +238,17 @@ export function MovementForm({ initialType, showToast }: MovementFormProps) {
     }
 
     const supabase = createClient();
-    const amountChargedNum = parseGuaranies(amountCharged);
-    const incomeNum = parseGuaranies(income); // this is "Dinero recibido" or "Monto" depending on type
+    const incomeNum = parseGuaranies(income);
 
     let finalIncome = 0;
     let finalExpense = 0;
 
     if (type === 'servicio') {
-      // income = actual cash received (net of change for efectivo)
-      // expense = the change/vuelto given back
-      finalIncome = paymentMethod === 'efectivo' 
-        ? incomeNum - (change > 0 ? parseGuaranies(change.toString()) : 0)
-        : amountChargedNum;
-      finalExpense = change > 0 ? parseGuaranies(change.toString()) : 0;
+      // Cart-based: income = cartTotal (cash received minus vuelto); expense = vuelto
+      finalIncome = paymentMethod === 'efectivo'
+        ? incomeNum - change
+        : cartTotal;
+      finalExpense = change;
     } else if (type === 'gasto') {
       // income = 0 (no cash came in)
       // expense = the amount spent (goes out)
@@ -262,11 +279,18 @@ export function MovementForm({ initialType, showToast }: MovementFormProps) {
     };
 
     if (type === 'servicio') {
+      const serviceIds = Object.keys(cart);
+      const cartComment = cartLines
+        .map((l) => `${l.service.name}${l.qty > 1 ? ` ×${l.qty}` : ''}`)
+        .join(', ');
       movementData.contact_id = selectedContact?.id || null;
-      movementData.service_id = serviceId || null;
+      movementData.service_id = serviceIds.length === 1 ? serviceIds[0] : null;
       movementData.payment_method = paymentMethod || null;
-      movementData.amount_charged = amountChargedNum;
+      movementData.amount_charged = cartTotal;
       movementData.commission_pct = computeCommissionPct(settings);
+      if (serviceIds.length > 1) {
+        movementData.comment = cartComment;
+      }
     }
 
     const { error } = await supabase
@@ -291,18 +315,25 @@ export function MovementForm({ initialType, showToast }: MovementFormProps) {
     }, 500);
   };
 
-  const isDirty = !!selectedContact || !!contactSearch || !!serviceId || !!amountCharged
+  const isDirty = Object.keys(cart).length > 0 || !!selectedContact || !!contactSearch
     || !!income || !!fuente || !!comment || !!paymentMethod;
 
   const handleBack = () => {
-    if (step === 'details') {
+    if (step === 'payment') {
+      setStep('catalog');
+    } else if (step === 'catalog') {
       if (isDirty) {
         setShowDiscardConfirm(true);
         return;
       }
       setStep('type');
-    } else if (type) {
-      // Already in type selection, go back to movements
+    } else if (step === 'details') {
+      if (isDirty) {
+        setShowDiscardConfirm(true);
+        return;
+      }
+      setStep('type');
+    } else {
       router.push('/movements');
     }
   };
@@ -311,8 +342,7 @@ export function MovementForm({ initialType, showToast }: MovementFormProps) {
     setShowDiscardConfirm(false);
     setSelectedContact(null);
     setContactSearch('');
-    setServiceId('');
-    setAmountCharged('');
+    setCart({});
     setIncome('');
     setFuente('');
     setComment('');
@@ -461,18 +491,245 @@ export function MovementForm({ initialType, showToast }: MovementFormProps) {
     );
   }
 
-  // Step 2: Details form
   const isValid = () => {
     if (!type) return false;
     if (type === 'servicio') {
-      return !!selectedContact && !!serviceId && !!paymentMethod && parseGuaranies(income) > 0;
+      if (cartLines.length === 0 || !paymentMethod) return false;
+      if (paymentMethod === 'efectivo') return parseGuaranies(income) >= cartTotal;
+      return true;
     }
-    if (type === 'gasto') {
-      return parseGuaranies(income) > 0 && !!fuente;
-    }
+    if (type === 'gasto') return parseGuaranies(income) > 0 && !!fuente;
     return parseGuaranies(income) > 0;
   };
 
+  // ── Catalog step (servicio only) ──────────────────────────────────────────
+  if (step === 'catalog') {
+    return (
+      <div className="page page--catalog">
+        <header className="page-header flex-header">
+          <button onClick={handleBack} className="back-btn">←</button>
+          <h1 className="page-title">Nueva Venta</h1>
+        </header>
+
+        {services.length === 0 ? (
+          <p className="search-status" style={{ padding: '24px 0' }}>Cargando servicios...</p>
+        ) : (
+          <ul className="catalog-list">
+            {services.map((s) => (
+              <ServiceCard
+                key={s.id}
+                service={s}
+                qtyInCart={cart[s.id] ?? 0}
+                onAdd={addToCart}
+              />
+            ))}
+          </ul>
+        )}
+
+        <CartSheet
+          lines={cartLines}
+          onIncrement={incrementCart}
+          onDecrement={decrementCart}
+          onCheckout={() => setStep('payment')}
+          checkoutLabel="Continuar con el pago →"
+        />
+
+        <style>{`
+          .page--catalog { padding-bottom: 0; }
+          .catalog-list {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 1px;
+            background: var(--border);
+          }
+        `}</style>
+
+        {showDiscardConfirm && (
+          <ConfirmModal
+            message="¿Descartar los datos ingresados?"
+            onConfirm={handleConfirmDiscard}
+            onCancel={handleCancelDiscard}
+          />
+        )}
+      </div>
+    );
+  }
+
+  // ── Payment step (servicio only) ──────────────────────────────────────────
+  if (step === 'payment') {
+    return (
+      <div className="page">
+        <header className="page-header flex-header">
+          <button onClick={handleBack} className="back-btn">←</button>
+          <h1 className="page-title">Pago</h1>
+        </header>
+
+        {/* Resumen del carrito */}
+        <section className="section">
+          <h2 className="section-title">Resumen</h2>
+          <div className="summary-block">
+            {cartLines.map((l) => (
+              <div key={l.service.id} className="summary-row">
+                <span>{l.service.name}{l.qty > 1 ? ` ×${l.qty}` : ''}</span>
+                <span>{formatGuaranies(l.service.price * l.qty)}</span>
+              </div>
+            ))}
+            <div className="summary-total-row">
+              <span>Total</span>
+              <span>{formatGuaranies(cartTotal)}</span>
+            </div>
+          </div>
+        </section>
+
+        <form onSubmit={handleSubmit}>
+          {/* Cliente (opcional) */}
+          <section className="section">
+            <h2 className="section-title">Cliente <span className="optional-mark">(opcional)</span></h2>
+            {selectedContact ? (
+              <div className="selected-contact">
+                <span className="contact-name">{selectedContact.full_name}</span>
+                <button
+                  type="button"
+                  className="clear-btn"
+                  onClick={() => { setSelectedContact(null); setContactSearch(''); }}
+                >
+                  ✕
+                </button>
+              </div>
+            ) : (
+              <>
+                <input
+                  type="text"
+                  placeholder="Buscar cliente..."
+                  value={contactSearch}
+                  onChange={(e) => setContactSearch(e.target.value)}
+                  className="input"
+                />
+                {contactsLoading ? (
+                  <p className="search-status">Buscando...</p>
+                ) : contacts.length > 0 ? (
+                  <ul className="dropdown">
+                    {contacts.map((c) => (
+                      <li key={c.id}>
+                        <button
+                          type="button"
+                          className="dropdown-item"
+                          onClick={() => { setSelectedContact(c); setContactSearch(c.full_name); setContacts([]); }}
+                        >
+                          {c.full_name}
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                ) : contactSearch.length >= 2 ? (
+                  <p className="search-status">Sin resultados</p>
+                ) : null}
+                <button type="button" className="link-btn" onClick={() => setShowNewContact(true)}>
+                  + Crear nuevo cliente
+                </button>
+              </>
+            )}
+          </section>
+
+          {/* Método de pago */}
+          <section className="section">
+            <h2 className="section-title">Método de pago</h2>
+            {attempted && !paymentMethod && (
+              <p className="field-error">Seleccioná un método de pago</p>
+            )}
+            <div className="method-grid">
+              {paymentMethods.map((m) => (
+                <button
+                  key={m.value}
+                  type="button"
+                  onClick={() => handlePaymentMethodSelect(m.value)}
+                  className={`method-btn ${paymentMethod === m.value ? 'selected' : ''}`}
+                >
+                  <m.icon size={16} className="method-icon" aria-hidden="true" />
+                  {m.label}
+                </button>
+              ))}
+            </div>
+          </section>
+
+          {/* Dinero recibido (solo efectivo) */}
+          {paymentMethod === 'efectivo' && (
+            <>
+              <section className="section">
+                <h2 className="section-title">Dinero recibido</h2>
+                {attempted && parseGuaranies(income) < cartTotal && (
+                  <p className="field-error">El monto debe cubrir el total</p>
+                )}
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  placeholder="0"
+                  value={income}
+                  onChange={(e) => setIncome(e.target.value)}
+                  className="input input-lg"
+                />
+              </section>
+              {change > 0 && (
+                <section className="section">
+                  <div className="change-box">
+                    <span className="change-label">Vuelto</span>
+                    <span className="change-value">{formatGuaranies(change)}</span>
+                  </div>
+                </section>
+              )}
+            </>
+          )}
+
+          <section className="section">
+            <button
+              type="submit"
+              disabled={isSubmitting}
+              className="btn-primary btn-full"
+            >
+              {isSubmitting ? 'Guardando...' : 'Registrar venta'}
+            </button>
+          </section>
+        </form>
+
+        <style>{`
+          .summary-block {
+            background: var(--surface-elevated);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 4px 14px;
+          }
+          .summary-row {
+            display: flex;
+            justify-content: space-between;
+            font-size: 14px;
+            color: var(--text-secondary);
+            padding: 10px 0;
+            border-bottom: 1px solid var(--border);
+          }
+          .summary-row:last-of-type { border-bottom: none; }
+          .summary-total-row {
+            display: flex;
+            justify-content: space-between;
+            font-size: 15px;
+            font-weight: 700;
+            color: var(--text-primary);
+            padding: 12px 0;
+            font-variant-numeric: tabular-nums;
+          }
+          .optional-mark {
+            font-size: 11px;
+            font-weight: 400;
+            color: var(--text-muted);
+            text-transform: none;
+            letter-spacing: 0;
+          }
+        `}</style>
+      </div>
+    );
+  }
+
+  // ── Details step (gasto / apertura / cierre) ──────────────────────────────
   return (
     <div className="page">
       <header className="page-header flex-header">
@@ -481,143 +738,7 @@ export function MovementForm({ initialType, showToast }: MovementFormProps) {
       </header>
 
       <form onSubmit={handleSubmit}>
-        {/* SERVICIO */}
-        {type === 'servicio' && (
-          <>
-            <section className="section">
-              <h2 className="section-title">Cliente <span className="required-mark">*</span></h2>
-              {attempted && !selectedContact && (
-                <p className="field-error">Seleccioná un cliente</p>
-              )}
-              {selectedContact ? (
-                <div className="selected-contact">
-                  <span className="contact-name">{selectedContact.full_name}</span>
-                  <button
-                    type="button"
-                    className="clear-btn"
-                    onClick={() => {
-                      setSelectedContact(null);
-                      setContactSearch('');
-                    }}
-                  >
-                    ✕
-                  </button>
-                </div>
-              ) : (
-                <>
-                  <input
-                    type="text"
-                    placeholder="Buscar cliente..."
-                    value={contactSearch}
-                    onChange={(e) => setContactSearch(e.target.value)}
-                    className="input"
-                  />
-                  {contactsLoading ? (
-                    <p className="search-status">Buscando...</p>
-                  ) : contacts.length > 0 ? (
-                    <ul className="dropdown">
-                      {contacts.map((c) => (
-                        <li key={c.id}>
-                          <button
-                            type="button"
-                            className="dropdown-item"
-                            onClick={() => {
-                              setSelectedContact(c);
-                              setContactSearch(c.full_name);
-                              setContacts([]);
-                            }}
-                          >
-                            {c.full_name}
-                          </button>
-                        </li>
-                      ))}
-                    </ul>
-                  ) : contactSearch.length >= 2 ? (
-                    <p className="search-status">Sin resultados</p>
-                  ) : null}
-                  <button
-                    type="button"
-                    className="link-btn"
-                    onClick={() => setShowNewContact(true)}
-                  >
-                    + Crear nuevo cliente
-                  </button>
-                </>
-              )}
-            </section>
-
-            <section className="section">
-              <h2 className="section-title">Servicio</h2>
-              {attempted && !serviceId && (
-                <p className="field-error">Seleccioná un servicio</p>
-              )}
-              <div className="service-grid">
-                {services.map((s) => (
-                  <button
-                    key={s.id}
-                    type="button"
-                    onClick={() => {
-                      setServiceId(s.id);
-                      handleServiceSelect(s.price);
-                    }}
-                    className={`service-btn ${serviceId === s.id ? 'selected' : ''}`}
-                  >
-                    <span className="service-name">{s.name}</span>
-                    <span className="service-price">{formatGuaranies(s.price)}</span>
-                  </button>
-                ))}
-              </div>
-            </section>
-
-            <section className="section">
-              <h2 className="section-title">Método de pago</h2>
-              {attempted && !paymentMethod && (
-                <p className="field-error">Seleccioná un método de pago</p>
-              )}
-              <div className="method-grid">
-                {paymentMethods.map((m) => (
-                  <button
-                    key={m.value}
-                    type="button"
-                    onClick={() => handlePaymentMethodSelect(m.value)}
-                    className={`method-btn ${paymentMethod === m.value ? 'selected' : ''}`}
-                  >
-                    <m.icon size={16} className="method-icon" aria-hidden="true" />
-                    {m.label}
-                  </button>
-                ))}
-              </div>
-            </section>
-
-            {paymentMethod === 'efectivo' && (
-              <>
-                <section className="section">
-                  <h2 className="section-title">Dinero recibido</h2>
-                  {attempted && parseGuaranies(income) <= 0 && (
-                    <p className="field-error">Ingresá el monto recibido</p>
-                  )}
-                  <input
-                    type="text"
-                    inputMode="numeric"
-                    placeholder="0"
-                    value={income}
-                    onChange={(e) => setIncome(e.target.value)}
-                    className="input input-lg"
-                  />
-                </section>
-
-                {change > 0 && (
-                  <section className="section">
-                    <div className="change-box">
-                      <span className="change-label">Vuelto</span>
-                      <span className="change-value">{formatGuaranies(change)}</span>
-                    </div>
-                  </section>
-                )}
-              </>
-            )}
-          </>
-        )}
+        {/* SERVICIO — ya no llega aquí, se maneja en 'catalog'+'payment' */}
 
         {/* GASTO */}
         {type === 'gasto' && (
