@@ -8,6 +8,7 @@ const TABS = [
   { label: 'Caja', href: '/', exact: true },
   { label: 'Pedidos', href: '/orders', exact: false },
   { label: 'Movimientos', href: '/movements', exact: false },
+  { label: 'Contactos', href: '/contacts', exact: false },
   { label: 'Catálogo', href: '/services', exact: false },
 ] as const;
 
