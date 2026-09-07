@@ -2,17 +2,17 @@
 
 import { useEffect, useState, useRef, useCallback } from 'react';
 import Link from 'next/link';
-import { MessageCircle, ChevronDown } from 'lucide-react';
-import { formatGuaranies, formatRelativeTime, isOlderThan } from '@/lib/utils';
+import { formatGuaranies } from '@/lib/utils';
 import { createClient } from '@/lib/supabase/client';
 import { useBranch } from '@/contexts/BranchContext';
 import { useSettings } from '@/contexts/SettingsContext';
 import { ErrorState } from '@/components/ErrorState';
 import { EmptyState } from '@/components/EmptyState';
 import { buildStatusNotificationMessage, buildWhatsAppLink } from '@/lib/storefront';
-import { ORDER_STATUS_LABELS, type Order, type OrderStatus } from '@/types';
+import { type OrderStatus, type OrderWithItems } from '@/types';
 import { AppSheet } from '@/components/AppSheet';
 import { OrderDetailSheet } from '@/components/OrderDetailSheet';
+import { OrderCard } from '@/components/OrderCard';
 
 const STATUS_TABS: Array<{ value: OrderStatus | 'all'; label: string }> = [
   { value: 'all', label: 'Todos' },
@@ -22,14 +22,12 @@ const STATUS_TABS: Array<{ value: OrderStatus | 'all'; label: string }> = [
   { value: 'cancelled', label: 'Cancelados' },
 ];
 
-const STATUS_OPTIONS: OrderStatus[] = ['pending', 'confirmed', 'completed', 'cancelled'];
-
 const POLL_INTERVAL_MS = 30_000;
 
 export default function OrdersPage() {
   const { currentBranch, initialized } = useBranch();
   const { settings } = useSettings();
-  const [orders, setOrders] = useState<Order[]>([]);
+  const [orders, setOrders] = useState<OrderWithItems[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   const [statusFilter, setStatusFilter] = useState<OrderStatus | 'all'>('all');
@@ -47,12 +45,12 @@ export default function OrdersPage() {
     const supabase = createClient();
     const { data, error: fetchError } = await supabase
       .from('orders')
-      .select('*')
+      .select('*, order_items(id,qty,name_snapshot)')
       .eq('branch_id', branch.id)
       .order('created_at', { ascending: false });
 
     if (fetchError) { setError(true); }
-    else if (data) { setOrders(data as Order[]); }
+    else if (data) { setOrders(data as OrderWithItems[]); }
     if (!silent) setLoading(false);
   }, []);
 
@@ -75,7 +73,7 @@ export default function OrdersPage() {
 
   const visibleOrders = orders.filter((o) => statusFilter === 'all' || o.status === statusFilter);
 
-  const handleNotify = (order: Order) => {
+  const handleNotify = (order: OrderWithItems) => {
     const message = buildStatusNotificationMessage(order, settings.business_name);
     const link = buildWhatsAppLink(order.customer_phone, message);
     window.open(link, '_blank');
@@ -111,47 +109,13 @@ export default function OrdersPage() {
         ) : (
           <ul className="order-list">
             {visibleOrders.map((order) => (
-              <li
+              <OrderCard
                 key={order.id}
-                className="order-item"
-                data-testid={`order-card-${order.id}`}
-                data-urgent={isOlderThan(order.created_at, 10) && order.status === 'pending' ? 'true' : undefined}
-              >
-                <Link href={`/orders/${order.id}`} className="order-info">
-                  <div className="order-row-top">
-                    <span className="order-code">{order.order_code}</span>
-                    <span className="order-amount">{formatGuaranies(order.total)}</span>
-                  </div>
-                  <span className="order-customer">{order.customer_name}</span>
-                  <span data-testid={`order-timestamp-${order.id}`} className="order-timestamp">
-                    {formatRelativeTime(order.created_at)}
-                  </span>
-                </Link>
-                <div className="order-actions" onClick={(e) => e.stopPropagation()}>
-                  <div className="status-pill-wrap">
-                    <select
-                      className={`status-pill status-${order.status}`}
-                      value={order.status}
-                      onChange={(e) => handleStatusChange(order.id, e.target.value as OrderStatus)}
-                      aria-label="Estado del pedido"
-                    >
-                      {STATUS_OPTIONS.map((s) => (
-                        <option key={s} value={s}>{ORDER_STATUS_LABELS[s]}</option>
-                      ))}
-                    </select>
-                    <ChevronDown size={10} className="status-chevron" aria-hidden="true" />
-                  </div>
-                  <button
-                    type="button"
-                    className="notify-btn"
-                    aria-label="Notificar cliente"
-                    title="Notificar cliente"
-                    onClick={() => handleNotify(order)}
-                  >
-                    <MessageCircle size={15} />
-                  </button>
-                </div>
-              </li>
+                order={order}
+                onStatusChange={handleStatusChange}
+                onNotify={handleNotify}
+                onClick={setSelectedOrderId}
+              />
             ))}
           </ul>
         )}
@@ -184,66 +148,8 @@ export default function OrdersPage() {
         }
 
         .order-list {
-          list-style: none; display: flex; flex-direction: column;
-          gap: 1px; background: var(--border); border-radius: 12px; overflow: hidden;
+          list-style: none; display: flex; flex-direction: column; gap: 8px; padding: 0;
         }
-        .order-item {
-          display: flex; align-items: center; gap: 12px;
-          padding: 14px 16px; background: var(--surface);
-        }
-        .order-info {
-          flex: 1; min-width: 0; text-decoration: none; color: inherit;
-          display: flex; flex-direction: column; gap: 3px;
-        }
-        .order-row-top {
-          display: flex; justify-content: space-between; align-items: baseline; gap: 8px;
-        }
-        .order-code { font-size: 14px; font-weight: 700; color: var(--text-primary); }
-        .order-amount {
-          font-size: 14px; font-weight: 600; color: var(--text-primary);
-          font-variant-numeric: tabular-nums; white-space: nowrap;
-        }
-        .order-customer { font-size: 12px; color: var(--text-secondary); }
-
-        .order-actions {
-          flex-shrink: 0; display: flex; flex-direction: column; align-items: flex-end; gap: 6px;
-        }
-
-        /* Status pill — styled select */
-        .status-pill-wrap { position: relative; display: flex; align-items: center; }
-        .status-pill {
-          appearance: none; -webkit-appearance: none;
-          min-height: unset; min-width: unset;
-          padding: 4px 22px 4px 9px;
-          border-radius: 20px; font-size: 11px; font-weight: 600;
-          cursor: pointer; border: 1px solid transparent; width: auto;
-        }
-        .status-chevron {
-          position: absolute; right: 7px; pointer-events: none; opacity: 0.6;
-        }
-
-        .status-pill.status-pending  { background: rgba(217,119,6,.14); color: #92400e; border-color: rgba(217,119,6,.28); }
-        .status-pill.status-confirmed { background: rgba(37,99,235,.12); color: #1e40af; border-color: rgba(37,99,235,.24); }
-        .status-pill.status-completed { background: rgba(22,163,74,.12); color: #166534; border-color: rgba(22,163,74,.24); }
-        .status-pill.status-cancelled { background: rgba(107,114,128,.1); color: #6b7280; border-color: rgba(107,114,128,.2); }
-
-        [data-theme='dark'] .status-pill.status-pending  { background: rgba(251,191,36,.15); color: #fbbf24; border-color: rgba(251,191,36,.3); }
-        [data-theme='dark'] .status-pill.status-confirmed { background: rgba(96,165,250,.12); color: #60a5fa; border-color: rgba(96,165,250,.25); }
-        [data-theme='dark'] .status-pill.status-completed { background: rgba(74,222,128,.12); color: #4ade80; border-color: rgba(74,222,128,.25); }
-        [data-theme='dark'] .status-pill.status-cancelled { background: rgba(156,163,175,.1); color: #9ca3af; border-color: rgba(156,163,175,.2); }
-
-        .notify-btn {
-          display: flex; align-items: center; justify-content: center;
-          width: 28px; height: 28px; min-height: unset; min-width: unset;
-          padding: 0; border: none; border-radius: 7px;
-          background: var(--surface-elevated); color: var(--text-secondary); cursor: pointer;
-          transition: color 0.15s;
-        }
-        .notify-btn:hover { color: var(--text-primary); }
-
-        .order-timestamp { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
-
-        [data-urgent="true"] { border-left: 3px solid #ef4444; }
       `}</style>
 
       <AppSheet

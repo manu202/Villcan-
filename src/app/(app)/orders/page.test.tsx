@@ -36,6 +36,18 @@ vi.mock('@/lib/supabase/client', () => ({
   }),
 }));
 
+const ORDER_BASE = {
+  id: 'o1',
+  order_code: 'A1B2C3',
+  customer_name: 'Juan',
+  customer_phone: '0981123456',
+  status: 'pending',
+  total: 40000,
+  created_at: '2026-08-31T10:00:00Z',
+  branch_id: 'branch-1',
+  order_items: [],
+};
+
 describe('OrdersPage (REQ: incoming orders panel)', () => {
   beforeEach(() => {
     eqCalls.length = 0;
@@ -46,47 +58,18 @@ describe('OrdersPage (REQ: incoming orders panel)', () => {
   });
 
   it('scopes the orders query to the current branch (branch-scoped visibility)', async () => {
-    queryResult = Promise.resolve({
-      data: [
-        {
-          id: 'o1',
-          order_code: 'A1B2C3',
-          customer_name: 'Juan',
-          status: 'pending',
-          total: 40000,
-          created_at: '2026-08-31T10:00:00Z',
-          branch_id: 'branch-1',
-        },
-      ],
-      error: null,
-    });
-
+    queryResult = Promise.resolve({ data: [ORDER_BASE], error: null });
     render(<OrdersPage />);
-
-    await waitFor(() => expect(screen.getByText('A1B2C3')).toBeTruthy());
+    await waitFor(() => expect(screen.getByText('#A1B2C3')).toBeTruthy());
     expect(eqCalls).toContainEqual(['branch_id', 'branch-1']);
   });
 
-  it('enables the status select for any authenticated staff (no read-only role exists anymore)', async () => {
-    queryResult = Promise.resolve({
-      data: [
-        {
-          id: 'o1',
-          order_code: 'X9Y8Z7',
-          customer_name: 'Ana',
-          status: 'pending',
-          total: 25000,
-          created_at: '2026-08-31T10:00:00Z',
-          branch_id: 'branch-1',
-        },
-      ],
-      error: null,
-    });
-
+  it('pending order shows "Aceptar pedido" button instead of select', async () => {
+    queryResult = Promise.resolve({ data: [ORDER_BASE], error: null });
     render(<OrdersPage />);
-
-    await waitFor(() => expect(screen.getByRole('combobox')).toBeTruthy());
-    expect((screen.getByRole('combobox') as HTMLSelectElement).disabled).toBe(false);
+    await waitFor(() => expect(screen.getByText('#A1B2C3')).toBeTruthy());
+    expect(screen.getByRole('button', { name: /aceptar pedido/i })).toBeTruthy();
+    expect(screen.queryByRole('combobox')).toBeNull();
   });
 
   it('shows a "Nuevo pedido" link', async () => {
@@ -97,29 +80,16 @@ describe('OrdersPage (REQ: incoming orders panel)', () => {
     });
   });
 
-  it('"Notificar cliente" opens a wa.me link built from the customer phone and current status (REQ: order-notify-customer)', async () => {
+  it('"Notificar cliente" opens a wa.me link built from the customer phone and current status', async () => {
     queryResult = Promise.resolve({
-      data: [
-        {
-          id: 'order-1',
-          order_code: 'A1B2C3',
-          customer_name: 'Juan',
-          customer_phone: '0981123456',
-          status: 'confirmed',
-          delivery_type: 'pickup',
-          total: 40000,
-          created_at: '2026-08-31T10:00:00Z',
-          branch_id: 'branch-1',
-        },
-      ],
+      data: [{ ...ORDER_BASE, status: 'confirmed' }],
       error: null,
     });
 
     const openSpy = vi.spyOn(window, 'open').mockImplementation(() => null);
-
     render(<OrdersPage />);
 
-    await waitFor(() => expect(screen.getByText('A1B2C3')).toBeTruthy());
+    await waitFor(() => expect(screen.getByText('#A1B2C3')).toBeTruthy());
     fireEvent.click(screen.getByRole('button', { name: /notificar cliente/i }));
 
     expect(openSpy).toHaveBeenCalledWith(
@@ -132,68 +102,29 @@ describe('OrdersPage (REQ: incoming orders panel)', () => {
   });
 
   it('shows a relative timestamp on each order card', async () => {
-    queryResult = Promise.resolve({
-      data: [
-        {
-          id: 'o1',
-          order_code: 'A1B2C3',
-          customer_name: 'Juan',
-          status: 'pending',
-          total: 40000,
-          created_at: '2026-01-01T10:00:00Z',
-          branch_id: 'branch-1',
-        },
-      ],
-      error: null,
-    });
-
+    queryResult = Promise.resolve({ data: [ORDER_BASE], error: null });
     render(<OrdersPage />);
-
-    await waitFor(() => expect(screen.getByText('A1B2C3')).toBeTruthy());
+    await waitFor(() => expect(screen.getByText('#A1B2C3')).toBeTruthy());
     expect(screen.getByTestId('order-timestamp-o1')).toBeTruthy();
   });
 
   it('marks urgent cards when a pending order is older than 10 minutes', async () => {
     queryResult = Promise.resolve({
-      data: [
-        {
-          id: 'o1',
-          order_code: 'A1B2C3',
-          customer_name: 'Juan',
-          status: 'pending',
-          total: 40000,
-          created_at: '2026-01-01T10:00:00Z',
-          branch_id: 'branch-1',
-        },
-      ],
+      data: [{ ...ORDER_BASE, created_at: '2026-01-01T10:00:00Z' }],
       error: null,
     });
-
     render(<OrdersPage />);
-
-    await waitFor(() => expect(screen.getByText('A1B2C3')).toBeTruthy());
+    await waitFor(() => expect(screen.getByText('#A1B2C3')).toBeTruthy());
     expect(screen.getByTestId('order-card-o1').getAttribute('data-urgent')).toBe('true');
   });
 
   it('does not mark recent pending orders as urgent', async () => {
     queryResult = Promise.resolve({
-      data: [
-        {
-          id: 'o1',
-          order_code: 'A1B2C3',
-          customer_name: 'Juan',
-          status: 'pending',
-          total: 40000,
-          created_at: new Date().toISOString(),
-          branch_id: 'branch-1',
-        },
-      ],
+      data: [{ ...ORDER_BASE, created_at: new Date().toISOString() }],
       error: null,
     });
-
     render(<OrdersPage />);
-
-    await waitFor(() => expect(screen.getByText('A1B2C3')).toBeTruthy());
+    await waitFor(() => expect(screen.getByText('#A1B2C3')).toBeTruthy());
     expect(screen.getByTestId('order-card-o1').getAttribute('data-urgent')).toBeNull();
   });
 });
