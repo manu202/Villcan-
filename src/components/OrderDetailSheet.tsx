@@ -61,7 +61,7 @@ export function OrderDetailSheet({ orderId, onClose }: OrderDetailSheetProps) {
   if (loading) {
     return (
       <div style={{ display: 'flex', justifyContent: 'center', padding: '32px' }}>
-        <Spinner size={28} color="black" />
+        <Spinner size={36} color="black" />
       </div>
     );
   }
