@@ -37,7 +37,7 @@ export function StorefrontClient({ branch, services }: StorefrontClientProps) {
     return <OrderSuccess orderCode={result.order_code} whatsappHref={whatsappHref} />;
   }
 
-  if (step === 'checkout') {
+  if (step === 'cart') {
     return (
       <CheckoutForm
         submitting={submitting}

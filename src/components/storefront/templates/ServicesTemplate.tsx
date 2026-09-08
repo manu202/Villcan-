@@ -2,8 +2,9 @@
 
 import { useState } from 'react';
 import { X, Plus, Minus } from 'lucide-react';
-import { CheckoutForm } from '../CheckoutForm';
 import { OrderSuccess } from '../OrderSuccess';
+import { CheckoutDeliveryStep } from '../CheckoutDeliveryStep';
+import { CheckoutPaymentStep } from '../CheckoutPaymentStep';
 import { useStorefrontCart } from '../useStorefrontCart';
 import { formatGuaranies } from '@/lib/utils';
 import type { Branch, Service } from '@/types';
@@ -31,15 +32,18 @@ export function ServicesTemplate({ branch, services }: ServicesTemplateProps) {
     errorMessage,
     result,
     whatsappHref,
+    deliveryLocation,
+    setDeliveryLocation,
     addToCart,
     increment,
     decrement,
-    goToCheckout,
+    goToPayment,
     backToCatalog,
     handleSubmit,
   } = useStorefrontCart(branch, services);
 
   const [cartOpen, setCartOpen] = useState(false);
+  const [deliveryAddress, setDeliveryAddress] = useState('');
 
   if (step === 'success' && result && whatsappHref) {
     return (
@@ -55,16 +59,38 @@ export function ServicesTemplate({ branch, services }: ServicesTemplateProps) {
     );
   }
 
-  if (step === 'checkout') {
+  if (step === 'delivery-data') {
     return (
       <div className="svc-shell">
         <nav className="svc-nav">
           <span className="svc-nav-brand">{branch.name}</span>
-          <button type="button" className="svc-nav-back" onClick={backToCatalog}>← Volver</button>
+        </nav>
+        <div className="svc-checkout-page">
+          <CheckoutDeliveryStep
+            deliveryAddress={deliveryAddress}
+            onAddressChange={setDeliveryAddress}
+            deliveryLocation={deliveryLocation}
+            onLocationCapture={setDeliveryLocation}
+            onNext={goToPayment}
+            onBack={backToCatalog}
+          />
+        </div>
+        <ServicesStyles />
+      </div>
+    );
+  }
+
+  if (step === 'payment') {
+    return (
+      <div className="svc-shell">
+        <nav className="svc-nav">
+          <span className="svc-nav-brand">{branch.name}</span>
         </nav>
         <div className="svc-checkout-page">
           <div className="svc-checkout-eyebrow">Confirmá tu turno</div>
-          <CheckoutForm
+          <CheckoutPaymentStep
+            deliveryType="pickup"
+            deliveryAddress=""
             submitting={submitting}
             errorMessage={errorMessage}
             onSubmit={handleSubmit}
@@ -177,7 +203,7 @@ export function ServicesTemplate({ branch, services }: ServicesTemplateProps) {
             disabled={lines.length === 0}
             onClick={() => {
               setCartOpen(false);
-              goToCheckout();
+              goToPayment();
             }}
           >
             Confirmar selección

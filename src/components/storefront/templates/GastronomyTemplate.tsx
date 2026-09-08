@@ -322,7 +322,7 @@ export function GastronomyTemplate({ branch, services }: GastronomyTemplateProps
     );
   }
 
-  if (step === 'checkout') {
+  if (step === 'cart') {
     return (
       <div className="gt">
         <link rel="stylesheet" href={FONTS} />

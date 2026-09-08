@@ -89,12 +89,12 @@ describe('useStorefrontCart (REQ: shared cart/checkout logic across templates)',
     expect(result.current.lines).toHaveLength(0);
   });
 
-  it('moves between catalog/checkout steps', () => {
+  it('moves between catalog/cart steps via goToCheckout / backToCatalog', () => {
     const { result } = renderHook(() => useStorefrontCart(branch, services));
 
     expect(result.current.step).toBe('catalog');
     act(() => result.current.goToCheckout());
-    expect(result.current.step).toBe('checkout');
+    expect(result.current.step).toBe('cart');
     act(() => result.current.backToCatalog());
     expect(result.current.step).toBe('catalog');
   });
@@ -210,6 +210,24 @@ describe('useStorefrontCart (REQ: shared cart/checkout logic across templates)',
     expect(result.current.whatsappHref).toBeNull();
   });
 
+  it('calls create_storefront_order WITHOUT lat/lng when no deliveryLocation is set', async () => {
+    mockRpc.mockResolvedValue({
+      data: { order_id: 'o1', order_code: 'A1B2C3', total: 40000, delivery_fee: null, whatsapp_number: '595981123456', whatsapp_message: 'x', items: [] },
+      error: null,
+    });
+
+    const { result } = renderHook(() => useStorefrontCart(branch, services));
+    act(() => result.current.addToCart(services[0]));
+
+    await act(async () => {
+      await result.current.handleSubmit(checkoutValues);
+    });
+
+    const rpcArgs = mockRpc.mock.calls[0][1] as Record<string, unknown>;
+    expect(rpcArgs.p_customer_lat).toBeUndefined();
+    expect(rpcArgs.p_customer_lng).toBeUndefined();
+  });
+
   it('falls back to a generic error message for unknown error codes', async () => {
     mockRpc.mockResolvedValue({ data: null, error: { code: 'WEIRD', message: 'boom' } });
 
@@ -257,5 +275,86 @@ describe('useStorefrontCart (REQ: shared cart/checkout logic across templates)',
     });
 
     expect(result.current.submitting).toBe(false);
+  });
+});
+
+// ─── Phase C: delivery extensions (REQ-CART-NAV, REQ-CART-GPS) ───────────────
+
+describe('useStorefrontCart — delivery extensions (Phase C)', () => {
+  beforeEach(() => {
+    mockRpc.mockReset();
+  });
+
+  // REQ-CART-NAV-1: extended step machine
+  it('goToCart transitions to cart step', () => {
+    const { result } = renderHook(() => useStorefrontCart(branch, services));
+    act(() => result.current.goToCart());
+    expect(result.current.step).toBe('cart');
+  });
+
+  it('goToDelivery transitions to delivery-data step', () => {
+    const { result } = renderHook(() => useStorefrontCart(branch, services));
+    act(() => result.current.goToDelivery());
+    expect(result.current.step).toBe('delivery-data');
+  });
+
+  it('goToPayment transitions to payment step', () => {
+    const { result } = renderHook(() => useStorefrontCart(branch, services));
+    act(() => result.current.goToPayment());
+    expect(result.current.step).toBe('payment');
+  });
+
+  it('backToCart from payment returns to cart', () => {
+    const { result } = renderHook(() => useStorefrontCart(branch, services));
+    act(() => result.current.goToPayment());
+    act(() => result.current.backToCart());
+    expect(result.current.step).toBe('cart');
+  });
+
+  it('backToDelivery from payment returns to delivery-data', () => {
+    const { result } = renderHook(() => useStorefrontCart(branch, services));
+    act(() => result.current.goToDelivery());
+    act(() => result.current.goToPayment());
+    act(() => result.current.backToDelivery());
+    expect(result.current.step).toBe('delivery-data');
+  });
+
+  // REQ-CART-GPS-1: delivery location state
+  it('deliveryLocation starts as null', () => {
+    const { result } = renderHook(() => useStorefrontCart(branch, services));
+    expect(result.current.deliveryLocation).toBeNull();
+  });
+
+  it('setDeliveryLocation updates the GPS coordinates', () => {
+    const { result } = renderHook(() => useStorefrontCart(branch, services));
+    act(() => result.current.setDeliveryLocation({ lat: -25.2867, lng: -57.6470 }));
+    expect(result.current.deliveryLocation).toEqual({ lat: -25.2867, lng: -57.6470 });
+  });
+
+  it('setDeliveryLocation can clear location back to null', () => {
+    const { result } = renderHook(() => useStorefrontCart(branch, services));
+    act(() => result.current.setDeliveryLocation({ lat: -25.2867, lng: -57.6470 }));
+    act(() => result.current.setDeliveryLocation(null));
+    expect(result.current.deliveryLocation).toBeNull();
+  });
+
+  // REQ-CART-GPS-2: handleSubmit passes coordinates to RPC
+  it('handleSubmit includes p_customer_lat/lng when deliveryLocation is set', async () => {
+    mockRpc.mockResolvedValue({
+      data: { order_id: 'o1', order_code: 'A1B2C3', total: 40000, delivery_fee: null, whatsapp_number: '595981123456', whatsapp_message: 'x', items: [] },
+      error: null,
+    });
+
+    const { result } = renderHook(() => useStorefrontCart(branch, services));
+    act(() => result.current.addToCart(services[0]));
+    act(() => result.current.setDeliveryLocation({ lat: -25.2867, lng: -57.6470 }));
+
+    await act(async () => {
+      await result.current.handleSubmit({ ...checkoutValues, deliveryType: 'delivery', deliveryAddress: 'Calle 123' });
+    });
+
+    const rpcArgs = mockRpc.mock.calls[0][1] as Record<string, unknown>;
+    expect(rpcArgs.p_customer_lat).toBe(-25.2867);
+    expect(rpcArgs.p_customer_lng).toBe(-57.6470);
   });
 });

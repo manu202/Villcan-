@@ -73,7 +73,7 @@ export function RetailTemplate({ branch, services }: RetailTemplateProps) {
     );
   }
 
-  if (step === 'checkout') {
+  if (step === 'cart') {
     return (
       <div className="retail-shell">
         <header className="retail-header">

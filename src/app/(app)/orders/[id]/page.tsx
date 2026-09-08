@@ -21,6 +21,7 @@ import { ServiceCard } from '@/components/storefront/ServiceCard';
 import { CartSheet, type CartLine } from '@/components/storefront/CartSheet';
 import { buildStatusNotificationMessage, buildWhatsAppLink } from '@/lib/storefront';
 import { ContactDetailSheet } from '@/components/ContactDetailSheet';
+import { OrderPaymentSheet } from '@/components/OrderPaymentSheet';
 import {
   ORDER_STATUS_LABELS,
   type Contact,
@@ -72,6 +73,7 @@ export default function OrderDetailPage() {
   const [isEditing, setIsEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [contactSheetOpen, setContactSheetOpen] = useState(false);
+  const [paymentSheetOpen, setPaymentSheetOpen] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [edit, setEdit] = useState<EditState | null>(null);
 
@@ -222,9 +224,25 @@ export default function OrderDetailPage() {
 
   const handleStatusChange = async (status: OrderStatus) => {
     if (!order) return;
+    if (status === 'completed') {
+      setPaymentSheetOpen(true);
+      return;
+    }
     const supabase = createClient();
     setOrder({ ...order, status });
     await supabase.from('orders').update({ status }).eq('id', order.id);
+  };
+
+  const handlePaymentCompleted = async () => {
+    setPaymentSheetOpen(false);
+    if (!order) return;
+    const supabase = createClient();
+    const [orderResult, itemsResult] = await Promise.all([
+      supabase.from('orders').select('*').eq('id', order.id).single(),
+      supabase.from('order_items').select('*').eq('order_id', order.id),
+    ]);
+    if (orderResult.data) setOrder(orderResult.data as Order);
+    setItems((itemsResult.data as OrderItem[]) || []);
   };
 
   const handleNotify = () => {
@@ -477,6 +495,14 @@ export default function OrderDetailPage() {
           )}
         </>
       )}
+
+      <OrderPaymentSheet
+        order={order}
+        items={items}
+        open={paymentSheetOpen}
+        onOpenChange={setPaymentSheetOpen}
+        onCompleted={handlePaymentCompleted}
+      />
 
       <style>{`
         .page { max-width: 480px; margin: 0 auto; }

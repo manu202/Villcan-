@@ -11,7 +11,7 @@ export interface CartLine {
   qty: number;
 }
 
-export type StorefrontStep = 'catalog' | 'checkout' | 'success';
+export type StorefrontStep = 'catalog' | 'cart' | 'delivery-data' | 'payment' | 'success';
 
 // PostgREST surfaces the RPC's `raise exception ... using errcode` as
 // error.code — mapped here to user-facing Spanish copy (spec "Server-validated
@@ -42,6 +42,7 @@ export function useStorefrontCart(branch: Branch, services: Service[]) {
   const [submitting, setSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [result, setResult] = useState<CreateStorefrontOrderResult | null>(null);
+  const [deliveryLocation, setDeliveryLocation] = useState<{ lat: number; lng: number } | null>(null);
 
   const lines: CartLine[] = useMemo(
     () =>
@@ -79,15 +80,22 @@ export function useStorefrontCart(branch: Branch, services: Service[]) {
     });
   };
 
-  const goToCheckout = () => setStep('checkout');
+  // Legacy alias — templates use this; maps to 'cart' in the new step machine.
+  const goToCheckout = () => setStep('cart');
   const backToCatalog = () => setStep('catalog');
+
+  const goToCart = () => setStep('cart');
+  const goToDelivery = () => setStep('delivery-data');
+  const goToPayment = () => setStep('payment');
+  const backToCart = () => setStep('cart');
+  const backToDelivery = () => setStep('delivery-data');
 
   const handleSubmit = async (values: CheckoutFormValues) => {
     setSubmitting(true);
     setErrorMessage(null);
 
     const supabase = createClient();
-    const { data, error } = await supabase.rpc('create_storefront_order', {
+    const rpcArgs: Record<string, unknown> = {
       p_slug: branch.slug,
       p_customer_name: values.name,
       p_customer_phone: values.phone,
@@ -97,7 +105,12 @@ export function useStorefrontCart(branch: Branch, services: Service[]) {
       p_payment_method: values.paymentMethod,
       p_delivery_type: values.deliveryType,
       p_delivery_address: values.deliveryType === 'delivery' ? values.deliveryAddress : null,
-    });
+    };
+    if (deliveryLocation) {
+      rpcArgs.p_customer_lat = deliveryLocation.lat;
+      rpcArgs.p_customer_lng = deliveryLocation.lng;
+    }
+    const { data, error } = await supabase.rpc('create_storefront_order', rpcArgs);
 
     setSubmitting(false);
 
@@ -127,11 +140,18 @@ export function useStorefrontCart(branch: Branch, services: Service[]) {
     errorMessage,
     result,
     whatsappHref,
+    deliveryLocation,
+    setDeliveryLocation,
     addToCart,
     increment,
     decrement,
     goToCheckout,
     backToCatalog,
+    goToCart,
+    goToDelivery,
+    goToPayment,
+    backToCart,
+    backToDelivery,
     handleSubmit,
   };
 }

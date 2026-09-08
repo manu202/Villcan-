@@ -31,6 +31,9 @@ export interface Branch {
   slug?: string | null;
   whatsapp_number?: string | null;
   storefront_enabled?: boolean;
+  default_delivery_fee?: number;
+  latitude?: number | null;
+  longitude?: number | null;
 }
 
 export interface UserBranchAccess {
@@ -89,6 +92,8 @@ export interface Order {
   payment_method: OrderPaymentMethod;
   delivery_type: OrderDeliveryType;
   delivery_address: string | null;
+  delivery_fee: number | null;
+  delivery_location: { lat: number; lng: number } | null;
   created_at: string;
 }
 
@@ -124,6 +129,8 @@ export interface CreateStorefrontOrderInput {
   p_payment_method: OrderPaymentMethod;
   p_delivery_type: OrderDeliveryType;
   p_delivery_address?: string | null;
+  p_customer_lat?: number | null;
+  p_customer_lng?: number | null;
 }
 
 export interface CreateManualOrderInput {
@@ -149,15 +156,26 @@ export interface UpdateOrderInput {
   p_delivery_address: string | null;
   p_status: OrderStatus;
   p_items: StorefrontOrderItemInput[];
+  p_delivery_fee?: number | null;
 }
 
 export interface CreateStorefrontOrderResult {
   order_id: string;
   order_code: string;
   total: number;
+  delivery_fee: number | null;
   whatsapp_number: string | null;
   whatsapp_message: string;
   items: Array<{ name: string; qty: number; unit_price: number; line_total: number }>;
+}
+
+export interface DeliveryTier {
+  id: string;
+  branch_id: string;
+  max_km: number;
+  fee: number;
+  sort_order: number;
+  created_at: string;
 }
 
 // A short region-only country list for the checkout phone selector — no
