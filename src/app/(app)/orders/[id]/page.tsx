@@ -20,6 +20,7 @@ import { useSettings } from '@/contexts/SettingsContext';
 import { ServiceCard } from '@/components/storefront/ServiceCard';
 import { CartSheet, type CartLine } from '@/components/storefront/CartSheet';
 import { buildStatusNotificationMessage, buildWhatsAppLink } from '@/lib/storefront';
+import { ContactDetailSheet } from '@/components/ContactDetailSheet';
 import {
   ORDER_STATUS_LABELS,
   type Contact,
@@ -70,6 +71,7 @@ export default function OrderDetailPage() {
   const [error, setError] = useState<string | null>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [contactSheetOpen, setContactSheetOpen] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [edit, setEdit] = useState<EditState | null>(null);
 
@@ -401,14 +403,23 @@ export default function OrderDetailPage() {
                 </div>
               )}
               {order.contact_id && (
-                <Link
-                  href={`/contacts/${order.contact_id}`}
-                  className="contact-pill"
-                >
-                  <User size={13} />
-                  <span>Ver contacto vinculado</span>
-                  <ChevronRight size={13} />
-                </Link>
+                <>
+                  <button
+                    type="button"
+                    className="contact-pill"
+                    onClick={() => setContactSheetOpen(true)}
+                  >
+                    <User size={13} />
+                    <span>Ver contacto vinculado</span>
+                    <ChevronRight size={13} />
+                  </button>
+                  <ContactDetailSheet
+                    contactId={order.contact_id}
+                    open={contactSheetOpen}
+                    onOpenChange={setContactSheetOpen}
+                    onEdit={() => setContactSheetOpen(false)}
+                  />
+                </>
               )}
             </div>
           </div>
@@ -542,8 +553,10 @@ export default function OrderDetailPage() {
           background: var(--surface-elevated); border: 1px solid var(--border);
           border-radius: 8px; text-decoration: none;
           color: var(--text-primary); font-size: 13px; font-weight: 600;
+          cursor: pointer;
         }
         .contact-pill:hover { border-color: var(--accent); color: var(--accent); }
+        .contact-pill:active { background: var(--accent-subtle); }
 
         /* Items section */
         .items-list { list-style: none; border-top: 1px solid var(--border); }

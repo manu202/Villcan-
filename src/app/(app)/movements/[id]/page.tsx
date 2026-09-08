@@ -4,6 +4,7 @@ import { useParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
+import { ContactDetailSheet } from '@/components/ContactDetailSheet';
 import { formatGuaranies, formatDate, formatTime, getMovementTypeLabel, getPaymentMethodLabel } from '@/lib/utils';
 import type { MovementWithDetails } from '@/types';
 
@@ -12,6 +13,7 @@ export default function MovementDetailPage() {
   const movementId = params.id as string;
   const [movement, setMovement] = useState<MovementWithDetails | null>(null);
   const [loading, setLoading] = useState(true);
+  const [contactSheetOpen, setContactSheetOpen] = useState(false);
 
   useEffect(() => {
     async function fetchMovement() {
@@ -79,10 +81,23 @@ export default function MovementDetailPage() {
         <>
           <section className="section">
             <h2 className="section-title">Cliente</h2>
-            <Link href={`/contacts/${movement.contact?.id}`} className="info-card">
+            <button
+              type="button"
+              className="info-card info-card--btn"
+              onClick={() => setContactSheetOpen(true)}
+            >
               <span className="info-name">{movement.contact?.full_name}</span>
               <span className="info-action">›</span>
-            </Link>
+            </button>
+
+            {movement.contact?.id && (
+              <ContactDetailSheet
+                contactId={movement.contact.id}
+                open={contactSheetOpen}
+                onOpenChange={setContactSheetOpen}
+                onEdit={() => setContactSheetOpen(false)}
+              />
+            )}
           </section>
 
           <section className="section">
@@ -241,6 +256,13 @@ export default function MovementDetailPage() {
           border-radius: 12px;
           text-decoration: none;
           color: inherit;
+        }
+
+        .info-card--btn {
+          width: 100%;
+          border: none;
+          cursor: pointer;
+          text-align: left;
         }
 
         .info-card:active {
