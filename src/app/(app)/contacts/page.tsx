@@ -1,21 +1,25 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
-import { escapeSearchQuery, formatDate } from '@/lib/utils';
+import { escapeSearchQuery } from '@/lib/utils';
 import type { Contact } from '@/types';
 import { Spinner } from '@/components/Spinner';
 import { Users } from 'lucide-react';
 import { EmptyState } from '@/components/EmptyState';
 import { ErrorState } from '@/components/ErrorState';
+import { ContactCard } from '@/components/ContactCard';
+import { ContactDetailSheet } from '@/components/ContactDetailSheet';
+import { ContactFormSheet } from '@/components/ContactFormSheet';
 
 type SortBy = 'name' | 'date';
 
 const PAGE_SIZE = 30;
 
+type ContactWithVisit = Contact & { lastVisit?: string | null };
+
 export default function ContactsPage() {
-  const [contacts, setContacts] = useState<Contact[]>([]);
+  const [contacts, setContacts] = useState<ContactWithVisit[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState(false);
@@ -23,7 +27,12 @@ export default function ContactsPage() {
   const [sortBy, setSortBy] = useState<SortBy>('name');
   const [page, setPage] = useState(0);
   const [hasMore, setHasMore] = useState(true);
-  const [lastVisitByContact, setLastVisitByContact] = useState<Map<string, string>>(new Map());
+
+  // Sheet state
+  const [selectedContactId, setSelectedContactId] = useState<string | null>(null);
+  const [detailOpen, setDetailOpen] = useState(false);
+  const [formOpen, setFormOpen] = useState(false);
+  const [editContactId, setEditContactId] = useState<string | undefined>(undefined);
 
   useEffect(() => {
     const loadContacts = async (reset = false) => {
@@ -34,7 +43,7 @@ export default function ContactsPage() {
 
       let query = supabase
         .from('contacts')
-        .select('id, full_name, ci, phone, comment', { count: 'exact' });
+        .select('id, full_name, ci, phone, comment');
 
       if (search.length >= 2) {
         const escaped = escapeSearchQuery(search);
@@ -51,40 +60,43 @@ export default function ContactsPage() {
 
       if (fetchError) {
         setError(true);
-      } else if (data) {
-        const newContacts = data as Contact[];
-        if (reset || currentPage === 0) {
-          setContacts(newContacts);
-        } else {
-          setContacts((prev) => [...prev, ...newContacts]);
-        }
-        setHasMore(newContacts.length === PAGE_SIZE);
+        setLoading(false);
+        setLoadingMore(false);
+        return;
+      }
 
-        // Batched last-visit lookup: ONE query for all visible contacts, not one per row.
-        const ids = newContacts.map((c) => c.id);
-        if (ids.length > 0) {
-          const { data: visitRows } = await supabase
-            .from('movements')
-            .select('contact_id, created_at')
-            .eq('type', 'servicio')
-            .in('contact_id', ids);
+      const newContacts = (data ?? []) as Contact[];
+      setHasMore(newContacts.length === PAGE_SIZE);
 
-          const grouped = new Map<string, string>();
-          for (const row of (visitRows || []) as { contact_id: string; created_at: string }[]) {
-            const existing = grouped.get(row.contact_id);
-            if (!existing || row.created_at > existing) {
-              grouped.set(row.contact_id, row.created_at);
-            }
+      // Batched last-visit lookup — ONE query, not N+1
+      const ids = newContacts.map((c) => c.id);
+      let lastVisitMap = new Map<string, string>();
+
+      if (ids.length > 0) {
+        const { data: visitRows } = await supabase
+          .from('movements')
+          .select('contact_id, created_at')
+          .in('contact_id', ids);
+
+        for (const row of (visitRows ?? []) as { contact_id: string; created_at: string }[]) {
+          const existing = lastVisitMap.get(row.contact_id);
+          if (!existing || row.created_at > existing) {
+            lastVisitMap.set(row.contact_id, row.created_at);
           }
-
-          setLastVisitByContact((prev) => {
-            if (reset || currentPage === 0) return grouped;
-            const merged = new Map(prev);
-            grouped.forEach((value, key) => merged.set(key, value));
-            return merged;
-          });
         }
       }
+
+      const enriched: ContactWithVisit[] = newContacts.map((c) => ({
+        ...c,
+        lastVisit: lastVisitMap.get(c.id) ?? null,
+      }));
+
+      if (reset || currentPage === 0) {
+        setContacts(enriched);
+      } else {
+        setContacts((prev) => [...prev, ...enriched]);
+      }
+
       setLoading(false);
       setLoadingMore(false);
     };
@@ -92,44 +104,53 @@ export default function ContactsPage() {
     loadContacts(page === 0);
   }, [search, sortBy, page]);
 
-  const handleLoadMore = () => {
-    if (!loadingMore && hasMore) {
-      setLoadingMore(true);
-      setPage((prev) => prev + 1);
-    }
+  const handleCardClick = (id: string) => {
+    setSelectedContactId(id);
+    setDetailOpen(true);
+  };
+
+  const handleNewContact = () => {
+    setEditContactId(undefined);
+    setFormOpen(true);
+  };
+
+  const handleEdit = (id: string) => {
+    setDetailOpen(false);
+    setEditContactId(id);
+    setFormOpen(true);
+  };
+
+  const handleFormSuccess = () => {
+    setPage(0);
+    setSearch('');
   };
 
   const handleSortChange = (newSort: SortBy) => {
     if (newSort !== sortBy) {
       setSortBy(newSort);
       setPage(0);
-      setLoading(true);
     }
   };
 
-  const toggleSort = () => {
-    handleSortChange(sortBy === 'name' ? 'date' : 'name');
-  };
+  const toggleSort = () => handleSortChange(sortBy === 'name' ? 'date' : 'name');
 
   return (
     <div className="page">
-      <header className="page-header flex-header">
+      <header className="cp-header">
         <div>
           <h1 className="page-title">Contactos</h1>
-          <div className="page-subtitle-row">
-            {loading ? (
-              <p className="page-subtitle">...</p>
-            ) : (
+          <div className="cp-subtitle-row">
+            {!loading && (
               <>
                 <p className="page-subtitle">{contacts.length} clientes</p>
-                <button onClick={toggleSort} className="sort-btn">
+                <button onClick={toggleSort} className="cp-sort-btn">
                   {sortBy === 'name' ? 'A-Z' : 'Recientes'}
                 </button>
               </>
             )}
           </div>
         </div>
-        <Link href="/contacts/new" className="btn-add">+Nuevo</Link>
+        <button onClick={handleNewContact} className="cp-btn-new">+ Nuevo</button>
       </header>
 
       <section className="section">
@@ -138,57 +159,37 @@ export default function ContactsPage() {
           placeholder="Buscar contacto..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="search-input"
+          className="cp-search"
         />
       </section>
 
       <section className="section">
         {loading ? (
-          <div style={{ display: 'flex', justifyContent: 'center', padding: '48px' }}>
+          <div className="cp-spinner-wrap">
             <Spinner size={36} color="black" />
           </div>
         ) : error ? (
-          <ErrorState onRetry={() => { setPage(0); setSearch(search); }} />
+          <ErrorState onRetry={() => setPage(0)} />
         ) : contacts.length === 0 ? (
           <EmptyState
             icon={Users}
             title="Sin contactos"
             message="No hay contactos registrados"
             actionLabel="Agregar contacto"
-            onAction={() => window.location.href = '/contacts/new'}
+            onAction={handleNewContact}
           />
         ) : (
           <>
-            <ul className="contact-list">
+            <ul className="cp-list">
               {contacts.map((c) => (
-                <li key={c.id}>
-                  <Link href={`/contacts/${c.id}`} className="contact-item">
-                    <div className="contact-avatar">
-                      {c.full_name.charAt(0).toUpperCase()}
-                    </div>
-                    <div className="contact-info">
-                      <span className="contact-name">{c.full_name}</span>
-                      <span className="contact-details">
-                        {c.ci && `CI ${c.ci}`}
-                        {c.ci && c.phone && ' • '}
-                        {c.phone && c.phone}
-                      </span>
-                      <span className="contact-last-visit">
-                        {lastVisitByContact.has(c.id)
-                          ? `Última visita: ${formatDate(lastVisitByContact.get(c.id)!)}`
-                          : 'Sin visitas'}
-                      </span>
-                    </div>
-                    <span className="contact-action">›</span>
-                  </Link>
-                </li>
+                <ContactCard key={c.id} contact={c} onClick={handleCardClick} />
               ))}
             </ul>
             {hasMore && (
               <button
-                onClick={handleLoadMore}
+                onClick={() => { if (!loadingMore && hasMore) { setLoadingMore(true); setPage((p) => p + 1); } }}
                 disabled={loadingMore}
-                className="btn-load-more"
+                className="cp-btn-more"
               >
                 {loadingMore ? 'Cargando...' : 'Ver más'}
               </button>
@@ -197,31 +198,56 @@ export default function ContactsPage() {
         )}
       </section>
 
+      {selectedContactId && (
+        <ContactDetailSheet
+          contactId={selectedContactId}
+          open={detailOpen}
+          onOpenChange={setDetailOpen}
+          onEdit={handleEdit}
+        />
+      )}
+
+      <ContactFormSheet
+        open={formOpen}
+        onOpenChange={setFormOpen}
+        contactId={editContactId}
+        onSuccess={handleFormSuccess}
+      />
+
       <style>{`
         .page {
           max-width: 480px;
           margin: 0 auto;
         }
 
-        .flex-header {
+        .cp-header {
           display: flex;
           justify-content: space-between;
           align-items: flex-start;
+          padding: 16px 16px 8px;
+          position: sticky;
+          top: 0;
+          background: var(--surface);
+          backdrop-filter: blur(12px);
+          z-index: 10;
+          border-bottom: 1px solid var(--border);
         }
 
-        .page-subtitle-row {
+        .cp-subtitle-row {
           display: flex;
           align-items: center;
           gap: 12px;
           margin-top: 4px;
+          min-height: 24px;
         }
 
         .page-subtitle {
           font-size: 14px;
           color: var(--text-secondary);
+          margin: 0;
         }
 
-        .sort-btn {
+        .cp-sort-btn {
           font-size: 12px;
           font-weight: 600;
           padding: 4px 10px;
@@ -232,44 +258,40 @@ export default function ContactsPage() {
           cursor: pointer;
         }
 
-        .sort-btn:active {
-          background: var(--accent-subtle);
-        }
-
-        .btn-add {
+        .cp-btn-new {
           display: inline-flex;
           align-items: center;
           justify-content: center;
           padding: 10px 16px;
           background: var(--accent);
           color: var(--accent-foreground);
+          border: none;
           border-radius: 8px;
           font-size: 14px;
           font-weight: 600;
-          text-decoration: none;
+          cursor: pointer;
           min-height: 44px;
           min-width: 44px;
         }
 
-        .search-input {
+        .cp-search {
           width: 100%;
           padding: 12px 16px;
           border: 1px solid var(--border);
           border-radius: 8px;
           font-size: 16px;
+          background: var(--surface);
+          color: var(--text-primary);
+          box-sizing: border-box;
         }
 
-        .empty-state {
-          text-align: center;
-          padding: 48px 24px;
-          color: var(--text-secondary);
+        .cp-spinner-wrap {
+          display: flex;
+          justify-content: center;
+          padding: 48px;
         }
 
-        .empty-state p {
-          margin-bottom: 16px;
-        }
-
-        .contact-list {
+        .cp-list {
           list-style: none;
           display: flex;
           flex-direction: column;
@@ -279,65 +301,7 @@ export default function ContactsPage() {
           overflow: hidden;
         }
 
-        .contact-item {
-          display: flex;
-          align-items: center;
-          gap: 12px;
-          padding: 16px;
-          background: var(--surface);
-          text-decoration: none;
-          color: inherit;
-        }
-
-        .contact-item:active {
-          background: var(--accent-subtle);
-        }
-
-        .contact-avatar {
-          width: 40px;
-          height: 40px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          background: var(--accent);
-          color: var(--accent-foreground);
-          border-radius: 50%;
-          font-size: 16px;
-          font-weight: 600;
-          flex-shrink: 0;
-        }
-
-        .contact-info {
-          display: flex;
-          flex-direction: column;
-          gap: 2px;
-          flex: 1;
-          min-width: 0;
-        }
-
-        .contact-name {
-          font-size: 15px;
-          font-weight: 500;
-          color: var(--text-primary);
-        }
-
-        .contact-details {
-          font-size: 12px;
-          color: var(--text-secondary);
-        }
-
-        .contact-last-visit {
-          font-size: 11px;
-          color: var(--text-muted);
-        }
-
-        .contact-action {
-          font-size: 24px;
-          color: var(--text-muted);
-          flex-shrink: 0;
-        }
-
-        .btn-load-more {
+        .cp-btn-more {
           display: block;
           width: 100%;
           margin-top: 16px;
@@ -351,11 +315,7 @@ export default function ContactsPage() {
           cursor: pointer;
         }
 
-        .btn-load-more:active {
-          background: var(--accent-subtle);
-        }
-
-        .btn-load-more:disabled {
+        .cp-btn-more:disabled {
           opacity: 0.6;
           cursor: not-allowed;
         }

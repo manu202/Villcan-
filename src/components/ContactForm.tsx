@@ -13,20 +13,23 @@ interface ContactFormData {
 }
 
 interface ContactFormProps {
+  initialData?: Partial<ContactFormData>;
+  contactId?: string;
+  hideHeader?: boolean;
   onCancel?: () => void;
   onSuccess?: (contact: { id: string; full_name: string }) => void;
 }
 
-export function ContactForm({ onCancel, onSuccess }: ContactFormProps) {
+export function ContactForm({ initialData, contactId, hideHeader, onCancel, onSuccess }: ContactFormProps) {
   const router = useRouter();
   const { showToast } = useToast();
   const handleBack = onCancel ?? (() => router.back());
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [form, setForm] = useState<ContactFormData>({
-    full_name: '',
-    ci: '',
-    phone: '',
-    comment: '',
+    full_name: initialData?.full_name ?? '',
+    ci: initialData?.ci ?? '',
+    phone: initialData?.phone ?? '',
+    comment: initialData?.comment ?? '',
   });
   const [error, setError] = useState('');
 
@@ -48,26 +51,37 @@ export function ContactForm({ onCancel, onSuccess }: ContactFormProps) {
 
     try {
       const supabase = createClient();
-      const { data, error } = await supabase
-        .from('contacts')
-        .insert({
-          full_name: form.full_name.trim(),
-          ci: form.ci.trim() || null,
-          phone: form.phone.trim() || null,
-          comment: form.comment.trim() || null,
-        })
-        .select()
-        .single();
+      const payload = {
+        full_name: form.full_name.trim(),
+        ci: form.ci.trim() || null,
+        phone: form.phone.trim() || null,
+        comment: form.comment.trim() || null,
+      };
 
-      if (error) throw error;
-
-      setIsSubmitting(false);
-
-      if (onSuccess && data) {
-        onSuccess({ id: data.id, full_name: data.full_name });
+      if (contactId) {
+        const { error } = await supabase.from('contacts').update(payload).eq('id', contactId);
+        if (error) throw error;
+        setIsSubmitting(false);
+        if (onSuccess) {
+          onSuccess({ id: contactId, full_name: payload.full_name });
+        } else {
+          showToast('Contacto actualizado', 'success');
+          router.push('/contacts');
+        }
       } else {
-        showToast('Contacto creado', 'success');
-        router.push('/contacts');
+        const { data, error } = await supabase
+          .from('contacts')
+          .insert(payload)
+          .select()
+          .single();
+        if (error) throw error;
+        setIsSubmitting(false);
+        if (onSuccess && data) {
+          onSuccess({ id: data.id, full_name: data.full_name });
+        } else {
+          showToast('Contacto creado', 'success');
+          router.push('/contacts');
+        }
       }
     } catch (err) {
       setIsSubmitting(false);
@@ -78,10 +92,12 @@ export function ContactForm({ onCancel, onSuccess }: ContactFormProps) {
 
   return (
     <div className="page">
-      <header className="page-header flex-header">
-        <button onClick={handleBack} className="back-btn">←</button>
-        <h1 className="page-title">Nuevo Contacto</h1>
-      </header>
+      {!hideHeader && (
+        <header className="page-header flex-header">
+          <button onClick={handleBack} className="back-btn">←</button>
+          <h1 className="page-title">{contactId ? 'Editar Contacto' : 'Nuevo Contacto'}</h1>
+        </header>
+      )}
 
       <form onSubmit={handleSubmit}>
         <section className="section">

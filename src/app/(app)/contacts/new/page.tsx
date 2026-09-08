@@ -1,7 +1,5 @@
-'use client';
+import { redirect } from 'next/navigation';
 
-import { ContactForm } from '@/components/ContactForm';
-
-export default function NewContactPage() {
-  return <ContactForm />;
+export default function ContactsNewPage() {
+  redirect('/contacts');
 }

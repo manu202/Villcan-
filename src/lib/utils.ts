@@ -116,3 +116,20 @@ export function formatRelativeTime(date: string | Date, now = Date.now()): strin
 export function isOlderThan(date: string | Date, minutes: number, now = Date.now()): boolean {
   return (now - new Date(date).getTime()) > minutes * 60 * 1000;
 }
+
+export function formatRelativeDate(date: string | Date, now = Date.now()): string {
+  const diff = Math.floor((now - new Date(date).getTime()) / 1000);
+  if (diff < 60) return 'Ahora mismo';
+  if (diff < 3600) return `Hace ${Math.floor(diff / 60)} min`;
+  const hours = Math.floor(diff / 3600);
+  if (hours < 24) return `Hace ${hours} h`;
+  const days = Math.floor(diff / 86400);
+  if (days === 1) return 'Ayer';
+  if (days < 7) return `Hace ${days} días`;
+  const weeks = Math.floor(days / 7);
+  if (weeks === 1) return 'Hace 1 semana';
+  if (weeks < 5) return `Hace ${weeks} semanas`;
+  const months = Math.floor(days / 30);
+  if (months === 1) return 'Hace 1 mes';
+  return `Hace ${months} meses`;
+}
