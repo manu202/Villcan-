@@ -201,6 +201,16 @@ export interface Movement {
   branch_id: string; // ADDED - REQUIRED
   comment: string | null;
   created_at: string;
+  order_id?: string | null; // FK to orders — set when movement was created by order completion trigger
+}
+
+export interface MovementItem {
+  id: string;
+  movement_id: string;
+  name_snapshot: string;
+  qty: number;
+  unit_price: number;
+  line_total: number;
 }
 
 // Extended types for UI (joined data)
@@ -208,6 +218,12 @@ export interface MovementWithDetails extends Movement {
   contact?: Contact;
   service?: Service;
   user?: Profile;
+  order?: {
+    id: string;
+    order_code: string;
+    order_items: OrderItem[];
+  } | null;
+  movement_items?: MovementItem[];
 }
 
 // Form data for creating movements

@@ -278,8 +278,11 @@ export function MovementForm({ initialType, showToast }: MovementFormProps) {
       created_at: new Date().toISOString(),
     };
 
+    let isMultiService = false;
+
     if (type === 'servicio') {
       const serviceIds = Object.keys(cart);
+      isMultiService = serviceIds.length > 1;
       const cartComment = cartLines
         .map((l) => `${l.service.name}${l.qty > 1 ? ` ×${l.qty}` : ''}`)
         .join(', ');
@@ -288,20 +291,34 @@ export function MovementForm({ initialType, showToast }: MovementFormProps) {
       movementData.payment_method = paymentMethod || null;
       movementData.amount_charged = cartTotal;
       movementData.commission_pct = computeCommissionPct(settings);
-      if (serviceIds.length > 1) {
+      if (isMultiService) {
         movementData.comment = cartComment;
       }
     }
 
-    const { error } = await supabase
+    const { data: mvtRow, error } = await supabase
       .from('movements')
-      .insert(movementData);
+      .insert(movementData)
+      .select('id')
+      .single();
 
     if (error) {
       console.error('Error inserting movement:', error);
       alert('Error al registrar movimiento');
       setIsSubmitting(false);
       return;
+    }
+
+    if (isMultiService && mvtRow?.id) {
+      await supabase.from('movement_items').insert(
+        cartLines.map((l) => ({
+          movement_id: mvtRow.id,
+          name_snapshot: l.service.name,
+          qty: l.qty,
+          unit_price: l.service.price,
+          line_total: l.service.price * l.qty,
+        }))
+      );
     }
 
     setIsSubmitting(false);

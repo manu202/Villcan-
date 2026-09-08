@@ -27,9 +27,11 @@ export function MovementDetailSheet({ movementId, onClose }: MovementDetailSheet
         .from('movements')
         .select(`
           id, type, amount_charged, commission_pct, income, expense,
-          payment_method, comment, created_at,
+          payment_method, comment, created_at, order_id,
           contact:contacts(id, full_name),
-          service:services(id, name)
+          service:services(id, name),
+          order:orders(id, order_code, order_items(id, name_snapshot, qty, unit_price, line_total)),
+          movement_items(id, name_snapshot, qty, unit_price, line_total)
         `)
         .eq('id', movementId)
         .single();
@@ -82,11 +84,35 @@ export function MovementDetailSheet({ movementId, onClose }: MovementDetailSheet
           </div>
 
           <div className="mds-section">
-            <p className="mds-section-label">Servicio</p>
-            <div className="mds-info-row">
-              <span className="mds-info-value">{movement.service?.name ?? '—'}</span>
-              <span className="mds-info-right">{formatGuaranies(movement.amount_charged ?? 0)}</span>
-            </div>
+            <p className="mds-section-label">
+              {movement.order ? `Pedido #${movement.order.order_code}` : 'Servicio'}
+            </p>
+            {movement.order?.order_items?.length ? (
+              <div className="mds-items-block">
+                {movement.order.order_items.map((item) => (
+                  <div key={item.id} className="mds-item-row">
+                    <span className="mds-item-name">{item.name_snapshot}</span>
+                    <span className="mds-item-qty">×{item.qty}</span>
+                    <span className="mds-item-price">{formatGuaranies(item.line_total)}</span>
+                  </div>
+                ))}
+              </div>
+            ) : movement.movement_items?.length ? (
+              <div className="mds-items-block">
+                {movement.movement_items.map((item) => (
+                  <div key={item.id} className="mds-item-row">
+                    <span className="mds-item-name">{item.name_snapshot}</span>
+                    <span className="mds-item-qty">×{item.qty}</span>
+                    <span className="mds-item-price">{formatGuaranies(item.line_total)}</span>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="mds-info-row">
+                <span className="mds-info-value">{movement.service?.name ?? '—'}</span>
+                <span className="mds-info-right">{formatGuaranies(movement.amount_charged ?? 0)}</span>
+              </div>
+            )}
           </div>
 
           <div className="mds-section">
@@ -226,6 +252,35 @@ export function MovementDetailSheet({ movementId, onClose }: MovementDetailSheet
         }
         .mds-detail-highlight span:last-child {
           font-variant-numeric: tabular-nums;
+        }
+
+        .mds-items-block {
+          background: var(--surface-elevated);
+          border-radius: 10px;
+          overflow: hidden;
+        }
+
+        .mds-item-row {
+          display: flex; align-items: center; gap: 8px;
+          padding: 11px 14px;
+          border-bottom: 1px solid var(--border);
+          font-size: 14px;
+        }
+        .mds-item-row:last-child { border-bottom: none; }
+
+        .mds-item-name {
+          flex: 1; font-weight: 500; color: var(--text-primary);
+        }
+
+        .mds-item-qty {
+          font-size: 12px; color: var(--text-secondary);
+          white-space: nowrap;
+        }
+
+        .mds-item-price {
+          font-weight: 600; color: var(--text-primary);
+          font-variant-numeric: tabular-nums;
+          white-space: nowrap;
         }
       `}</style>
     </div>

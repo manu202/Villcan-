@@ -45,6 +45,7 @@ let contactFromCalls = 0;
 let contactDeferreds: ReturnType<typeof createDeferred>[] = [];
 let servicesData: unknown[] = [];
 let lastMovementInsert: Record<string, unknown> | null = null;
+let lastMovementItemsInsert: unknown = null;
 
 vi.mock('@/lib/supabase/client', () => ({
   createClient: () => ({
@@ -64,6 +65,24 @@ vi.mock('@/lib/supabase/client', () => ({
         return {
           insert: (payload: Record<string, unknown>) => {
             lastMovementInsert = payload;
+            // Support both:
+            //   await insert()              → { error: null }
+            //   await insert().select('id').single() → { data: { id: 'mvt-1' }, error: null }
+            const resolved = { data: { id: 'mvt-1' }, error: null };
+            return {
+              select: (_cols: string) => ({
+                single: () => Promise.resolve(resolved),
+              }),
+              then: (fn: (v: unknown) => unknown) =>
+                Promise.resolve({ error: null }).then(fn),
+            };
+          },
+        };
+      }
+      if (table === 'movement_items') {
+        return {
+          insert: (payload: unknown) => {
+            lastMovementItemsInsert = payload;
             return Promise.resolve({ error: null });
           },
         };
@@ -272,6 +291,7 @@ describe('commission_pct frozen at insert, servicio branch only (REQ-PROFIT-1/2)
     contactDeferreds = [createDeferred(), createDeferred()];
     servicesData = [{ id: 'svc-1', name: 'Corte', price: 100000 }];
     lastMovementInsert = null;
+    lastMovementItemsInsert = null;
     mockUseBranch.mockReturnValue({
       currentBranch: { id: 'branch-1', name: 'Centro' },
       isLoading: false,
@@ -320,5 +340,53 @@ describe('commission_pct frozen at insert, servicio branch only (REQ-PROFIT-1/2)
     await fillAndSubmitServicio();
 
     expect(lastMovementInsert?.commission_pct).toBe(12.5);
+  });
+});
+
+// ─── movement_items para ventas multi-servicio (REQ-FIN-3) ────────────────────
+
+describe('MovementForm — multi-servicio inserta movement_items (REQ-FIN-3)', () => {
+  beforeEach(() => {
+    contactFromCalls = 0;
+    contactDeferreds = [createDeferred(), createDeferred()];
+    lastMovementInsert = null;
+    lastMovementItemsInsert = null;
+    mockUseBranch.mockReturnValue({
+      currentBranch: { id: 'branch-1', name: 'Centro' },
+      isLoading: false,
+    });
+    mockUseSettings.mockReturnValue({
+      settings: { commissions_enabled: false, default_commission_pct: 0 },
+    });
+  });
+
+  async function submitServicioWith(serviceList: unknown[]) {
+    servicesData = serviceList;
+    render(<MovementForm initialType="servicio" />);
+    await waitFor(() => expect(screen.getAllByText('Agregar').length).toBeGreaterThan(0));
+    screen.getAllByText('Agregar').forEach((btn) => fireEvent.click(btn));
+    await waitFor(() => screen.getByText('Continuar con el pago →'));
+    fireEvent.click(screen.getByText('Continuar con el pago →'));
+    await waitFor(() => screen.getByText('Transferencia'));
+    fireEvent.click(screen.getByText('Transferencia'));
+    fireEvent.click(screen.getByText('Registrar venta'));
+    await waitFor(() => expect(lastMovementInsert).not.toBeNull());
+  }
+
+  it('single-service: NO inserta en movement_items', async () => {
+    await submitServicioWith([{ id: 'svc-1', name: 'Corte', price: 30000 }]);
+    expect(lastMovementItemsInsert).toBeNull();
+  });
+
+  it('multi-service: inserta movement_items con name_snapshot, qty, unit_price, line_total', async () => {
+    await submitServicioWith([
+      { id: 'svc-1', name: 'Corte', price: 30000 },
+      { id: 'svc-2', name: 'Barba', price: 15000 },
+    ]);
+    expect(lastMovementItemsInsert).not.toBeNull();
+    const items = lastMovementItemsInsert as Array<Record<string, unknown>>;
+    expect(items).toHaveLength(2);
+    expect(items[0]).toMatchObject({ name_snapshot: 'Corte', qty: 1, unit_price: 30000, line_total: 30000 });
+    expect(items[1]).toMatchObject({ name_snapshot: 'Barba', qty: 1, unit_price: 15000, line_total: 15000 });
   });
 });

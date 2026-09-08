@@ -159,3 +159,83 @@ describe('MovementDetailSheet — tipo apertura', () => {
     await waitFor(() => expect(screen.getByText('₲ 50000')).toBeTruthy());
   });
 });
+
+// ─── Pedido vinculado (order_items) ──────────────────────────────────────────
+
+describe('MovementDetailSheet — movimiento con order_items (REQ-FIN-1)', () => {
+  const WITH_ORDER = {
+    ...BASE_SERVICIO,
+    order_id: 'o1',
+    service_id: null,
+    service: null,
+    order: {
+      id: 'o1',
+      order_code: 'ABC123',
+      order_items: [
+        { id: 'oi1', order_id: 'o1', service_id: 's1', name_snapshot: 'Lomo Completo', qty: 1, unit_price: 15000, line_total: 15000 },
+        { id: 'oi2', order_id: 'o1', service_id: 's2', name_snapshot: 'Papas Fritas', qty: 2, unit_price: 5000, line_total: 10000 },
+      ],
+    },
+  };
+
+  beforeEach(() => {
+    mockSingle.mockResolvedValue({ data: WITH_ORDER, error: null });
+  });
+
+  it('muestra el código de pedido', async () => {
+    render(<MovementDetailSheet movementId="m1" onClose={vi.fn()} />);
+    await waitFor(() => expect(screen.getByText(/ABC123/)).toBeTruthy());
+  });
+
+  it('muestra cada ítem del pedido con su nombre', async () => {
+    render(<MovementDetailSheet movementId="m1" onClose={vi.fn()} />);
+    await waitFor(() => {
+      expect(screen.getByText('Lomo Completo')).toBeTruthy();
+      expect(screen.getByText('Papas Fritas')).toBeTruthy();
+    });
+  });
+
+  it('muestra qty × precio y total de cada ítem', async () => {
+    render(<MovementDetailSheet movementId="m1" onClose={vi.fn()} />);
+    await waitFor(() => {
+      expect(screen.getByText('₲ 15000')).toBeTruthy();
+      expect(screen.getByText('₲ 10000')).toBeTruthy();
+    });
+  });
+});
+
+// ─── Venta directa back-office (movement_items) ───────────────────────────────
+
+describe('MovementDetailSheet — movimiento con movement_items (REQ-FIN-2)', () => {
+  const WITH_ITEMS = {
+    ...BASE_SERVICIO,
+    order_id: null,
+    service_id: null,
+    service: null,
+    order: null,
+    movement_items: [
+      { id: 'mi1', movement_id: 'm1', name_snapshot: 'Corte de cabello', qty: 1, unit_price: 20000, line_total: 20000 },
+      { id: 'mi2', movement_id: 'm1', name_snapshot: 'Barba', qty: 1, unit_price: 5000, line_total: 5000 },
+    ],
+  };
+
+  beforeEach(() => {
+    mockSingle.mockResolvedValue({ data: WITH_ITEMS, error: null });
+  });
+
+  it('muestra cada ítem con su nombre', async () => {
+    render(<MovementDetailSheet movementId="m1" onClose={vi.fn()} />);
+    await waitFor(() => {
+      expect(screen.getByText('Corte de cabello')).toBeTruthy();
+      expect(screen.getByText('Barba')).toBeTruthy();
+    });
+  });
+
+  it('muestra el precio de cada ítem', async () => {
+    render(<MovementDetailSheet movementId="m1" onClose={vi.fn()} />);
+    await waitFor(() => {
+      expect(screen.getByText('₲ 20000')).toBeTruthy();
+      expect(screen.getByText('₲ 5000')).toBeTruthy();
+    });
+  });
+});
