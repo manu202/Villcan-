@@ -496,7 +496,7 @@ function RetailStyles() {
         cursor: pointer;
         color: var(--retail-text);
       }
-      .retail-drawer-body { flex: 1; overflow-y: auto; padding: 6px 20px; }
+      .retail-drawer-body { flex: 1; overflow-y: auto; min-height: 0; padding: 6px 20px; }
       .retail-cart-empty {
         color: var(--retail-text-secondary);
         font-size: 13px;

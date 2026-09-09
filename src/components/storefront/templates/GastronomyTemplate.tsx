@@ -471,49 +471,59 @@ export function GastronomyTemplate({ branch, services }: GastronomyTemplateProps
                 )}
                 <p className="gt-sheet-price">{formatGuaranies(selected.price)}</p>
               </div>
+            </div>
 
-              <div className="gt-sheet-foot">
-                {sheetQty > 0 && (
-                  <div className="gt-qty-row">
-                    <button
-                      type="button"
-                      className="gt-qty-btn"
-                      aria-label="Restar uno"
-                      onClick={(e) => { e.stopPropagation(); decrement(selected.id); }}
-                    >
-                      <Minus size={14} aria-hidden="true" />
-                    </button>
-                    <span className="gt-qty-n">{sheetQty}</span>
-                    <button
-                      type="button"
-                      className="gt-qty-btn"
-                      aria-label="Sumar uno"
-                      onClick={(e) => { e.stopPropagation(); handleSheetAdd(); }}
-                    >
-                      <Plus size={14} aria-hidden="true" />
-                    </button>
-                  </div>
-                )}
-                <button
-                  type="button"
-                  className="gt-sheet-cta"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    if (sheetQty === 0) {
-                      addToCart(selected);
-                      // sheet stays open — user can keep browsing
-                    } else {
-                      // "Ver pedido" → open cart drawer
-                      closeSheet();
-                      goToCart();
-                    }
-                  }}
-                >
-                  {sheetQty > 0
-                    ? `Ver pedido · ${formatGuaranies(total)}`
-                    : 'Agregar al pedido'}
-                </button>
-              </div>
+            {/* Sibling of .gt-sheet-content, NOT nested inside it — the CTA
+                must stay pinned at the bottom of the sheet regardless of how
+                much the scrollable content above it grows (a long
+                description, or the image), the same way .gt-drawer-foot is
+                already a sibling of .gt-drawer-body in the cart drawer. It
+                used to be nested inside the scrollable area, so it scrolled
+                away with the rest of the content instead of staying put —
+                on a short viewport the button was reachable only by
+                scrolling all the way down, and on some real devices not
+                reachable at all (reported: needed to zoom out to see it). */}
+            <div className="gt-sheet-foot">
+              {sheetQty > 0 && (
+                <div className="gt-qty-row">
+                  <button
+                    type="button"
+                    className="gt-qty-btn"
+                    aria-label="Restar uno"
+                    onClick={(e) => { e.stopPropagation(); decrement(selected.id); }}
+                  >
+                    <Minus size={14} aria-hidden="true" />
+                  </button>
+                  <span className="gt-qty-n">{sheetQty}</span>
+                  <button
+                    type="button"
+                    className="gt-qty-btn"
+                    aria-label="Sumar uno"
+                    onClick={(e) => { e.stopPropagation(); handleSheetAdd(); }}
+                  >
+                    <Plus size={14} aria-hidden="true" />
+                  </button>
+                </div>
+              )}
+              <button
+                type="button"
+                className="gt-sheet-cta"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (sheetQty === 0) {
+                    addToCart(selected);
+                    // sheet stays open — user can keep browsing
+                  } else {
+                    // "Ver pedido" → open cart drawer
+                    closeSheet();
+                    goToCart();
+                  }
+                }}
+              >
+                {sheetQty > 0
+                  ? `Ver pedido · ${formatGuaranies(total)}`
+                  : 'Agregar al pedido'}
+              </button>
             </div>
           </>
         )}

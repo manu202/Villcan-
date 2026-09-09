@@ -757,6 +757,13 @@ export function GtStyles() {
         flex-direction: column;
         overflow-y: auto;
         flex: 1;
+        /* Without this, a flex child with overflow-y:auto never actually
+           shrinks to the space flex:1 gives it — it sizes to its own
+           content instead, and the parent's overflow:hidden clips whatever
+           doesn't fit (the CTA button, here) instead of it scrolling into
+           view. Long descriptions or the combined checkout form are exactly
+           what pushes past the fold and exposes this. */
+        min-height: 0;
         animation: gt-sheet-open .22s ease both;
         touch-action: pan-y;
       }
@@ -822,7 +829,13 @@ export function GtStyles() {
       }
       .gt-sheet-body {
         padding: 22px 22px 14px;
-        overflow-y: auto;
+        /* No overflow-y here — .gt-sheet-content (the parent) is already
+           the one scrollable region. A nested scroll container here (this
+           element had its own overflow-y:auto too) is a real anti-pattern:
+           the two compete for space in ways that can hide content — e.g.
+           this one silently shrinking and clipping text — with no visible
+           affordance telling the user there's a second, inner scrollbar
+           to find. One scroll region, unambiguous. */
       }
       .gt-sheet-name {
         font-family: var(--fd);
@@ -978,6 +991,7 @@ export function GtStyles() {
       .gt-drawer-body {
         flex: 1;
         overflow-y: auto;
+        min-height: 0;
         padding: 6px 22px;
       }
       /* The one-screen CheckoutStep (name/phone/delivery/payment method) —

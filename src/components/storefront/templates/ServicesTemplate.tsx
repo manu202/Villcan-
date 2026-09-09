@@ -361,7 +361,7 @@ function ServicesStyles() {
         cursor: pointer;
         color: var(--svc-ink);
       }
-      .svc-panel-body { flex: 1; overflow-y: auto; padding: 6px 20px; }
+      .svc-panel-body { flex: 1; overflow-y: auto; min-height: 0; padding: 6px 20px; }
       .svc-empty {
         color: var(--svc-muted);
         font-size: 13px;
