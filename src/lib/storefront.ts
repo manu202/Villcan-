@@ -99,9 +99,14 @@ export function buildStatusNotificationMessage(order: Order, businessName: strin
     case 'confirmed':
       return `Hola ${name}! Tu pedido #${code} fue confirmado y ya lo estamos preparando.`;
     case 'completed':
-      return order.delivery_type === 'pickup'
-        ? `Hola ${name}! Tu pedido #${code} ya está listo. Podés pasar a retirarlo cuando quieras.`
-        : `Hola ${name}! Tu pedido #${code} salió en camino. En breve lo recibís.`;
+      if (order.delivery_type === 'pickup') {
+        return `Hola ${name}! Tu pedido #${code} ya está listo. Podés pasar a retirarlo cuando quieras.`;
+      } else {
+        const feeText = order.delivery_fee != null
+          ? ` El costo de delivery es Gs. ${formatGs(order.delivery_fee)}.`
+          : '';
+        return `Hola ${name}! Tu pedido #${code} salió en camino.${feeText} En breve lo recibís.`;
+      }
     case 'cancelled':
       return `Hola ${name}, tu pedido #${code} fue cancelado. Cualquier consulta, escribinos.`;
   }
