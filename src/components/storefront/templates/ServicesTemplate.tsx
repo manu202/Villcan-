@@ -1,7 +1,6 @@
 'use client';
 
-import { useState } from 'react';
-import { X, Plus, Minus } from 'lucide-react';
+import { X, ChevronLeft, Plus, Minus } from 'lucide-react';
 import { OrderSuccess } from '../OrderSuccess';
 import { CheckoutDeliveryStep } from '../CheckoutDeliveryStep';
 import { CheckoutPaymentStep } from '../CheckoutPaymentStep';
@@ -34,16 +33,24 @@ export function ServicesTemplate({ branch, services }: ServicesTemplateProps) {
     whatsappHref,
     deliveryLocation,
     setDeliveryLocation,
+    deliveryAddress,
+    setDeliveryAddress,
     addToCart,
     increment,
     decrement,
+    goToCart,
     goToPayment,
     backToCatalog,
+    backToCart,
     handleSubmit,
   } = useStorefrontCart(branch, services);
 
-  const [cartOpen, setCartOpen] = useState(false);
-  const [deliveryAddress, setDeliveryAddress] = useState('');
+  // Drawer visibility derived from `step` — same fix as Gastronomy/Retail
+  // (SDD "Storefront Mobile App-Like" Phase 3). This vertical never calls
+  // goToDelivery (a barbershop has no delivery concept — CheckoutPaymentStep
+  // below is always given deliveryType="pickup"), so 'delivery-data' is kept
+  // here only for defensive consistency with the shared step machine.
+  const cartOpen = step === 'cart' || step === 'delivery-data' || step === 'payment';
 
   if (step === 'success' && result && whatsappHref) {
     return (
@@ -59,48 +66,10 @@ export function ServicesTemplate({ branch, services }: ServicesTemplateProps) {
     );
   }
 
-  if (step === 'delivery-data') {
-    return (
-      <div className="svc-shell">
-        <nav className="svc-nav">
-          <span className="svc-nav-brand">{branch.name}</span>
-        </nav>
-        <div className="svc-checkout-page">
-          <CheckoutDeliveryStep
-            deliveryAddress={deliveryAddress}
-            onAddressChange={setDeliveryAddress}
-            deliveryLocation={deliveryLocation}
-            onLocationCapture={setDeliveryLocation}
-            onNext={goToPayment}
-            onBack={backToCatalog}
-          />
-        </div>
-        <ServicesStyles />
-      </div>
-    );
-  }
-
-  if (step === 'payment') {
-    return (
-      <div className="svc-shell">
-        <nav className="svc-nav">
-          <span className="svc-nav-brand">{branch.name}</span>
-        </nav>
-        <div className="svc-checkout-page">
-          <div className="svc-checkout-eyebrow">Confirmá tu turno</div>
-          <CheckoutPaymentStep
-            deliveryType="pickup"
-            deliveryAddress=""
-            submitting={submitting}
-            errorMessage={errorMessage}
-            onSubmit={handleSubmit}
-            onBack={backToCatalog}
-          />
-        </div>
-        <ServicesStyles />
-      </div>
-    );
-  }
+  // 'delivery-data' and 'payment' render inside the same slide-up panel
+  // below instead of early-`return`ing a full-screen takeover — the service
+  // list never unmounts (see the regression test "keeps the service list
+  // mounted underneath the payment step").
 
   return (
     <div className="svc-shell">
@@ -137,78 +106,111 @@ export function ServicesTemplate({ branch, services }: ServicesTemplateProps) {
       </ul>
 
       {itemCount > 0 && (
-        <button type="button" className="svc-fab" onClick={() => setCartOpen(true)}>
+        <button type="button" className="svc-fab" onClick={goToCart}>
           Ver selección ({itemCount}) — {formatGuaranies(total)}
         </button>
       )}
 
       <div
         className={`svc-overlay ${cartOpen ? 'open' : ''}`}
-        onClick={() => setCartOpen(false)}
+        onClick={backToCatalog}
         aria-hidden="true"
       />
       <div
         className={`svc-panel ${cartOpen ? 'open' : ''}`}
         role="dialog"
         aria-modal="true"
-        aria-label="Tu selección"
+        aria-label={step === 'payment' ? 'Confirmá tu turno' : 'Tu selección'}
       >
         <div className="svc-panel-head">
-          <h3>Tu selección</h3>
-          <button type="button" aria-label="Cerrar" onClick={() => setCartOpen(false)}>
+          {step !== 'cart' && (
+            <button type="button" aria-label="Volver" onClick={backToCart}>
+              <ChevronLeft size={20} />
+            </button>
+          )}
+          <h3>{step === 'payment' ? 'Confirmá tu turno' : 'Tu selección'}</h3>
+          <button type="button" aria-label="Cerrar" onClick={backToCatalog}>
             <X size={20} />
           </button>
         </div>
-        <div className="svc-panel-body">
-          {lines.length === 0 ? (
-            <div className="svc-empty">Todavía no elegiste servicios.</div>
-          ) : (
-            lines.map((line) => (
-              <div className="svc-panel-item" key={line.service.id}>
-                <div>
-                  <div className="svc-panel-item-name">{line.service.name}</div>
-                  <div className="svc-panel-item-price">
-                    {formatGuaranies(line.service.price)} c/u
+
+        {step === 'cart' && (
+          <>
+            <div className="svc-panel-body">
+              {lines.length === 0 ? (
+                <div className="svc-empty">Todavía no elegiste servicios.</div>
+              ) : (
+                lines.map((line) => (
+                  <div className="svc-panel-item" key={line.service.id}>
+                    <div>
+                      <div className="svc-panel-item-name">{line.service.name}</div>
+                      <div className="svc-panel-item-price">
+                        {formatGuaranies(line.service.price)} c/u
+                      </div>
+                    </div>
+                    <div className="svc-qty-ctrl">
+                      <button
+                        type="button"
+                        aria-label={`Restar ${line.service.name}`}
+                        onClick={() => decrement(line.service.id)}
+                      >
+                        <Minus size={14} />
+                      </button>
+                      <span>{line.qty}</span>
+                      <button
+                        type="button"
+                        aria-label={`Sumar ${line.service.name}`}
+                        onClick={() => increment(line.service.id)}
+                      >
+                        <Plus size={14} />
+                      </button>
+                    </div>
                   </div>
-                </div>
-                <div className="svc-qty-ctrl">
-                  <button
-                    type="button"
-                    aria-label={`Restar ${line.service.name}`}
-                    onClick={() => decrement(line.service.id)}
-                  >
-                    <Minus size={14} />
-                  </button>
-                  <span>{line.qty}</span>
-                  <button
-                    type="button"
-                    aria-label={`Sumar ${line.service.name}`}
-                    onClick={() => increment(line.service.id)}
-                  >
-                    <Plus size={14} />
-                  </button>
-                </div>
+                ))
+              )}
+            </div>
+            <div className="svc-panel-foot">
+              <div className="svc-total-row">
+                <span>Total</span>
+                <strong>{formatGuaranies(total)}</strong>
               </div>
-            ))
-          )}
-        </div>
-        <div className="svc-panel-foot">
-          <div className="svc-total-row">
-            <span>Total</span>
-            <strong>{formatGuaranies(total)}</strong>
+              <button
+                type="button"
+                className="svc-checkout-btn"
+                disabled={lines.length === 0}
+                onClick={goToPayment}
+              >
+                Confirmar selección
+              </button>
+            </div>
+          </>
+        )}
+
+        {step === 'delivery-data' && (
+          <div className="svc-panel-body svc-panel-step-body">
+            <CheckoutDeliveryStep
+              deliveryAddress={deliveryAddress}
+              onAddressChange={setDeliveryAddress}
+              deliveryLocation={deliveryLocation}
+              onLocationCapture={setDeliveryLocation}
+              onNext={goToPayment}
+              onBack={backToCart}
+            />
           </div>
-          <button
-            type="button"
-            className="svc-checkout-btn"
-            disabled={lines.length === 0}
-            onClick={() => {
-              setCartOpen(false);
-              goToPayment();
-            }}
-          >
-            Confirmar selección
-          </button>
-        </div>
+        )}
+
+        {step === 'payment' && (
+          <div className="svc-panel-body svc-panel-step-body">
+            <CheckoutPaymentStep
+              deliveryType="pickup"
+              deliveryAddress=""
+              submitting={submitting}
+              errorMessage={errorMessage}
+              onSubmit={handleSubmit}
+              onBack={backToCart}
+            />
+          </div>
+        )}
       </div>
 
       <ServicesStyles />
@@ -310,7 +312,7 @@ function ServicesStyles() {
         letter-spacing: 0.5px;
         cursor: pointer;
         white-space: nowrap;
-        min-height: 34px;
+        min-height: 48px;
       }
       .svc-fab {
         position: fixed;
@@ -323,6 +325,7 @@ function ServicesStyles() {
         border: none;
         border-radius: 100px;
         padding: 15px;
+        min-height: 48px;
         font-size: 13px;
         font-weight: 600;
         cursor: pointer;
@@ -419,7 +422,7 @@ function ServicesStyles() {
         font-size: 14px;
         font-weight: 600;
         cursor: pointer;
-        min-height: 44px;
+        min-height: 48px;
       }
       .svc-checkout-btn:disabled { opacity: 0.4; cursor: not-allowed; }
 
@@ -438,26 +441,14 @@ function ServicesStyles() {
         font-weight: 400;
         color: var(--svc-ink);
       }
-      .svc-nav-back {
-        background: none;
-        border: none;
-        font-size: 13px;
-        color: var(--svc-muted);
-        cursor: pointer;
-        padding: 0;
-      }
       .svc-checkout-page {
         max-width: 560px;
         margin: 0 auto;
         padding: 0 20px 40px;
       }
-      .svc-checkout-eyebrow {
-        font-size: 11px;
-        letter-spacing: 3px;
-        text-transform: uppercase;
-        color: var(--svc-muted);
-        text-align: center;
-        padding: 28px 0 4px;
+      /* Delivery/payment steps render inside the slide-up panel body */
+      .svc-panel-step-body {
+        padding-top: 14px;
       }
 
       /* ── CheckoutForm overrides inside svc-shell ── */

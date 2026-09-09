@@ -49,4 +49,19 @@ describe('ServicesTemplate (smoke)', () => {
     fireEvent.click(screen.getByRole('button', { name: /agregar/i }));
     expect(screen.getByText(/ver selección \(1\)/i)).toBeTruthy();
   });
+
+  // Regression: same unmount bug fixed in GastronomyTemplate/RetailTemplate —
+  // step === 'payment' used to `return` a full-screen takeover, unmounting
+  // the service list behind it.
+  it('keeps the service list mounted underneath the payment step', () => {
+    render(<ServicesTemplate branch={branch} services={services} />);
+    fireEvent.click(screen.getByRole('button', { name: /agregar/i }));
+    fireEvent.click(screen.getByRole('button', { name: /ver selección/i }));
+    fireEvent.click(screen.getByRole('button', { name: /confirmar selección/i }));
+
+    // Payment step is showing…
+    expect(screen.getByLabelText(/nombre/i)).toBeTruthy();
+    // …and the service list behind it never unmounted.
+    expect(screen.getByText('Corte clásico')).toBeTruthy();
+  });
 });

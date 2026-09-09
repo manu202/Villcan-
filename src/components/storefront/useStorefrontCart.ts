@@ -4,7 +4,7 @@ import { useMemo, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { buildWhatsAppLink } from '@/lib/storefront';
 import type { CheckoutFormValues } from './CheckoutForm';
-import type { Branch, CreateStorefrontOrderResult, Service } from '@/types';
+import type { Branch, CreateStorefrontOrderResult, OrderDeliveryType, Service } from '@/types';
 
 export interface CartLine {
   service: Service;
@@ -43,6 +43,11 @@ export function useStorefrontCart(branch: Branch, services: Service[]) {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [result, setResult] = useState<CreateStorefrontOrderResult | null>(null);
   const [deliveryLocation, setDeliveryLocation] = useState<{ lat: number; lng: number } | null>(null);
+  // Lives here (not in template-local state) so it's a single source of truth
+  // alongside `step` — see SDD "Storefront Mobile App-Like" D3. Additive only:
+  // handleSubmit's RPC call signature is untouched.
+  const [deliveryType, setDeliveryType] = useState<OrderDeliveryType>('pickup');
+  const [deliveryAddress, setDeliveryAddress] = useState('');
 
   const lines: CartLine[] = useMemo(
     () =>
@@ -142,6 +147,10 @@ export function useStorefrontCart(branch: Branch, services: Service[]) {
     whatsappHref,
     deliveryLocation,
     setDeliveryLocation,
+    deliveryType,
+    setDeliveryType,
+    deliveryAddress,
+    setDeliveryAddress,
     addToCart,
     increment,
     decrement,

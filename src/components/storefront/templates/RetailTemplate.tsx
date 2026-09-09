@@ -1,14 +1,13 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { ShoppingCart, X, Plus, Minus, ImageOff } from 'lucide-react';
+import { ShoppingCart, X, ChevronLeft, Plus, Minus, ImageOff } from 'lucide-react';
 import { CheckoutDeliveryStep } from '../CheckoutDeliveryStep';
 import { CheckoutPaymentStep } from '../CheckoutPaymentStep';
 import { OrderSuccess } from '../OrderSuccess';
 import { useStorefrontCart } from '../useStorefrontCart';
 import { formatGuaranies } from '@/lib/utils';
 import type { Branch, Service } from '@/types';
-import type { OrderDeliveryType } from '@/types';
 
 interface RetailTemplateProps {
   branch: Branch;
@@ -36,20 +35,27 @@ export function RetailTemplate({ branch, services }: RetailTemplateProps) {
     whatsappHref,
     deliveryLocation,
     setDeliveryLocation,
+    deliveryType,
+    setDeliveryType,
+    deliveryAddress,
+    setDeliveryAddress,
     addToCart,
     increment,
     decrement,
+    goToCart,
     goToDelivery,
     goToPayment,
     backToCatalog,
+    backToCart,
     backToDelivery,
     handleSubmit,
   } = useStorefrontCart(branch, services);
 
   const [activeCategory, setActiveCategory] = useState<string>(ALL);
-  const [cartOpen, setCartOpen] = useState(false);
-  const [deliveryType, setDeliveryType] = useState<OrderDeliveryType>('pickup');
-  const [deliveryAddress, setDeliveryAddress] = useState('');
+  // Drawer visibility is derived from `step` — see GastronomyTemplate's same
+  // fix (SDD "Storefront Mobile App-Like" Phase 3). No separate cartOpen
+  // state to drift out of sync with the checkout step machine.
+  const cartOpen = step === 'cart' || step === 'delivery-data' || step === 'payment';
 
   const categories = useMemo(() => {
     const set = new Set<string>();
@@ -81,80 +87,49 @@ export function RetailTemplate({ branch, services }: RetailTemplateProps) {
     );
   }
 
-  if (step === 'delivery-data') {
-    return (
-      <div className="retail-shell">
-        <header className="retail-header">
-          <h1>{branch.name}</h1>
-        </header>
-        <div className="retail-checkout-page">
-          <CheckoutDeliveryStep
-            deliveryAddress={deliveryAddress}
-            onAddressChange={setDeliveryAddress}
-            deliveryLocation={deliveryLocation}
-            onLocationCapture={setDeliveryLocation}
-            onNext={goToPayment}
-            onBack={backToCatalog}
-          />
-        </div>
-        <RetailStyles />
-      </div>
-    );
-  }
-
-  if (step === 'payment') {
-    return (
-      <div className="retail-shell">
-        <header className="retail-header">
-          <h1>{branch.name}</h1>
-        </header>
-        <div className="retail-checkout-page">
-          <div className="retail-checkout-eyebrow">Finalizá tu compra</div>
-          <CheckoutPaymentStep
-            deliveryType={deliveryType}
-            deliveryAddress={deliveryAddress}
-            submitting={submitting}
-            errorMessage={errorMessage}
-            onSubmit={handleSubmit}
-            onBack={deliveryType === 'delivery' ? backToDelivery : backToCatalog}
-          />
-        </div>
-        <RetailStyles />
-      </div>
-    );
-  }
+  // 'delivery-data' and 'payment' render inside the same cart drawer below
+  // instead of early-`return`ing a full-screen takeover — the product grid
+  // never unmounts (see the regression test "keeps the catalog mounted
+  // underneath the delivery step").
 
   return (
     <div className="retail-shell">
-      <header className="retail-header">
-        <h1>{branch.name}</h1>
-        <button type="button" className="retail-cart-icon-btn" onClick={() => setCartOpen(true)}>
-          <ShoppingCart size={20} />
-          {itemCount > 0 && <span className="retail-badge">{itemCount}</span>}
-        </button>
-      </header>
-
-      {categories.length > 1 && (
-        <div className="retail-tabs">
-          <button
-            type="button"
-            className={`retail-tab ${activeCategory === ALL ? 'active' : ''}`}
-            onClick={() => setActiveCategory(ALL)}
-          >
-            Todo
+      {/* Header + category pills stick together as one glassy surface — the
+          app-like sticky nav from the SDD, applied to retail's filter-tab
+          pattern (retail filters the grid in place rather than anchoring to
+          scroll sections like gastronomy's menu, so no IntersectionObserver
+          here — just a sticky, swipeable pill strip). */}
+      <div className="retail-topbar">
+        <header className="retail-header">
+          <h1>{branch.name}</h1>
+          <button type="button" className="retail-cart-icon-btn" onClick={goToCart}>
+            <ShoppingCart size={20} />
+            {itemCount > 0 && <span className="retail-badge">{itemCount}</span>}
           </button>
-          {categories.map((cat) => (
+        </header>
+
+        {categories.length > 1 && (
+          <div className="retail-tabs">
             <button
               type="button"
-              key={cat}
-              className={`retail-tab ${activeCategory === cat ? 'active' : ''}`}
-              onClick={() => setActiveCategory(cat)}
+              className={`retail-tab ${activeCategory === ALL ? 'active' : ''}`}
+              onClick={() => setActiveCategory(ALL)}
             >
-              {cat}
+              Todo
             </button>
-          ))}
-        </div>
-      )}
+            {categories.map((cat) => (
+              <button
+                type="button"
+                key={cat}
+                className={`retail-tab ${activeCategory === cat ? 'active' : ''}`}
+                onClick={() => setActiveCategory(cat)}
+              >
+                {cat}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
 
       <div className="retail-grid">
         {visibleServices.map((service) => {
@@ -187,7 +162,7 @@ export function RetailTemplate({ branch, services }: RetailTemplateProps) {
       </div>
 
       {itemCount > 0 && (
-        <button type="button" className="retail-bottom-bar" onClick={() => setCartOpen(true)}>
+        <button type="button" className="retail-bottom-bar" onClick={goToCart}>
           <span className="retail-bottom-count">{itemCount} producto{itemCount > 1 ? 's' : ''}</span>
           <span className="retail-bottom-total">{formatGuaranies(total)}</span>
           <span className="retail-bottom-cta">Ver carrito</span>
@@ -196,92 +171,131 @@ export function RetailTemplate({ branch, services }: RetailTemplateProps) {
 
       <div
         className={`retail-overlay ${cartOpen ? 'open' : ''}`}
-        onClick={() => setCartOpen(false)}
+        onClick={backToCatalog}
         aria-hidden="true"
       />
       <div
         className={`retail-drawer ${cartOpen ? 'open' : ''}`}
         role="dialog"
         aria-modal="true"
-        aria-label="Tu carrito"
+        aria-label={step === 'delivery-data' ? 'Entrega' : step === 'payment' ? 'Finalizá tu compra' : 'Tu carrito'}
       >
         <div className="retail-drawer-head">
-          <h3>Tu carrito</h3>
+          {step !== 'cart' && (
+            <button
+              type="button"
+              aria-label="Volver"
+              onClick={step === 'payment' ? (deliveryType === 'delivery' ? backToDelivery : backToCart) : backToCart}
+            >
+              <ChevronLeft size={20} />
+            </button>
+          )}
+          <h3>{step === 'delivery-data' ? 'Entrega' : step === 'payment' ? 'Finalizá tu compra' : 'Tu carrito'}</h3>
           <button
             type="button"
             aria-label="Cerrar carrito"
-            onClick={() => setCartOpen(false)}
+            onClick={backToCatalog}
           >
             <X size={20} />
           </button>
         </div>
-        <div className="retail-drawer-body">
-          {lines.length === 0 ? (
-            <div className="retail-cart-empty">Todavía no agregaste productos.</div>
-          ) : (
-            lines.map((line) => (
-              <div className="retail-cart-item" key={line.service.id}>
-                <div>
-                  <div className="retail-cart-item-name">{line.service.name}</div>
-                  <div className="retail-cart-item-price">
-                    {formatGuaranies(line.service.price)} c/u
+
+        {step === 'cart' && (
+          <>
+            <div className="retail-drawer-body">
+              {lines.length === 0 ? (
+                <div className="retail-cart-empty">Todavía no agregaste productos.</div>
+              ) : (
+                lines.map((line) => (
+                  <div className="retail-cart-item" key={line.service.id}>
+                    <div>
+                      <div className="retail-cart-item-name">{line.service.name}</div>
+                      <div className="retail-cart-item-price">
+                        {formatGuaranies(line.service.price)} c/u
+                      </div>
+                    </div>
+                    <div className="retail-qty-ctrl">
+                      <button
+                        type="button"
+                        aria-label={`Restar ${line.service.name}`}
+                        onClick={() => decrement(line.service.id)}
+                      >
+                        <Minus size={14} />
+                      </button>
+                      <span>{line.qty}</span>
+                      <button
+                        type="button"
+                        aria-label={`Sumar ${line.service.name}`}
+                        onClick={() => increment(line.service.id)}
+                      >
+                        <Plus size={14} />
+                      </button>
+                    </div>
                   </div>
-                </div>
-                <div className="retail-qty-ctrl">
-                  <button
-                    type="button"
-                    aria-label={`Restar ${line.service.name}`}
-                    onClick={() => decrement(line.service.id)}
-                  >
-                    <Minus size={14} />
-                  </button>
-                  <span>{line.qty}</span>
-                  <button
-                    type="button"
-                    aria-label={`Sumar ${line.service.name}`}
-                    onClick={() => increment(line.service.id)}
-                  >
-                    <Plus size={14} />
-                  </button>
-                </div>
+                ))
+              )}
+            </div>
+            <div className="retail-drawer-foot">
+              <div className="retail-total-row">
+                <span>Total</span>
+                <strong>{formatGuaranies(total)}</strong>
               </div>
-            ))
-          )}
-        </div>
-        <div className="retail-drawer-foot">
-          <div className="retail-total-row">
-            <span>Total</span>
-            <strong>{formatGuaranies(total)}</strong>
+              <div className="retail-delivery-toggle" role="group" aria-label="Tipo de entrega">
+                <button
+                  type="button"
+                  className={`retail-toggle-btn${deliveryType === 'pickup' ? ' is-active' : ''}`}
+                  onClick={() => setDeliveryType('pickup')}
+                >
+                  Retirar
+                </button>
+                <button
+                  type="button"
+                  className={`retail-toggle-btn${deliveryType === 'delivery' ? ' is-active' : ''}`}
+                  onClick={() => setDeliveryType('delivery')}
+                >
+                  Delivery
+                </button>
+              </div>
+              <button
+                type="button"
+                className="retail-checkout-btn"
+                disabled={lines.length === 0}
+                onClick={() => {
+                  if (deliveryType === 'delivery') goToDelivery();
+                  else goToPayment();
+                }}
+              >
+                Continuar compra
+              </button>
+            </div>
+          </>
+        )}
+
+        {step === 'delivery-data' && (
+          <div className="retail-drawer-body retail-drawer-step-body">
+            <CheckoutDeliveryStep
+              deliveryAddress={deliveryAddress}
+              onAddressChange={setDeliveryAddress}
+              deliveryLocation={deliveryLocation}
+              onLocationCapture={setDeliveryLocation}
+              onNext={goToPayment}
+              onBack={backToCart}
+            />
           </div>
-          <div className="retail-delivery-toggle" role="group" aria-label="Tipo de entrega">
-            <button
-              type="button"
-              className={`retail-toggle-btn${deliveryType === 'pickup' ? ' is-active' : ''}`}
-              onClick={() => setDeliveryType('pickup')}
-            >
-              Retirar
-            </button>
-            <button
-              type="button"
-              className={`retail-toggle-btn${deliveryType === 'delivery' ? ' is-active' : ''}`}
-              onClick={() => setDeliveryType('delivery')}
-            >
-              Delivery
-            </button>
+        )}
+
+        {step === 'payment' && (
+          <div className="retail-drawer-body retail-drawer-step-body">
+            <CheckoutPaymentStep
+              deliveryType={deliveryType}
+              deliveryAddress={deliveryAddress}
+              submitting={submitting}
+              errorMessage={errorMessage}
+              onSubmit={handleSubmit}
+              onBack={deliveryType === 'delivery' ? backToDelivery : backToCart}
+            />
           </div>
-          <button
-            type="button"
-            className="retail-checkout-btn"
-            disabled={lines.length === 0}
-            onClick={() => {
-              setCartOpen(false);
-              if (deliveryType === 'delivery') goToDelivery();
-              else goToPayment();
-            }}
-          >
-            Continuar compra
-          </button>
-        </div>
+        )}
       </div>
 
       <RetailStyles />
@@ -306,16 +320,20 @@ function RetailStyles() {
         font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
         padding-bottom: 90px;
       }
-      .retail-header {
+      .retail-topbar {
         position: sticky;
         top: 0;
         z-index: 30;
+        background: color-mix(in srgb, var(--retail-bg) 88%, transparent);
+        backdrop-filter: blur(12px) saturate(1.2);
+        -webkit-backdrop-filter: blur(12px) saturate(1.2);
+        border-bottom: 1px solid var(--retail-border);
+      }
+      .retail-header {
         display: flex;
         align-items: center;
         justify-content: space-between;
         padding: 18px 20px;
-        background: var(--retail-bg);
-        border-bottom: 1px solid var(--retail-border);
       }
       .retail-header h1 {
         font-size: 18px;
@@ -327,8 +345,8 @@ function RetailStyles() {
         background: var(--retail-surface);
         border: 1px solid var(--retail-border);
         border-radius: 10px;
-        width: 40px;
-        height: 40px;
+        width: 48px;
+        height: 48px;
         display: flex;
         align-items: center;
         justify-content: center;
@@ -359,7 +377,10 @@ function RetailStyles() {
       }
       .retail-tab {
         flex-shrink: 0;
-        padding: 8px 14px;
+        display: inline-flex;
+        align-items: center;
+        min-height: 48px;
+        padding: 8px 16px;
         border-radius: 100px;
         border: 1px solid var(--retail-border);
         background: var(--retail-bg);
@@ -434,7 +455,7 @@ function RetailStyles() {
         font-size: 12.5px;
         font-weight: 700;
         cursor: pointer;
-        min-height: 38px;
+        min-height: 48px;
       }
       .retail-bottom-bar {
         position: fixed;
@@ -547,7 +568,7 @@ function RetailStyles() {
         font-size: 14px;
         font-weight: 700;
         cursor: pointer;
-        min-height: 44px;
+        min-height: 48px;
       }
       .retail-checkout-btn:disabled { opacity: 0.4; cursor: not-allowed; }
 
@@ -574,30 +595,15 @@ function RetailStyles() {
         color: #fff;
       }
 
-      /* ── Checkout / Success nav ── */
-      .retail-nav-back {
-        background: var(--retail-surface);
-        border: 1px solid var(--retail-border);
-        border-radius: 8px;
-        padding: 8px 14px;
-        font-size: 13px;
-        font-weight: 600;
-        color: var(--retail-text);
-        cursor: pointer;
-      }
+      /* ── Success page (still a full-page takeover — it's terminal) ── */
       .retail-checkout-page {
         max-width: 560px;
         margin: 0 auto;
         padding: 0 20px 40px;
       }
-      .retail-checkout-eyebrow {
-        font-size: 11px;
-        letter-spacing: 2px;
-        text-transform: uppercase;
-        color: var(--retail-text-secondary);
-        text-align: center;
-        padding: 24px 0 4px;
-        font-weight: 600;
+      /* Delivery/payment steps render inside the cart drawer body */
+      .retail-drawer-step-body {
+        padding-top: 14px;
       }
 
       /* ── CheckoutForm overrides inside retail-shell ── */

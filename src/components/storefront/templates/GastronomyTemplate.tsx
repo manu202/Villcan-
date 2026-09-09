@@ -9,7 +9,7 @@ import {
 import { CheckoutDeliveryStep } from '../CheckoutDeliveryStep';
 import { CheckoutPaymentStep } from '../CheckoutPaymentStep';
 import { useStorefrontCart } from '../useStorefrontCart';
-import type { OrderDeliveryType } from '@/types';
+import { useActiveCategory } from '../primitives/useActiveCategory';
 import { formatGuaranies } from '@/lib/utils';
 import type { Branch, Service } from '@/types';
 
@@ -124,18 +124,21 @@ export function GastronomyTemplate({ branch, services }: GastronomyTemplateProps
     cart, lines, total, itemCount, step,
     submitting, errorMessage, result, whatsappHref,
     deliveryLocation, setDeliveryLocation,
+    deliveryType, setDeliveryType, deliveryAddress, setDeliveryAddress,
     addToCart, increment, decrement,
-    goToDelivery, goToPayment, backToCatalog, backToDelivery, handleSubmit,
+    goToCart, goToDelivery, goToPayment, backToCatalog, backToCart, backToDelivery, handleSubmit,
   } = useStorefrontCart(branch, services);
 
-  const [cartOpen, setCartOpen] = useState(false);
-  const [deliveryType, setDeliveryType] = useState<OrderDeliveryType>('pickup');
-  const [deliveryAddress, setDeliveryAddress] = useState('');
+  // The cart drawer's *open* state is derived from `step` — there is no
+  // separate `cartOpen` flag to drift out of sync. 'cart' | 'delivery-data' |
+  // 'payment' all render inside the same drawer surface; 'catalog' and
+  // 'success' don't. This is also what lets the catalog stay mounted: the
+  // component never early-`return`s on those steps anymore, it just swaps
+  // what the drawer shows.
+  const cartOpen = step === 'cart' || step === 'delivery-data' || step === 'payment';
   const [selectedIdx, setSelectedIdx] = useState<number | null>(null);
   const [navDir, setNavDir] = useState<'next' | 'prev' | null>(null);
   const [exiting, setExiting] = useState(false);
-  const [activeCategory, setActiveCategory] = useState<string>('');
-  const navCatsRef = useRef<HTMLUListElement>(null);
   const dragRef = useRef<{ startX: number; startY: number; active: boolean; captured: boolean; touchId: number | null }>({ startX: 0, startY: 0, active: false, captured: false, touchId: null });
   const exitTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const sheetRef = useRef<HTMLDivElement>(null);
@@ -145,6 +148,11 @@ export function GastronomyTemplate({ branch, services }: GastronomyTemplateProps
   const scrollIndicatorOpacity = useTransform(scrollYProgress, [0, 0.15], [1, 0]);
 
   const categories = useMemo(() => groupByCategory(services), [services]);
+  const categoryNames = useMemo(() => categories.map(([cat]) => cat), [categories]);
+  const { activeCategory, navRef, pillListRef, navHeight, selectCategory } = useActiveCategory({
+    categories: categoryNames,
+    slugify,
+  });
 
   const selected = selectedIdx !== null ? services[selectedIdx] : null;
   const hasPrev = selectedIdx !== null && selectedIdx > 0;
@@ -207,7 +215,7 @@ export function GastronomyTemplate({ branch, services }: GastronomyTemplateProps
         if (e.key === 'ArrowRight') { goNext(); return; }
         if (e.key === 'ArrowLeft') { goPrev(); return; }
       }
-      if (cartOpen && e.key === 'Escape') setCartOpen(false);
+      if (cartOpen && e.key === 'Escape') backToCatalog();
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
@@ -260,34 +268,6 @@ export function GastronomyTemplate({ branch, services }: GastronomyTemplateProps
     };
   }, [goNext, goPrev]);
 
-  useEffect(() => {
-    if (categories.length === 0) return;
-    const obs = new IntersectionObserver(
-      (entries) => {
-        for (const entry of entries) {
-          if (entry.isIntersecting) {
-            const matched = categories.find(([cat]) => slugify(cat) === entry.target.id);
-            if (matched) setActiveCategory(matched[0]);
-          }
-        }
-      },
-      { rootMargin: '-50px 0px -62% 0px', threshold: 0 },
-    );
-    for (const [cat] of categories) {
-      const el = document.getElementById(slugify(cat));
-      if (el) obs.observe(el);
-    }
-    // init to first visible category
-    setActiveCategory(categories[0][0]);
-    return () => obs.disconnect();
-  }, [categories]);
-
-  useEffect(() => {
-    if (!activeCategory || !navCatsRef.current) return;
-    const active = navCatsRef.current.querySelector('.is-active') as HTMLElement | null;
-    if (active) active.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
-  }, [activeCategory]);
-
   // When the order is confirmed, go directly to WhatsApp
   useEffect(() => {
     if (step === 'success' && whatsappHref) {
@@ -327,59 +307,11 @@ export function GastronomyTemplate({ branch, services }: GastronomyTemplateProps
     );
   }
 
-  if (step === 'delivery-data') {
-    return (
-      <div className="gt">
-        <link rel="stylesheet" href={FONTS} />
-        <FireCanvas />
-        <nav className="gt-nav">
-          <div className="gt-nav-top">
-            <button type="button" className="gt-back-btn" onClick={backToCatalog}>← Menú</button>
-            <span className="gt-brand">{branch.name}</span>
-          </div>
-        </nav>
-        <div className="gt-checkout-wrap">
-          <CheckoutDeliveryStep
-            deliveryAddress={deliveryAddress}
-            onAddressChange={setDeliveryAddress}
-            deliveryLocation={deliveryLocation}
-            onLocationCapture={setDeliveryLocation}
-            onNext={goToPayment}
-            onBack={backToCatalog}
-          />
-        </div>
-        <GtStyles />
-      </div>
-    );
-  }
-
-  if (step === 'payment') {
-    return (
-      <div className="gt">
-        <link rel="stylesheet" href={FONTS} />
-        <FireCanvas />
-        <nav className="gt-nav">
-          <div className="gt-nav-top">
-            <button type="button" className="gt-back-btn" onClick={deliveryType === 'delivery' ? backToDelivery : backToCatalog}>← Menú</button>
-            <span className="gt-brand">{branch.name}</span>
-          </div>
-        </nav>
-        <div className="gt-checkout-wrap">
-          <p className="gt-checkout-eyebrow">Confirmá tu pedido</p>
-          <CheckoutPaymentStep
-            deliveryType={deliveryType}
-            deliveryAddress={deliveryAddress}
-            submitting={submitting}
-            errorMessage={errorMessage}
-            onSubmit={handleSubmit}
-            onBack={deliveryType === 'delivery' ? backToDelivery : backToCatalog}
-          />
-        </div>
-        <GtStyles />
-      </div>
-    );
-  }
-
+  // 'delivery-data' and 'payment' no longer early-`return` a full-screen
+  // takeover — they render as steps of the same cart drawer below, so the
+  // catalog (scroll position, category IntersectionObserver) never unmounts.
+  // See useActiveCategory + REQ-CART-NAV regression test "keeps the catalog
+  // mounted underneath the delivery step".
   const sheetIsOpen = selectedIdx !== null;
 
   return (
@@ -388,7 +320,7 @@ export function GastronomyTemplate({ branch, services }: GastronomyTemplateProps
       <FireCanvas />
 
       {/* ── NAV ── */}
-      <nav className="gt-nav" aria-label="Navegación principal">
+      <nav className="gt-nav" aria-label="Navegación principal" ref={navRef as React.RefObject<HTMLElement>}>
         <div className="gt-nav-top">
           <span className="gt-brand">
             <motion.span className="gt-nav-fire" style={{ opacity: navFlameOpacity }} aria-hidden="true">
@@ -402,8 +334,8 @@ export function GastronomyTemplate({ branch, services }: GastronomyTemplateProps
           </span>
           <button
             type="button"
-            className="gt-cart-trigger"
-            onClick={() => setCartOpen(true)}
+            className={`gt-cart-trigger${itemCount > 0 ? ' has-fab' : ''}`}
+            onClick={goToCart}
             aria-label={`Ver pedido — ${itemCount} ítems`}
           >
             <ShoppingBag size={14} aria-hidden="true" />
@@ -411,12 +343,21 @@ export function GastronomyTemplate({ branch, services }: GastronomyTemplateProps
             {itemCount > 0 && <span className="gt-badge">{itemCount}</span>}
           </button>
         </div>
-        <ul className="gt-nav-cats" ref={navCatsRef}>
+        <ul className="gt-nav-cats" ref={pillListRef as React.RefObject<HTMLUListElement>}>
           {categories.map(([cat]) => (
             <li key={cat}>
+              {/* href kept for accessibility/no-JS fallback; the click handler
+                  drives the actual scroll so it lands below the sticky header
+                  (native #hash jump ignores scroll-margin timing quirks across
+                  browsers) and so selectCategory can suppress spy flicker. */}
               <a
                 href={`#${slugify(cat)}`}
                 className={`gt-nav-cat${activeCategory === cat ? ' is-active' : ''}`}
+                data-active={activeCategory === cat ? 'true' : undefined}
+                onClick={(e) => {
+                  e.preventDefault();
+                  selectCategory(cat);
+                }}
               >
                 {cat}
               </a>
@@ -451,7 +392,11 @@ export function GastronomyTemplate({ branch, services }: GastronomyTemplateProps
       </header>
 
       {/* ── CATALOG ── */}
-      <main className="gt-catalog">
+      {/* aria-hidden while the product sheet or cart drawer is open — the
+          catalog stays mounted underneath (scroll position, IntersectionObserver
+          survive) but must not be exposed to assistive tech behind an open
+          dialog, or e.g. an item's description ends up "visible" twice. */}
+      <main className="gt-catalog" aria-hidden={sheetIsOpen || cartOpen || undefined}>
         {services.length === 0 ? (
           <p className="gt-empty">No hay productos disponibles todavía.</p>
         ) : (
@@ -461,6 +406,7 @@ export function GastronomyTemplate({ branch, services }: GastronomyTemplateProps
               id={slugify(cat)}
               className="gt-section"
               aria-labelledby={`hl-${slugify(cat)}`}
+              style={{ scrollMarginTop: navHeight || undefined }}
             >
               <div className="gt-glass-card">
                 <div className="gt-section-head">
@@ -501,9 +447,15 @@ export function GastronomyTemplate({ branch, services }: GastronomyTemplateProps
 
       {/* ── FAB — mobile only, visible when cart has items ── */}
       {itemCount > 0 && (
-        <button type="button" className="gt-fab" onClick={() => setCartOpen(true)}>
+        <button
+          type="button"
+          className="gt-fab"
+          onClick={goToCart}
+          aria-label={`Ver pedido — total ${formatGuaranies(total)}`}
+        >
           <ShoppingBag size={15} aria-hidden="true" />
           Ver pedido
+          <span className="gt-fab-total">{formatGuaranies(total)}</span>
           <span className="gt-badge">{itemCount}</span>
         </button>
       )}
@@ -625,7 +577,7 @@ export function GastronomyTemplate({ branch, services }: GastronomyTemplateProps
                     } else {
                       // "Ver pedido" → open cart drawer
                       closeSheet();
-                      setCartOpen(true);
+                      goToCart();
                     }
                   }}
                 >
@@ -639,105 +591,148 @@ export function GastronomyTemplate({ branch, services }: GastronomyTemplateProps
         )}
       </div>
 
-      {/* ── CART DRAWER ── */}
+      {/* ── CART DRAWER — also hosts the delivery-data and payment steps, so
+          checking out never unmounts the catalog behind it (see the early-
+          return removal above and the regression test for this). ── */}
       <div
         className={`gt-overlay${cartOpen ? ' is-open' : ''}`}
-        onClick={() => setCartOpen(false)}
+        onClick={backToCatalog}
         aria-hidden="true"
       />
       <div
         className={`gt-drawer${cartOpen ? ' is-open' : ''}`}
         role="dialog"
         aria-modal="true"
-        aria-label="Tu pedido"
+        aria-label={step === 'delivery-data' ? 'Entrega' : step === 'payment' ? 'Confirmá tu pedido' : 'Tu pedido'}
         aria-hidden={!cartOpen}
       >
         <div className="gt-drawer-head">
-          <h3 className="gt-drawer-title">Tu pedido</h3>
+          {step !== 'cart' && (
+            <button
+              type="button"
+              className="gt-drawer-close"
+              onClick={step === 'payment' ? (deliveryType === 'delivery' ? backToDelivery : backToCart) : backToCart}
+              aria-label="Volver"
+            >
+              <ChevronLeft size={19} aria-hidden="true" />
+            </button>
+          )}
+          <h3 className="gt-drawer-title">
+            {step === 'delivery-data' ? 'Entrega' : step === 'payment' ? 'Confirmá tu pedido' : 'Tu pedido'}
+          </h3>
           <button
             type="button"
             className="gt-drawer-close"
-            onClick={() => setCartOpen(false)}
+            onClick={backToCatalog}
             aria-label="Cerrar pedido"
           >
             <X size={19} aria-hidden="true" />
           </button>
         </div>
 
-        <div className="gt-drawer-body">
-          {lines.length === 0 ? (
-            <p className="gt-drawer-empty">
-              Todavía no elegiste nada.<br />
-              Explorá el menú.
-            </p>
-          ) : (
-            lines.map((line) => (
-              <div className="gt-drawer-item" key={line.service.id}>
-                <div className="gt-drawer-item-info">
-                  <span className="gt-drawer-item-name">{line.service.name}</span>
-                  <span className="gt-drawer-item-price">
-                    {formatGuaranies(line.service.price)} c/u
-                  </span>
-                </div>
-                <div className="gt-drawer-qty">
-                  <button
-                    type="button"
-                    className="gt-qty-btn sm"
-                    aria-label={`Restar ${line.service.name}`}
-                    onClick={() => decrement(line.service.id)}
-                  >
-                    <Minus size={12} aria-hidden="true" />
-                  </button>
-                  <span className="gt-qty-n">{line.qty}</span>
-                  <button
-                    type="button"
-                    className="gt-qty-btn sm"
-                    aria-label={`Sumar ${line.service.name}`}
-                    onClick={() => increment(line.service.id)}
-                  >
-                    <Plus size={12} aria-hidden="true" />
-                  </button>
-                </div>
-              </div>
-            ))
-          )}
-        </div>
+        {step === 'cart' && (
+          <>
+            <div className="gt-drawer-body">
+              {lines.length === 0 ? (
+                <p className="gt-drawer-empty">
+                  Todavía no elegiste nada.<br />
+                  Explorá el menú.
+                </p>
+              ) : (
+                lines.map((line) => (
+                  <div className="gt-drawer-item" key={line.service.id}>
+                    <div className="gt-drawer-item-info">
+                      <span className="gt-drawer-item-name">{line.service.name}</span>
+                      <span className="gt-drawer-item-price">
+                        {formatGuaranies(line.service.price)} c/u
+                      </span>
+                    </div>
+                    <div className="gt-drawer-qty">
+                      <button
+                        type="button"
+                        className="gt-qty-btn sm"
+                        aria-label={`Restar ${line.service.name}`}
+                        onClick={() => decrement(line.service.id)}
+                      >
+                        <Minus size={12} aria-hidden="true" />
+                      </button>
+                      <span className="gt-qty-n">{line.qty}</span>
+                      <button
+                        type="button"
+                        className="gt-qty-btn sm"
+                        aria-label={`Sumar ${line.service.name}`}
+                        onClick={() => increment(line.service.id)}
+                      >
+                        <Plus size={12} aria-hidden="true" />
+                      </button>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
 
-        <div className="gt-drawer-foot">
-          <div className="gt-drawer-total">
-            <span>Total</span>
-            <strong>{formatGuaranies(total)}</strong>
+            <div className="gt-drawer-foot">
+              <div className="gt-drawer-total">
+                <span>Total</span>
+                <strong>{formatGuaranies(total)}</strong>
+              </div>
+              <div className="gt-delivery-toggle" role="group" aria-label="Tipo de entrega">
+                <button
+                  type="button"
+                  className={`gt-toggle-btn${deliveryType === 'pickup' ? ' is-active' : ''}`}
+                  onClick={() => setDeliveryType('pickup')}
+                >
+                  Retirar
+                </button>
+                <button
+                  type="button"
+                  className={`gt-toggle-btn${deliveryType === 'delivery' ? ' is-active' : ''}`}
+                  onClick={() => setDeliveryType('delivery')}
+                >
+                  Delivery
+                </button>
+              </div>
+              <button
+                type="button"
+                className="gt-drawer-cta"
+                disabled={lines.length === 0}
+                onClick={() => {
+                  if (deliveryType === 'delivery') goToDelivery();
+                  else goToPayment();
+                }}
+              >
+                <MessageCircle size={15} aria-hidden="true" />
+                Continuar pedido
+              </button>
+            </div>
+          </>
+        )}
+
+        {step === 'delivery-data' && (
+          <div className="gt-drawer-body gt-drawer-step-body">
+            <CheckoutDeliveryStep
+              deliveryAddress={deliveryAddress}
+              onAddressChange={setDeliveryAddress}
+              deliveryLocation={deliveryLocation}
+              onLocationCapture={setDeliveryLocation}
+              onNext={goToPayment}
+              onBack={backToCart}
+            />
           </div>
-          <div className="gt-delivery-toggle" role="group" aria-label="Tipo de entrega">
-            <button
-              type="button"
-              className={`gt-toggle-btn${deliveryType === 'pickup' ? ' is-active' : ''}`}
-              onClick={() => setDeliveryType('pickup')}
-            >
-              Retirar
-            </button>
-            <button
-              type="button"
-              className={`gt-toggle-btn${deliveryType === 'delivery' ? ' is-active' : ''}`}
-              onClick={() => setDeliveryType('delivery')}
-            >
-              Delivery
-            </button>
+        )}
+
+        {step === 'payment' && (
+          <div className="gt-drawer-body gt-drawer-step-body">
+            <CheckoutPaymentStep
+              deliveryType={deliveryType}
+              deliveryAddress={deliveryAddress}
+              submitting={submitting}
+              errorMessage={errorMessage}
+              onSubmit={handleSubmit}
+              onBack={deliveryType === 'delivery' ? backToDelivery : backToCart}
+            />
           </div>
-          <button
-            type="button"
-            className="gt-drawer-cta"
-            disabled={lines.length === 0}
-            onClick={() => {
-              setCartOpen(false);
-              if (deliveryType === 'delivery') goToDelivery();
-              else goToPayment();
-            }}
-          >
-            <MessageCircle size={15} aria-hidden="true" />
-            Continuar pedido
-          </button>
-        </div>
+        )}
       </div>
 
       <GtStyles />
@@ -853,7 +848,7 @@ function GtStyles() {
         opacity: .6;
         display: inline-flex;
         align-items: center;
-        min-height: 36px;
+        min-height: 48px;
         transition: opacity .2s, color .2s, border-color .2s, background .2s;
       }
       .gt-nav-cat:hover {
@@ -884,11 +879,17 @@ function GtStyles() {
         flex-shrink: 0;
         white-space: nowrap;
         transition: border-color .2s, background .2s;
-        min-height: 44px;
+        min-height: 48px;
       }
       .gt-cart-trigger:hover {
         border-color: var(--ember-b);
         background: rgba(196,96,42,.18);
+      }
+      /* On mobile, once the FAB is showing (cart has items) it already
+         covers "open the cart" — keeping the nav trigger visible too gives
+         two controls with the same accessible name on screen at once. */
+      @media (max-width: 767px) {
+        .gt-cart-trigger.has-fab { display: none; }
       }
       .gt-badge {
         min-width: 17px;
@@ -903,22 +904,6 @@ function GtStyles() {
         font-weight: 700;
         padding: 0 3px;
       }
-      .gt-back-btn {
-        background: none;
-        border: none;
-        color: var(--smoke);
-        font-family: var(--fm);
-        font-size: 10px;
-        letter-spacing: 1px;
-        text-transform: uppercase;
-        cursor: pointer;
-        padding: 0;
-        flex-shrink: 0;
-        transition: color .2s;
-      }
-      .gt-back-btn:hover { color: var(--amber); }
-      .gt-nav-spacer { flex: 0 0 80px; }
-
       /* ── NAV FLAME ── */
       .gt-nav-fire {
         display: inline-flex;
@@ -1206,6 +1191,7 @@ function GtStyles() {
         display: none;
         align-items: center;
         gap: 7px;
+        min-height: 48px;
         background: var(--ember);
         color: #fff;
         border: none;
@@ -1219,6 +1205,11 @@ function GtStyles() {
         transition: background .2s;
       }
       .gt-fab:hover { background: var(--ember-b); }
+      .gt-fab-total {
+        padding-left: 7px;
+        border-left: 1px solid rgba(255, 255, 255, 0.35);
+        font-variant-numeric: tabular-nums;
+      }
       @media (max-width: 767px) { .gt-fab { display: flex; } }
       @supports (padding-bottom: env(safe-area-inset-bottom)) {
         .gt-fab { bottom: calc(20px + env(safe-area-inset-bottom, 0px)); }
@@ -1300,8 +1291,8 @@ function GtStyles() {
         flex-shrink: 0;
       }
       .gt-sheet-nav-btn {
-        width: 44px;
-        height: 44px;
+        width: 48px;
+        height: 48px;
         border: none;
         background: transparent;
         color: var(--smoke);
@@ -1498,7 +1489,7 @@ function GtStyles() {
         gap: 8px;
         letter-spacing: .2px;
         transition: background .2s;
-        min-height: 44px;
+        min-height: 48px;
       }
       .gt-sheet-cta:hover { background: var(--amber); }
 
@@ -1514,8 +1505,8 @@ function GtStyles() {
         flex-shrink: 0;
       }
       .gt-qty-btn {
-        width: 40px;
-        height: 44px;
+        width: 44px;
+        height: 48px;
         border: none;
         background: transparent;
         color: var(--cream);
@@ -1606,6 +1597,20 @@ function GtStyles() {
         overflow-y: auto;
         padding: 6px 22px;
       }
+      /* Delivery/payment steps render inside this same drawer body — map the
+         generic CheckoutDeliveryStep/CheckoutPaymentStep tokens to the fire
+         theme (same mapping .gt-checkout-wrap used for the old full-page
+         steps), without the full-page max-width/margin/padding those don't
+         need inside a drawer that already constrains its own width. */
+      .gt-drawer-step-body {
+        padding: 18px 22px 6px;
+        --text-primary:      var(--cream);
+        --text-secondary:    var(--smoke);
+        --surface:           rgba(19,10,5,.85);
+        --border:            rgba(200,100,40,.22);
+        --accent:            var(--ember-b);
+        --accent-foreground: #fff;
+      }
       .gt-drawer-empty {
         font-family: var(--fm);
         font-size: 11px;
@@ -1684,34 +1689,12 @@ function GtStyles() {
         gap: 8px;
         cursor: pointer;
         transition: background .2s;
-        min-height: 44px;
+        min-height: 48px;
       }
       .gt-drawer-cta:hover:not(:disabled) { background: var(--ember-b); }
       .gt-drawer-cta:disabled { opacity: .4; cursor: not-allowed; }
 
       /* ── CHECKOUT / SUCCESS ── */
-      .gt-checkout-wrap {
-        position: relative;
-        z-index: 2;
-        max-width: 520px;
-        margin: 0 auto;
-        padding: 36px 24px 100px;
-        /* map generic CheckoutForm tokens to fire theme */
-        --text-primary:      var(--cream);
-        --text-secondary:    var(--smoke);
-        --surface:           rgba(19,10,5,.85);
-        --border:            rgba(200,100,40,.22);
-        --accent:            var(--ember-b);
-        --accent-foreground: #fff;
-      }
-      .gt-checkout-eyebrow {
-        font-family: var(--fm);
-        font-size: 10px;
-        letter-spacing: 2.5px;
-        text-transform: uppercase;
-        color: var(--ember);
-        margin-bottom: 28px;
-      }
       .gt-confirmed {
         position: relative;
         z-index: 2;

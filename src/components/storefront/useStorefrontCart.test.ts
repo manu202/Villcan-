@@ -357,4 +357,29 @@ describe('useStorefrontCart — delivery extensions (Phase C)', () => {
     expect(rpcArgs.p_customer_lat).toBe(-25.2867);
     expect(rpcArgs.p_customer_lng).toBe(-57.6470);
   });
+
+  // REQ-CART-STATE-1: deliveryType/deliveryAddress live in the hook, not in
+  // template-local state — see GastronomyTemplate's checkout wizard, which
+  // used to duplicate this in its own useState and could drift from `step`.
+  it('deliveryType defaults to pickup', () => {
+    const { result } = renderHook(() => useStorefrontCart(branch, services));
+    expect(result.current.deliveryType).toBe('pickup');
+  });
+
+  it('setDeliveryType updates the delivery type', () => {
+    const { result } = renderHook(() => useStorefrontCart(branch, services));
+    act(() => result.current.setDeliveryType('delivery'));
+    expect(result.current.deliveryType).toBe('delivery');
+  });
+
+  it('deliveryAddress defaults to an empty string', () => {
+    const { result } = renderHook(() => useStorefrontCart(branch, services));
+    expect(result.current.deliveryAddress).toBe('');
+  });
+
+  it('setDeliveryAddress updates the address', () => {
+    const { result } = renderHook(() => useStorefrontCart(branch, services));
+    act(() => result.current.setDeliveryAddress('Calle 123'));
+    expect(result.current.deliveryAddress).toBe('Calle 123');
+  });
 });
