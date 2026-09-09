@@ -87,13 +87,10 @@ function SettingsForm({
     const supabase = createClient();
     const { error: updateError } = await supabase
       .from('business_settings')
-      .update({
-        business_name: businessName,
-        services_label: servicesLabel,
-        staff_label: staffLabel,
-        brand_color: brandColor,
-      })
-      .eq('id', 1);
+      .upsert(
+        { id: 1, business_name: businessName, services_label: servicesLabel, staff_label: staffLabel, brand_color: brandColor },
+        { onConflict: 'id' }
+      );
 
     if (updateError) {
       showToast(updateError.message, 'error');

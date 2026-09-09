@@ -18,8 +18,7 @@ vi.mock('@/contexts/ToastContext', () => ({
   useToast: () => ({ showToast: mockShowToast }),
 }));
 
-const mockUpdate = vi.fn();
-const mockEq = vi.fn();
+const mockUpsert = vi.fn();
 const mockFrom = vi.fn();
 vi.mock('@/lib/supabase/client', () => ({
   createClient: () => ({
@@ -31,15 +30,13 @@ const mockRefreshSettings = vi.fn();
 
 describe('SettingsPage /settings/general — "Negocio" (REQ-SETTINGSREORG-2)', () => {
   beforeEach(() => {
-    mockUpdate.mockReset();
-    mockEq.mockReset();
+    mockUpsert.mockReset();
     mockFrom.mockReset();
     mockRefreshSettings.mockReset();
     mockShowToast.mockReset();
 
-    mockEq.mockResolvedValue({ error: null });
-    mockUpdate.mockReturnValue({ eq: mockEq });
-    mockFrom.mockReturnValue({ update: mockUpdate });
+    mockUpsert.mockResolvedValue({ error: null });
+    mockFrom.mockReturnValue({ upsert: mockUpsert });
 
     mockUseSettings.mockReturnValue({
       settings: { ...DEFAULT_BUSINESS_SETTINGS, business_name: 'Mi Negocio' },
@@ -164,7 +161,7 @@ describe('SettingsPage /settings/general — "Negocio" (REQ-SETTINGSREORG-2)', (
     expect(violetSwatch.getAttribute('aria-checked')).toBe('true');
   });
 
-  it('saving calls business_settings.update(...).eq(id, 1) with business_name and brand_color, then refreshSettings()', async () => {
+  it('saving calls business_settings.upsert({ id: 1, business_name, brand_color, ... }) then refreshSettings()', async () => {
     mockUseBranch.mockReturnValue({
       branches: [{ id: 'b1', user_role: 'admin' }],
     });
@@ -174,14 +171,15 @@ describe('SettingsPage /settings/general — "Negocio" (REQ-SETTINGSREORG-2)', (
     screen.getByText(/guardar/i).click();
 
     await waitFor(() => expect(mockFrom).toHaveBeenCalledWith('business_settings'));
-    expect(mockEq).toHaveBeenCalledWith('id', 1);
-    expect(mockUpdate).toHaveBeenCalledWith(
+    expect(mockUpsert).toHaveBeenCalledWith(
       expect.objectContaining({
+        id: 1,
         business_name: 'Mi Negocio',
         brand_color: DEFAULT_BUSINESS_SETTINGS.brand_color,
-      })
+      }),
+      { onConflict: 'id' }
     );
-    const savedPayload = mockUpdate.mock.calls[0][0];
+    const savedPayload = mockUpsert.mock.calls[0][0];
     expect(savedPayload).not.toHaveProperty('commissions_enabled');
     expect(savedPayload).not.toHaveProperty('vertical');
     await waitFor(() => expect(mockRefreshSettings).toHaveBeenCalled());
@@ -192,7 +190,7 @@ describe('SettingsPage /settings/general — "Negocio" (REQ-SETTINGSREORG-2)', (
     mockUseBranch.mockReturnValue({
       branches: [{ id: 'b1', user_role: 'admin' }],
     });
-    mockEq.mockResolvedValue({ error: { message: 'boom' } });
+    mockUpsert.mockResolvedValue({ error: { message: 'boom' } });
 
     render(<SettingsPage />);
 
