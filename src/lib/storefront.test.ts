@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { formatGs, formatOrderMessage, buildWhatsAppLink, buildStatusNotificationMessage } from './storefront';
+import { formatGs, formatOrderMessage, buildWhatsAppLink, buildStatusNotificationMessage, normalizeWhatsAppNumber } from './storefront';
 import type { Order } from '@/types';
 
 function makeOrder(overrides: Partial<Order> = {}): Order {
@@ -62,6 +62,54 @@ describe('formatOrderMessage (REQ: WhatsApp order handoff — TS mirror of the S
     );
   });
 
+  it('builds a delivery order message matching the SQL RPC format (address + maps + subtotal + fee-pending)', () => {
+    const message = formatOrderMessage({
+      orderCode: 'A1B2C3',
+      branchName: 'Villcan Centro',
+      customerName: 'Juan',
+      customerPhone: '0981123456',
+      items: [{ name: 'Lomo', qty: 1, unitPrice: 50000, lineTotal: 50000 }],
+      note: null,
+      total: 50000,
+      paymentMethod: 'efectivo',
+      deliveryType: 'delivery',
+      deliveryAddress: 'Av. España 123',
+      deliveryLocation: { lat: -25.28, lng: -57.63 },
+    });
+
+    expect(message).toBe(
+      '*Pedido #A1B2C3* — Villcan Centro\n\n' +
+      '*Cliente:* Juan\n' +
+      '*Teléfono:* 0981123456\n\n' +
+      '*Pedido:*\n' +
+      '• 1x Lomo — Gs. 50.000\n' +
+      '\n*Pago:* Efectivo\n' +
+      '*Entrega:* Delivery — Av. España 123\n' +
+      '📍 https://maps.google.com/?q=-25.28,-57.63\n' +
+      '\n*Subtotal: Gs. 50.000*\n' +
+      '_Costo de delivery: a confirmar por el local_'
+    );
+  });
+
+  it('omits the maps link when deliveryLocation is null (different data path)', () => {
+    const message = formatOrderMessage({
+      orderCode: 'A1B2C3',
+      branchName: 'Villcan Centro',
+      customerName: 'Juan',
+      customerPhone: '0981123456',
+      items: [{ name: 'Lomo', qty: 1, unitPrice: 50000, lineTotal: 50000 }],
+      note: null,
+      total: 50000,
+      paymentMethod: 'efectivo',
+      deliveryType: 'delivery',
+      deliveryAddress: 'Av. España 123',
+      deliveryLocation: null,
+    });
+
+    expect(message).not.toContain('maps.google.com');
+    expect(message).toContain('*Entrega:* Delivery — Av. España 123');
+  });
+
   it('omits the Nota line entirely when there is no note (different data path)', () => {
     const message = formatOrderMessage({
       orderCode: 'X9Y8Z7',
@@ -96,9 +144,35 @@ describe('buildWhatsAppLink (REQ: WhatsApp order handoff — link only after con
     expect(href).toBe('https://wa.me/595981123456?text=Pedido%20%23A1');
   });
 
-  it('works the same for a customer phone number (does not assume it is the business number)', () => {
+  it('normalizes a leading-0 number to full country code (Paraguay local → international)', () => {
     const href = buildWhatsAppLink('0981123456', 'Hola!');
-    expect(href).toBe('https://wa.me/0981123456?text=Hola!');
+    expect(href).toBe('https://wa.me/595981123456?text=Hola!');
+  });
+});
+
+describe('normalizeWhatsAppNumber (REQ: branches.whatsapp_number — normalize to wa.me-compatible format)', () => {
+  it('returns null for empty string', () => {
+    expect(normalizeWhatsAppNumber('')).toBeNull();
+  });
+
+  it('returns null for whitespace-only string', () => {
+    expect(normalizeWhatsAppNumber('   ')).toBeNull();
+  });
+
+  it('prepends 595 and strips leading 0 for local Paraguay format', () => {
+    expect(normalizeWhatsAppNumber('0981123456')).toBe('595981123456');
+  });
+
+  it('keeps the number unchanged when it already starts with 595', () => {
+    expect(normalizeWhatsAppNumber('595981123456')).toBe('595981123456');
+  });
+
+  it('strips non-digit characters (+ spaces dashes) before normalizing', () => {
+    expect(normalizeWhatsAppNumber('+595 981-123456')).toBe('595981123456');
+  });
+
+  it('passes through non-Paraguay country codes unchanged', () => {
+    expect(normalizeWhatsAppNumber('5491112345678')).toBe('5491112345678');
   });
 });
 
@@ -117,10 +191,24 @@ describe('buildStatusNotificationMessage (REQ: order-notify-customer — WhatsAp
     );
   });
 
-  it('builds the confirmed message', () => {
-    const order = makeOrder({ status: 'confirmed', customer_name: 'Ana', order_code: 'X9Y8Z7' });
+  it('builds the confirmed message for pickup orders', () => {
+    const order = makeOrder({ status: 'confirmed', delivery_type: 'pickup', customer_name: 'Ana', order_code: 'X9Y8Z7' });
     expect(buildStatusNotificationMessage(order, 'Villcan Centro')).toBe(
       'Hola Ana! Tu pedido #X9Y8Z7 fue confirmado y ya lo estamos preparando.'
+    );
+  });
+
+  it('builds confirmed delivery message with subtotal + fee + total breakdown', () => {
+    const order = makeOrder({
+      status: 'confirmed',
+      delivery_type: 'delivery',
+      customer_name: 'Ana',
+      order_code: 'X9Y8Z7',
+      total: 50000,
+      delivery_fee: 15000,
+    });
+    expect(buildStatusNotificationMessage(order, 'Villcan Centro')).toBe(
+      'Hola Ana! Tu pedido #X9Y8Z7 fue confirmado y ya lo estamos preparando. Subtotal: Gs. 50.000. Costo de delivery: Gs. 15.000. Total a abonar: Gs. 65.000.'
     );
   });
 

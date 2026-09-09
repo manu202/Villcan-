@@ -105,11 +105,39 @@ describe('OrderCard — state advancement', () => {
     expect(screen.queryByRole('button', { name: /aceptar|completado/i })).toBeNull();
   });
 
-  it('tap en "Aceptar pedido" llama onStatusChange con confirmed', () => {
+  it('pickup: tap en "Aceptar pedido" llama onStatusChange directamente (sin formulario)', () => {
     const onStatusChange = vi.fn();
     render(<OrderCard order={BASE_ORDER} onStatusChange={onStatusChange} onNotify={vi.fn()} onClick={vi.fn()} />);
     fireEvent.click(screen.getByRole('button', { name: /aceptar pedido/i }));
-    expect(onStatusChange).toHaveBeenCalledWith('o1', 'confirmed');
+    expect(onStatusChange).toHaveBeenCalledWith('o1', 'confirmed', undefined);
+  });
+
+  it('delivery: tap en "Aceptar pedido" muestra formulario de fee sin llamar onStatusChange', () => {
+    const onStatusChange = vi.fn();
+    const order = { ...BASE_ORDER, delivery_type: 'delivery' as const };
+    render(<OrderCard order={order} onStatusChange={onStatusChange} onNotify={vi.fn()} onClick={vi.fn()} />);
+    fireEvent.click(screen.getByRole('button', { name: /aceptar pedido/i }));
+    expect(onStatusChange).not.toHaveBeenCalled();
+    expect(screen.getByPlaceholderText('Ej: 15000')).toBeTruthy();
+  });
+
+  it('delivery: confirmar con fee llama onStatusChange(id, confirmed, fee)', () => {
+    const onStatusChange = vi.fn();
+    const order = { ...BASE_ORDER, delivery_type: 'delivery' as const };
+    render(<OrderCard order={order} onStatusChange={onStatusChange} onNotify={vi.fn()} onClick={vi.fn()} />);
+    fireEvent.click(screen.getByRole('button', { name: /aceptar pedido/i }));
+    fireEvent.change(screen.getByPlaceholderText('Ej: 15000'), { target: { value: '15000' } });
+    fireEvent.click(screen.getByRole('button', { name: /^confirmar$/i }));
+    expect(onStatusChange).toHaveBeenCalledWith('o1', 'confirmed', 15000);
+  });
+
+  it('delivery: cancelar el formulario de fee restaura el botón "Aceptar pedido"', () => {
+    const order = { ...BASE_ORDER, delivery_type: 'delivery' as const };
+    render(<OrderCard order={order} onStatusChange={vi.fn()} onNotify={vi.fn()} onClick={vi.fn()} />);
+    fireEvent.click(screen.getByRole('button', { name: /aceptar pedido/i }));
+    expect(screen.queryByRole('button', { name: /aceptar pedido/i })).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: /cancelar/i }));
+    expect(screen.getByRole('button', { name: /aceptar pedido/i })).toBeTruthy();
   });
 });
 

@@ -93,7 +93,7 @@ describe('OrdersPage (REQ: incoming orders panel)', () => {
     fireEvent.click(screen.getByRole('button', { name: /notificar cliente/i }));
 
     expect(openSpy).toHaveBeenCalledWith(
-      'https://wa.me/0981123456?text=' +
+      'https://wa.me/595981123456?text=' +
         encodeURIComponent('Hola Juan! Tu pedido #A1B2C3 fue confirmado y ya lo estamos preparando.'),
       '_blank'
     );

@@ -16,12 +16,11 @@ interface OrderPaymentSheetProps {
 
 export function OrderPaymentSheet({ order, items, open, onOpenChange, onCompleted }: OrderPaymentSheetProps) {
   const [montoRecibido, setMontoRecibido] = useState('');
-  const [deliveryFeeInput, setDeliveryFeeInput] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
   const isDelivery = order.delivery_type === 'delivery';
   const isEfectivo = order.payment_method === 'efectivo';
-  const deliveryFee = isDelivery ? (parseInt(deliveryFeeInput, 10) || 0) : 0;
+  const deliveryFee = isDelivery ? (order.delivery_fee ?? 0) : 0;
   const finalTotal = order.total + deliveryFee;
   const monto = parseInt(montoRecibido, 10) || 0;
   const vuelto = isEfectivo ? Math.max(0, monto - finalTotal) : 0;
@@ -33,10 +32,6 @@ export function OrderPaymentSheet({ order, items, open, onOpenChange, onComplete
 
     const supabase = createClient();
     const { data: { user } } = await supabase.auth.getUser();
-
-    if (isDelivery) {
-      await supabase.from('orders').update({ delivery_fee: deliveryFee }).eq('id', order.id);
-    }
 
     await supabase.from('movements').insert({
       type: 'servicio',
@@ -85,27 +80,16 @@ export function OrderPaymentSheet({ order, items, open, onOpenChange, onComplete
           {items.length} {items.length === 1 ? 'ítem' : 'ítems'}
         </div>
 
-        {isDelivery && (
+        {isDelivery && deliveryFee > 0 && (
           <div className="ops-delivery-section">
-            <label className="ops-field-label" htmlFor="ops-delivery-fee">
-              Costo de delivery
-            </label>
-            <input
-              id="ops-delivery-fee"
-              type="number"
-              placeholder="0"
-              value={deliveryFeeInput}
-              onChange={(e) => setDeliveryFeeInput(e.target.value)}
-              className="ops-input"
-              inputMode="numeric"
-              min={0}
-            />
-            {deliveryFee > 0 && (
-              <div className="ops-fee-breakdown">
-                <span>Productos</span>
-                <span>{formatGuaranies(order.total)}</span>
-              </div>
-            )}
+            <div className="ops-fee-breakdown">
+              <span>Productos</span>
+              <span>{formatGuaranies(order.total)}</span>
+            </div>
+            <div className="ops-fee-breakdown">
+              <span>Delivery</span>
+              <span>{formatGuaranies(deliveryFee)}</span>
+            </div>
           </div>
         )}
 

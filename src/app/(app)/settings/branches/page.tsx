@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { ExternalLink, Globe } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
+import { normalizeWhatsAppNumber } from '@/lib/storefront';
 import { useBranch } from '@/contexts/BranchContext';
 import { useSettings } from '@/contexts/SettingsContext';
 import { useToast } from '@/contexts/ToastContext';
@@ -95,7 +96,7 @@ export default function BranchesPage() {
           name: formData.name,
           address: formData.address,
           vertical: formData.vertical,
-          whatsapp_number: formData.whatsapp.trim() || null,
+          whatsapp_number: normalizeWhatsAppNumber(formData.whatsapp),
         })
         .eq('id', editingBranch.id);
       if (error) showToast(error.message, 'error');
@@ -117,7 +118,7 @@ export default function BranchesPage() {
           name: formData.name,
           address: formData.address,
           vertical: formData.vertical,
-          whatsapp_number: formData.whatsapp.trim() || null,
+          whatsapp_number: normalizeWhatsAppNumber(formData.whatsapp),
         });
 
       if (error) showToast(error.message, 'error');

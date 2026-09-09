@@ -23,6 +23,10 @@ export interface FormatOrderMessageInput {
   items: StorefrontOrderLine[];
   note?: string | null;
   total: number;
+  paymentMethod?: string;
+  deliveryType?: 'pickup' | 'delivery';
+  deliveryAddress?: string | null;
+  deliveryLocation?: { lat: number; lng: number } | null;
 }
 
 /**
@@ -57,9 +61,33 @@ export function formatOrderMessage(input: FormatOrderMessageInput): string {
     lines.push('', `*Nota:* ${input.note.trim()}`);
   }
 
-  lines.push('', `*Total: Gs. ${formatGs(input.total)}*`);
+  if (input.deliveryType === 'delivery') {
+    const paymentLabel = input.paymentMethod === 'transferencia' ? 'Transferencia' : 'Efectivo';
+    lines.push('', `*Pago:* ${paymentLabel}`);
+    lines.push(`*Entrega:* Delivery${input.deliveryAddress ? ` — ${input.deliveryAddress}` : ''}`);
+    if (input.deliveryLocation) {
+      lines.push(`📍 https://maps.google.com/?q=${input.deliveryLocation.lat},${input.deliveryLocation.lng}`);
+    }
+    lines.push('', `*Subtotal: Gs. ${formatGs(input.total)}*`);
+    lines.push('_Costo de delivery: a confirmar por el local_');
+  } else {
+    lines.push('', `*Total: Gs. ${formatGs(input.total)}*`);
+  }
 
   return lines.join('\n');
+}
+
+/**
+ * Normalizes a raw WhatsApp number to digits-only international format
+ * for wa.me links. Handles Paraguay local numbers (leading 0 → prepend 595).
+ * Returns null when the input is blank.
+ */
+export function normalizeWhatsAppNumber(raw: string): string | null {
+  const digits = raw.replace(/\D/g, '');
+  if (!digits) return null;
+  if (digits.startsWith('595')) return digits;
+  if (digits.startsWith('0')) return '595' + digits.slice(1);
+  return digits;
 }
 
 /**
@@ -70,8 +98,9 @@ export function formatOrderMessage(input: FormatOrderMessageInput): string {
  * `+`/spaces/dashes.
  */
 export function buildWhatsAppLink(whatsappNumber: string, message: string): string {
-  const digitsOnly = whatsappNumber.replace(/\D/g, '');
-  return `https://wa.me/${digitsOnly}?text=${encodeURIComponent(message)}`;
+  const digits = whatsappNumber.replace(/\D/g, '');
+  const normalized = digits.startsWith('0') ? '595' + digits.slice(1) : digits;
+  return `https://wa.me/${normalized}?text=${encodeURIComponent(message)}`;
 }
 
 /**
@@ -97,6 +126,12 @@ export function buildStatusNotificationMessage(order: Order, businessName: strin
       return `Hola ${name}! Recibimos tu pedido #${code}${suffix} y lo estamos procesando. Te avisamos apenas lo confirmemos.`;
     }
     case 'confirmed':
+      if (order.delivery_type === 'delivery' && order.delivery_fee != null) {
+        const subtotal = formatGs(order.total);
+        const fee = formatGs(order.delivery_fee);
+        const total = formatGs(order.total + order.delivery_fee);
+        return `Hola ${name}! Tu pedido #${code} fue confirmado y ya lo estamos preparando. Subtotal: Gs. ${subtotal}. Costo de delivery: Gs. ${fee}. Total a abonar: Gs. ${total}.`;
+      }
       return `Hola ${name}! Tu pedido #${code} fue confirmado y ya lo estamos preparando.`;
     case 'completed':
       if (order.delivery_type === 'pickup') {

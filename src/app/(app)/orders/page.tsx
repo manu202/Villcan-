@@ -65,10 +65,16 @@ export default function OrdersPage() {
     return () => clearInterval(interval);
   }, [initialized, currentBranch, loadOrders]);
 
-  const handleStatusChange = async (orderId: string, status: OrderStatus) => {
+  const handleStatusChange = async (orderId: string, status: OrderStatus, deliveryFee?: number) => {
     const supabase = createClient();
-    setOrders((prev) => prev.map((o) => (o.id === orderId ? { ...o, status } : o)));
-    await supabase.from('orders').update({ status }).eq('id', orderId);
+    const update: Record<string, unknown> = { status };
+    if (deliveryFee !== undefined) update.delivery_fee = deliveryFee;
+    setOrders((prev) => prev.map((o) =>
+      o.id === orderId
+        ? { ...o, status, ...(deliveryFee !== undefined ? { delivery_fee: deliveryFee } : {}) }
+        : o
+    ));
+    await supabase.from('orders').update(update).eq('id', orderId);
   };
 
   const visibleOrders = orders.filter((o) => statusFilter === 'all' || o.status === statusFilter);

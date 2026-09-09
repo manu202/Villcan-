@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import { MessageCircle } from 'lucide-react';
 import { formatGuaranies, formatRelativeTime, isOlderThan } from '@/lib/utils';
 import { buildStatusNotificationMessage, buildWhatsAppLink } from '@/lib/storefront';
@@ -24,7 +25,7 @@ const STATUS_COLORS: Record<OrderStatus, string> = {
 
 interface OrderCardProps {
   order: OrderWithItems;
-  onStatusChange: (orderId: string, status: OrderStatus) => void;
+  onStatusChange: (orderId: string, status: OrderStatus, deliveryFee?: number) => void;
   onNotify: (order: OrderWithItems) => void;
   onClick: (orderId: string) => void;
 }
@@ -37,9 +38,30 @@ export function OrderCard({ order, onStatusChange, onNotify, onClick }: OrderCar
     .map((i) => `${i.qty}× ${i.name_snapshot}`)
     .join(', ');
 
+  const [showFeeForm, setShowFeeForm] = useState(false);
+  const [feeInput, setFeeInput] = useState('');
+
   const handleAdvance = (e: React.MouseEvent) => {
     e.stopPropagation();
-    if (nextStatus) onStatusChange(order.id, nextStatus);
+    if (!nextStatus) return;
+    if (order.delivery_type === 'delivery' && nextStatus === 'confirmed') {
+      setShowFeeForm(true);
+    } else {
+      onStatusChange(order.id, nextStatus, undefined);
+    }
+  };
+
+  const handleFeeConfirm = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    onStatusChange(order.id, 'confirmed', parseInt(feeInput, 10) || 0);
+    setShowFeeForm(false);
+    setFeeInput('');
+  };
+
+  const handleFeeCancel = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setShowFeeForm(false);
+    setFeeInput('');
   };
 
   const handleNotify = (e: React.MouseEvent) => {
@@ -91,8 +113,33 @@ export function OrderCard({ order, onStatusChange, onNotify, onClick }: OrderCar
         </button>
       </div>
 
-      {/* Action button */}
-      {actionLabel && nextStatus && (
+      {/* Action button / delivery fee form */}
+      {showFeeForm ? (
+        <div className="kds-fee-form" onClick={(e) => e.stopPropagation()}>
+          <label className="kds-fee-label" htmlFor={`kds-fee-${order.id}`}>
+            Costo de delivery (Gs.)
+          </label>
+          <input
+            id={`kds-fee-${order.id}`}
+            type="number"
+            className="kds-fee-input"
+            placeholder="Ej: 15000"
+            value={feeInput}
+            onChange={(e) => setFeeInput(e.target.value)}
+            inputMode="numeric"
+            min={0}
+            autoFocus
+          />
+          <div className="kds-fee-actions">
+            <button type="button" className="kds-action kds-action-pending" onClick={handleFeeConfirm}>
+              Confirmar
+            </button>
+            <button type="button" className="kds-fee-cancel" onClick={handleFeeCancel}>
+              Cancelar
+            </button>
+          </div>
+        </div>
+      ) : actionLabel && nextStatus ? (
         <button
           type="button"
           className={`kds-action kds-action-${order.status}`}
@@ -100,7 +147,7 @@ export function OrderCard({ order, onStatusChange, onNotify, onClick }: OrderCar
         >
           {actionLabel}
         </button>
-      )}
+      ) : null}
 
       <style>{`
         .kds-card {
@@ -229,6 +276,46 @@ export function OrderCard({ order, onStatusChange, onNotify, onClick }: OrderCar
         .kds-action-confirmed {
           background: #22c55e;
           color: #052e16;
+        }
+
+        /* Delivery fee form */
+        .kds-fee-form {
+          display: flex;
+          flex-direction: column;
+          gap: 8px;
+        }
+        .kds-fee-label {
+          font-size: 12px;
+          font-weight: 600;
+          color: var(--text-secondary);
+        }
+        .kds-fee-input {
+          padding: 12px 14px;
+          font-size: 16px;
+          font-weight: 600;
+          border: 1px solid var(--border);
+          border-radius: 10px;
+          background: var(--surface-elevated);
+          color: var(--text-primary);
+          font-variant-numeric: tabular-nums;
+          width: 100%;
+          box-sizing: border-box;
+        }
+        .kds-fee-actions {
+          display: flex;
+          gap: 8px;
+        }
+        .kds-fee-actions .kds-action { flex: 1; }
+        .kds-fee-cancel {
+          flex: 1;
+          min-height: 44px;
+          border-radius: 10px;
+          font-size: 14px;
+          font-weight: 600;
+          cursor: pointer;
+          border: 1px solid var(--border);
+          background: var(--surface-elevated);
+          color: var(--text-secondary);
         }
       `}</style>
     </li>
