@@ -116,9 +116,10 @@ describe('GastronomyTemplate — ticket-grid catalog', () => {
     // Add Mozzarella
     fireEvent.click(screen.getByRole('button', { name: /Mozzarella/i }));
     fireEvent.click(screen.getByRole('button', { name: /agregar al pedido/i }));
-    // Open cart drawer from the nav's cart button specifically — the FAB
-    // renders its own "ver pedido" control once the cart has items, so the
-    // query is scoped to the nav landmark to target the one under test.
+    // The product sheet is a real vaul dialog now — while it's open it
+    // correctly aria-hides the rest of the page (including the nav), so it
+    // has to be closed explicitly before the nav's cart button is reachable.
+    fireEvent.click(screen.getByRole('button', { name: 'Cerrar' }));
     const nav = screen.getByRole('navigation');
     fireEvent.click(within(nav).getByRole('button', { name: /ver pedido/i }));
     expect(screen.getByRole('heading', { name: 'Tu pedido' })).toBeTruthy();
@@ -129,7 +130,9 @@ describe('GastronomyTemplate — ticket-grid catalog', () => {
     render(<GastronomyTemplate branch={branch} services={services} />);
     fireEvent.click(screen.getByRole('button', { name: /Mozzarella/i }));
     fireEvent.click(screen.getByRole('button', { name: /agregar al pedido/i }));
-    fireEvent.click(within(screen.getByRole('navigation')).getByRole('button', { name: /ver pedido/i }));
+    // Sheet CTA reads "Ver pedido · <total>" once qty > 0 — clicking it
+    // closes the sheet and opens the cart drawer directly.
+    fireEvent.click(screen.getByRole('button', { name: /ver pedido/i }));
     fireEvent.click(screen.getByRole('button', { name: /continuar pedido/i }));
     // CheckoutForm mounts — its Nombre field is the tell
     expect(screen.getByLabelText(/nombre/i)).toBeTruthy();
@@ -143,8 +146,8 @@ describe('GastronomyTemplate — ticket-grid catalog', () => {
     render(<GastronomyTemplate branch={branch} services={services} />);
     fireEvent.click(screen.getByRole('button', { name: /Mozzarella/i }));
     fireEvent.click(screen.getByRole('button', { name: /agregar al pedido/i }));
-    const nav = screen.getByRole('navigation');
-    fireEvent.click(within(nav).getByRole('button', { name: /ver pedido/i }));
+    // Sheet's own CTA closes it and opens the cart drawer in one tap.
+    fireEvent.click(screen.getByRole('button', { name: /ver pedido/i }));
     fireEvent.click(screen.getByRole('button', { name: /^delivery$/i }));
     fireEvent.click(screen.getByRole('button', { name: /continuar pedido/i }));
 
@@ -152,9 +155,7 @@ describe('GastronomyTemplate — ticket-grid catalog', () => {
     expect(screen.getByPlaceholderText(/Mcal\. López/i)).toBeTruthy();
     // …and the catalog behind it never unmounted. "Napolitana" was never
     // opened in the product sheet, so its only possible source here is the
-    // still-mounted catalog row (Mozzarella is ambiguous: its sheet stays
-    // open by design after "Agregar al pedido", so it legitimately appears
-    // in both the sheet and the catalog row at once).
+    // still-mounted catalog row.
     expect(screen.getByText('Napolitana')).toBeTruthy();
   });
 });

@@ -10,6 +10,7 @@ import { CheckoutDeliveryStep } from '../CheckoutDeliveryStep';
 import { CheckoutPaymentStep } from '../CheckoutPaymentStep';
 import { useStorefrontCart } from '../useStorefrontCart';
 import { useActiveCategory } from '../primitives/useActiveCategory';
+import { StorefrontSheet } from '../primitives/StorefrontSheet';
 import { FireCanvas, GtStyles } from './GastronomyTheme';
 import { formatGuaranies } from '@/lib/utils';
 import type { Branch, Service } from '@/types';
@@ -139,10 +140,14 @@ export function GastronomyTemplate({ branch, services }: GastronomyTemplateProps
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selected, cartOpen, selectedIdx]);
 
+  // The cart drawer is still hand-rolled, so it still needs a manual scroll
+  // lock. The product sheet is now vaul-driven (StorefrontSheet) and vaul
+  // manages its own body scroll lock — including `selected` here would
+  // double-manage the same style and risk the two locks racing on cleanup.
   useEffect(() => {
-    document.body.style.overflow = cartOpen || selected ? 'hidden' : '';
+    document.body.style.overflow = cartOpen ? 'hidden' : '';
     return () => { document.body.style.overflow = ''; };
-  }, [cartOpen, selected]);
+  }, [cartOpen]);
 
   useEffect(() => {
     const el = sheetRef.current;
@@ -377,24 +382,27 @@ export function GastronomyTemplate({ branch, services }: GastronomyTemplateProps
         </button>
       )}
 
-      {/* ── PRODUCT SHEET ── */}
-      <div
-        className={`gt-sheet-scrim${sheetIsOpen ? ' is-open' : ''}`}
-        onClick={closeSheet}
-        aria-hidden="true"
-      />
-      <div
-        ref={sheetRef}
-        className={`gt-sheet${sheetIsOpen ? ' is-open' : ''}`}
-        role="dialog"
-        aria-modal="true"
-        aria-label={selected?.name ?? 'Producto'}
-        aria-hidden={!sheetIsOpen}
-        onPointerDown={onSheetPointerDown}
-        onPointerMove={onSheetPointerMove}
-        onPointerUp={onSheetPointerUp}
-        onPointerCancel={onSheetPointerCancel}
+      {/* ── PRODUCT SHEET — vaul-driven (StorefrontSheet). dismissible=false:
+          the content owns its own horizontal swipe-between-products gesture
+          (onSheetPointer*), which would compete with vaul's own vertical
+          drag-to-dismiss on the same surface. Explicit close (X button,
+          overlay tap, Escape) still works — only the drag-down-to-dismiss
+          gesture is disabled. ── */}
+      <StorefrontSheet
+        open={sheetIsOpen}
+        onOpenChange={(open) => { if (!open) closeSheet(); }}
+        contentClassName="gt-sheet"
+        overlayClassName="gt-sheet-scrim"
+        ariaLabel={selected?.name ?? 'Producto'}
+        dismissible={false}
       >
+        <div
+          ref={sheetRef}
+          onPointerDown={onSheetPointerDown}
+          onPointerMove={onSheetPointerMove}
+          onPointerUp={onSheetPointerUp}
+          onPointerCancel={onSheetPointerCancel}
+        >
         {selected && (
           <>
             {/* Nav: prev · counter · next · close */}
@@ -506,7 +514,8 @@ export function GastronomyTemplate({ branch, services }: GastronomyTemplateProps
             </div>
           </>
         )}
-      </div>
+        </div>
+      </StorefrontSheet>
 
       {/* ── CART DRAWER — also hosts the delivery-data and payment steps, so
           checking out never unmounts the catalog behind it (see the early-
