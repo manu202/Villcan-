@@ -6,8 +6,7 @@ import {
   ShoppingBag, X, Plus, Minus, MessageCircle, UtensilsCrossed,
   ChevronLeft, ChevronRight,
 } from 'lucide-react';
-import { CheckoutDeliveryStep } from '../CheckoutDeliveryStep';
-import { CheckoutPaymentStep } from '../CheckoutPaymentStep';
+import { CheckoutStep } from '../CheckoutStep';
 import { useStorefrontCart } from '../useStorefrontCart';
 import { useActiveCategory } from '../primitives/useActiveCategory';
 import { StorefrontSheet } from '../primitives/StorefrontSheet';
@@ -44,16 +43,18 @@ export function GastronomyTemplate({ branch, services }: GastronomyTemplateProps
     deliveryLocation, setDeliveryLocation,
     deliveryType, setDeliveryType, deliveryAddress, setDeliveryAddress,
     addToCart, increment, decrement,
-    goToCart, goToDelivery, goToPayment, backToCatalog, backToCart, backToDelivery, handleSubmit,
+    goToCart, goToPayment, backToCatalog, backToCart, handleSubmit,
   } = useStorefrontCart(branch, services);
 
   // The cart drawer's *open* state is derived from `step` — there is no
-  // separate `cartOpen` flag to drift out of sync. 'cart' | 'delivery-data' |
-  // 'payment' all render inside the same drawer surface; 'catalog' and
-  // 'success' don't. This is also what lets the catalog stay mounted: the
-  // component never early-`return`s on those steps anymore, it just swaps
-  // what the drawer shows.
-  const cartOpen = step === 'cart' || step === 'delivery-data' || step === 'payment';
+  // separate `cartOpen` flag to drift out of sync. 'cart' and 'payment' both
+  // render inside the same drawer surface ('payment' is the single combined
+  // checkout form — pickup/delivery, address, and payment method all live
+  // there now, so there's no separate 'delivery-data' screen to reach);
+  // 'catalog' and 'success' don't. This is also what lets the catalog stay
+  // mounted: the component never early-`return`s on those steps anymore, it
+  // just swaps what the drawer shows.
+  const cartOpen = step === 'cart' || step === 'payment';
   const [selectedIdx, setSelectedIdx] = useState<number | null>(null);
   const [navDir, setNavDir] = useState<'next' | 'prev' | null>(null);
   const [exiting, setExiting] = useState(false);
@@ -229,11 +230,11 @@ export function GastronomyTemplate({ branch, services }: GastronomyTemplateProps
     );
   }
 
-  // 'delivery-data' and 'payment' no longer early-`return` a full-screen
-  // takeover — they render as steps of the same cart drawer below, so the
-  // catalog (scroll position, category IntersectionObserver) never unmounts.
-  // See useActiveCategory + REQ-CART-NAV regression test "keeps the catalog
-  // mounted underneath the delivery step".
+  // 'payment' no longer early-`return`s a full-screen takeover — it renders
+  // as a step of the same cart drawer below, so the catalog (scroll
+  // position, category IntersectionObserver) never unmounts. See
+  // useActiveCategory + REQ-CART-NAV regression test "keeps the catalog
+  // mounted underneath the checkout step".
   const sheetIsOpen = selectedIdx !== null;
 
   return (
@@ -529,7 +530,7 @@ export function GastronomyTemplate({ branch, services }: GastronomyTemplateProps
         className={`gt-drawer${cartOpen ? ' is-open' : ''}`}
         role="dialog"
         aria-modal="true"
-        aria-label={step === 'delivery-data' ? 'Entrega' : step === 'payment' ? 'Confirmá tu pedido' : 'Tu pedido'}
+        aria-label={step === 'payment' ? 'Confirmá tu pedido' : 'Tu pedido'}
         aria-hidden={!cartOpen}
       >
         <div className="gt-drawer-head">
@@ -537,14 +538,14 @@ export function GastronomyTemplate({ branch, services }: GastronomyTemplateProps
             <button
               type="button"
               className="gt-drawer-close"
-              onClick={step === 'payment' ? (deliveryType === 'delivery' ? backToDelivery : backToCart) : backToCart}
+              onClick={backToCart}
               aria-label="Volver"
             >
               <ChevronLeft size={19} aria-hidden="true" />
             </button>
           )}
           <h3 className="gt-drawer-title">
-            {step === 'delivery-data' ? 'Entrega' : step === 'payment' ? 'Confirmá tu pedido' : 'Tu pedido'}
+            {step === 'payment' ? 'Confirmá tu pedido' : 'Tu pedido'}
           </h3>
           <button
             type="button"
@@ -602,30 +603,11 @@ export function GastronomyTemplate({ branch, services }: GastronomyTemplateProps
                 <span>Total</span>
                 <strong>{formatGuaranies(total)}</strong>
               </div>
-              <div className="gt-delivery-toggle" role="group" aria-label="Tipo de entrega">
-                <button
-                  type="button"
-                  className={`gt-toggle-btn${deliveryType === 'pickup' ? ' is-active' : ''}`}
-                  onClick={() => setDeliveryType('pickup')}
-                >
-                  Retirar
-                </button>
-                <button
-                  type="button"
-                  className={`gt-toggle-btn${deliveryType === 'delivery' ? ' is-active' : ''}`}
-                  onClick={() => setDeliveryType('delivery')}
-                >
-                  Delivery
-                </button>
-              </div>
               <button
                 type="button"
                 className="gt-drawer-cta"
                 disabled={lines.length === 0}
-                onClick={() => {
-                  if (deliveryType === 'delivery') goToDelivery();
-                  else goToPayment();
-                }}
+                onClick={goToPayment}
               >
                 <MessageCircle size={15} aria-hidden="true" />
                 Continuar pedido
@@ -634,28 +616,24 @@ export function GastronomyTemplate({ branch, services }: GastronomyTemplateProps
           </>
         )}
 
-        {step === 'delivery-data' && (
+        {/* Delivery vs. pickup, address/GPS, payment method — all one form.
+            There used to be a separate "delivery-data" screen asked before
+            this one; direct user feedback: that extra step, plus asking
+            pickup-vs-delivery on its own before the actual form, was
+            unnecessary friction. Now it's all here, conditionally. */}
+        {step === 'payment' && (
           <div className="gt-drawer-body gt-drawer-step-body">
-            <CheckoutDeliveryStep
+            <CheckoutStep
+              deliveryType={deliveryType}
+              onDeliveryTypeChange={setDeliveryType}
               deliveryAddress={deliveryAddress}
               onAddressChange={setDeliveryAddress}
               deliveryLocation={deliveryLocation}
               onLocationCapture={setDeliveryLocation}
-              onNext={goToPayment}
-              onBack={backToCart}
-            />
-          </div>
-        )}
-
-        {step === 'payment' && (
-          <div className="gt-drawer-body gt-drawer-step-body">
-            <CheckoutPaymentStep
-              deliveryType={deliveryType}
-              deliveryAddress={deliveryAddress}
               submitting={submitting}
               errorMessage={errorMessage}
               onSubmit={handleSubmit}
-              onBack={deliveryType === 'delivery' ? backToDelivery : backToCart}
+              onBack={backToCart}
             />
           </div>
         )}

@@ -2,8 +2,7 @@
 
 import { X, ChevronLeft, Plus, Minus } from 'lucide-react';
 import { OrderSuccess } from '../OrderSuccess';
-import { CheckoutDeliveryStep } from '../CheckoutDeliveryStep';
-import { CheckoutPaymentStep } from '../CheckoutPaymentStep';
+import { CheckoutStep } from '../CheckoutStep';
 import { useStorefrontCart } from '../useStorefrontCart';
 import { formatGuaranies } from '@/lib/utils';
 import type { Branch, Service } from '@/types';
@@ -31,10 +30,6 @@ export function ServicesTemplate({ branch, services }: ServicesTemplateProps) {
     errorMessage,
     result,
     whatsappHref,
-    deliveryLocation,
-    setDeliveryLocation,
-    deliveryAddress,
-    setDeliveryAddress,
     addToCart,
     increment,
     decrement,
@@ -46,11 +41,10 @@ export function ServicesTemplate({ branch, services }: ServicesTemplateProps) {
   } = useStorefrontCart(branch, services);
 
   // Drawer visibility derived from `step` — same fix as Gastronomy/Retail
-  // (SDD "Storefront Mobile App-Like" Phase 3). This vertical never calls
-  // goToDelivery (a barbershop has no delivery concept — CheckoutPaymentStep
-  // below is always given deliveryType="pickup"), so 'delivery-data' is kept
-  // here only for defensive consistency with the shared step machine.
-  const cartOpen = step === 'cart' || step === 'delivery-data' || step === 'payment';
+  // (SDD "Storefront Mobile App-Like" Phase 3). A barbershop has no delivery
+  // concept, so CheckoutStep gets allowDelivery={false} — deliveryType is
+  // always 'pickup' here, no toggle shown.
+  const cartOpen = step === 'cart' || step === 'payment';
 
   if (step === 'success' && result && whatsappHref) {
     return (
@@ -66,10 +60,10 @@ export function ServicesTemplate({ branch, services }: ServicesTemplateProps) {
     );
   }
 
-  // 'delivery-data' and 'payment' render inside the same slide-up panel
-  // below instead of early-`return`ing a full-screen takeover — the service
-  // list never unmounts (see the regression test "keeps the service list
-  // mounted underneath the payment step").
+  // 'payment' renders inside the same slide-up panel below instead of
+  // early-`return`ing a full-screen takeover — the service list never
+  // unmounts (see the regression test "keeps the service list mounted
+  // underneath the payment step").
 
   return (
     <div className="svc-shell">
@@ -186,24 +180,16 @@ export function ServicesTemplate({ branch, services }: ServicesTemplateProps) {
           </>
         )}
 
-        {step === 'delivery-data' && (
-          <div className="svc-panel-body svc-panel-step-body">
-            <CheckoutDeliveryStep
-              deliveryAddress={deliveryAddress}
-              onAddressChange={setDeliveryAddress}
-              deliveryLocation={deliveryLocation}
-              onLocationCapture={setDeliveryLocation}
-              onNext={goToPayment}
-              onBack={backToCart}
-            />
-          </div>
-        )}
-
         {step === 'payment' && (
           <div className="svc-panel-body svc-panel-step-body">
-            <CheckoutPaymentStep
+            <CheckoutStep
               deliveryType="pickup"
+              onDeliveryTypeChange={() => {}}
               deliveryAddress=""
+              onAddressChange={() => {}}
+              deliveryLocation={null}
+              onLocationCapture={() => {}}
+              allowDelivery={false}
               submitting={submitting}
               errorMessage={errorMessage}
               onSubmit={handleSubmit}

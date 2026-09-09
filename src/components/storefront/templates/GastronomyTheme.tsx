@@ -961,16 +961,17 @@ export function GtStyles() {
         overflow-y: auto;
         padding: 6px 22px;
       }
-      /* Delivery/payment steps render inside this same drawer body — map the
-         generic CheckoutDeliveryStep/CheckoutPaymentStep tokens to the fire
-         theme (same mapping .gt-checkout-wrap used for the old full-page
-         steps), without the full-page max-width/margin/padding those don't
-         need inside a drawer that already constrains its own width. */
+      /* The one-screen CheckoutStep (name/phone/delivery/payment method) —
+         see CheckoutStep.tsx — renders inside this same drawer body. Maps
+         its generic tokens to the fire theme, without the full-page
+         max-width/margin/padding it doesn't need inside a drawer that
+         already constrains its own width. */
       .gt-drawer-step-body {
         padding: 18px 22px 6px;
         --text-primary:      var(--cream);
         --text-secondary:    var(--smoke);
         --surface:           rgba(19,10,5,.85);
+        --surface-elevated:  rgba(200,100,40,.08);
         --border:            rgba(200,100,40,.22);
         --accent:            var(--ember-b);
         --accent-foreground: #fff;
@@ -1097,36 +1098,6 @@ export function GtStyles() {
         font-size: .8rem;
         color: var(--ember);
         text-decoration: underline;
-      }
-
-      /* ── DELIVERY TOGGLE ── */
-      .gt-delivery-toggle {
-        display: flex;
-        border: 1px solid rgba(200,100,40,.28);
-        border-radius: 10px;
-        overflow: hidden;
-        margin-bottom: 10px;
-      }
-      .gt-toggle-btn {
-        flex: 1;
-        height: 40px;
-        border: none;
-        background: transparent;
-        color: var(--smoke);
-        font-family: var(--fb);
-        font-size: 12px;
-        font-weight: 600;
-        cursor: pointer;
-        transition: background .18s, color .18s;
-        letter-spacing: .3px;
-      }
-      .gt-toggle-btn.is-active {
-        background: var(--ember);
-        color: #fff;
-      }
-      .gt-toggle-btn:not(.is-active):hover {
-        background: rgba(196,96,42,.12);
-        color: var(--cream);
       }
 
       /* ── REDUCED MOTION ── */

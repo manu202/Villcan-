@@ -142,16 +142,18 @@ describe('GastronomyTemplate — ticket-grid catalog', () => {
   // step === 'delivery-data' | 'payment', unmounting the whole catalog —
   // killing scroll position and the category IntersectionObserver. The
   // catalog must stay mounted underneath the checkout sheet.
-  it('keeps the catalog mounted underneath the delivery step', () => {
+  it('keeps the catalog mounted underneath the checkout step', () => {
     render(<GastronomyTemplate branch={branch} services={services} />);
     fireEvent.click(screen.getByRole('button', { name: /Mozzarella/i }));
     fireEvent.click(screen.getByRole('button', { name: /agregar al pedido/i }));
     // Sheet's own CTA closes it and opens the cart drawer in one tap.
     fireEvent.click(screen.getByRole('button', { name: /ver pedido/i }));
-    fireEvent.click(screen.getByRole('button', { name: /^delivery$/i }));
+    // "Continuar pedido" goes straight to the one combined checkout form —
+    // pickup/delivery is picked inside it now, not on a screen before it.
     fireEvent.click(screen.getByRole('button', { name: /continuar pedido/i }));
+    fireEvent.click(screen.getByRole('button', { name: /^delivery$/i }));
 
-    // Delivery step is showing…
+    // The address field (only shown once Delivery is picked) is showing…
     expect(screen.getByPlaceholderText(/Mcal\. López/i)).toBeTruthy();
     // …and the catalog behind it never unmounted. "Napolitana" was never
     // opened in the product sheet, so its only possible source here is the

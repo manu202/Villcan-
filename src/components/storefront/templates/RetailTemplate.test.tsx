@@ -54,15 +54,17 @@ describe('RetailTemplate (smoke)', () => {
   // Regression: the checkout used to `return` early on
   // step === 'delivery-data' | 'payment', unmounting the whole product grid
   // behind it — same bug fixed in GastronomyTemplate (see its
-  // "keeps the catalog mounted underneath the delivery step" test).
-  it('keeps the catalog mounted underneath the delivery step', () => {
+  // "keeps the catalog mounted underneath the checkout step" test).
+  it('keeps the catalog mounted underneath the checkout step', () => {
     render(<RetailTemplate branch={branch} services={services} />);
     fireEvent.click(screen.getByRole('button', { name: /agregar/i }));
     fireEvent.click(screen.getByRole('button', { name: /ver carrito/i }));
-    fireEvent.click(screen.getByRole('button', { name: /^delivery$/i }));
+    // "Continuar compra" goes straight to the one combined checkout form —
+    // pickup/delivery is picked inside it now, not on a screen before it.
     fireEvent.click(screen.getByRole('button', { name: /continuar compra/i }));
+    fireEvent.click(screen.getByRole('button', { name: /^delivery$/i }));
 
-    // Delivery step is showing…
+    // The address field (only shown once Delivery is picked) is showing…
     expect(screen.getByPlaceholderText(/Mcal\. López/i)).toBeTruthy();
     // …and the product grid behind it never unmounted.
     expect(screen.getByText('Remera básica')).toBeTruthy();

@@ -2,8 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import { ShoppingCart, X, ChevronLeft, Plus, Minus, ImageOff } from 'lucide-react';
-import { CheckoutDeliveryStep } from '../CheckoutDeliveryStep';
-import { CheckoutPaymentStep } from '../CheckoutPaymentStep';
+import { CheckoutStep } from '../CheckoutStep';
 import { OrderSuccess } from '../OrderSuccess';
 import { useStorefrontCart } from '../useStorefrontCart';
 import { formatGuaranies } from '@/lib/utils';
@@ -43,19 +42,19 @@ export function RetailTemplate({ branch, services }: RetailTemplateProps) {
     increment,
     decrement,
     goToCart,
-    goToDelivery,
     goToPayment,
     backToCatalog,
     backToCart,
-    backToDelivery,
     handleSubmit,
   } = useStorefrontCart(branch, services);
 
   const [activeCategory, setActiveCategory] = useState<string>(ALL);
   // Drawer visibility is derived from `step` — see GastronomyTemplate's same
   // fix (SDD "Storefront Mobile App-Like" Phase 3). No separate cartOpen
-  // state to drift out of sync with the checkout step machine.
-  const cartOpen = step === 'cart' || step === 'delivery-data' || step === 'payment';
+  // state to drift out of sync with the checkout step machine. 'payment' is
+  // the single combined checkout form now (pickup/delivery, address, and
+  // payment method all live there — no separate 'delivery-data' screen).
+  const cartOpen = step === 'cart' || step === 'payment';
 
   const categories = useMemo(() => {
     const set = new Set<string>();
@@ -87,10 +86,10 @@ export function RetailTemplate({ branch, services }: RetailTemplateProps) {
     );
   }
 
-  // 'delivery-data' and 'payment' render inside the same cart drawer below
-  // instead of early-`return`ing a full-screen takeover — the product grid
-  // never unmounts (see the regression test "keeps the catalog mounted
-  // underneath the delivery step").
+  // 'payment' renders inside the same cart drawer below instead of
+  // early-`return`ing a full-screen takeover — the product grid never
+  // unmounts (see the regression test "keeps the catalog mounted underneath
+  // the checkout step").
 
   return (
     <div className="retail-shell">
@@ -178,19 +177,19 @@ export function RetailTemplate({ branch, services }: RetailTemplateProps) {
         className={`retail-drawer ${cartOpen ? 'open' : ''}`}
         role="dialog"
         aria-modal="true"
-        aria-label={step === 'delivery-data' ? 'Entrega' : step === 'payment' ? 'Finalizá tu compra' : 'Tu carrito'}
+        aria-label={step === 'payment' ? 'Finalizá tu compra' : 'Tu carrito'}
       >
         <div className="retail-drawer-head">
           {step !== 'cart' && (
             <button
               type="button"
               aria-label="Volver"
-              onClick={step === 'payment' ? (deliveryType === 'delivery' ? backToDelivery : backToCart) : backToCart}
+              onClick={backToCart}
             >
               <ChevronLeft size={20} />
             </button>
           )}
-          <h3>{step === 'delivery-data' ? 'Entrega' : step === 'payment' ? 'Finalizá tu compra' : 'Tu carrito'}</h3>
+          <h3>{step === 'payment' ? 'Finalizá tu compra' : 'Tu carrito'}</h3>
           <button
             type="button"
             aria-label="Cerrar carrito"
@@ -240,30 +239,11 @@ export function RetailTemplate({ branch, services }: RetailTemplateProps) {
                 <span>Total</span>
                 <strong>{formatGuaranies(total)}</strong>
               </div>
-              <div className="retail-delivery-toggle" role="group" aria-label="Tipo de entrega">
-                <button
-                  type="button"
-                  className={`retail-toggle-btn${deliveryType === 'pickup' ? ' is-active' : ''}`}
-                  onClick={() => setDeliveryType('pickup')}
-                >
-                  Retirar
-                </button>
-                <button
-                  type="button"
-                  className={`retail-toggle-btn${deliveryType === 'delivery' ? ' is-active' : ''}`}
-                  onClick={() => setDeliveryType('delivery')}
-                >
-                  Delivery
-                </button>
-              </div>
               <button
                 type="button"
                 className="retail-checkout-btn"
                 disabled={lines.length === 0}
-                onClick={() => {
-                  if (deliveryType === 'delivery') goToDelivery();
-                  else goToPayment();
-                }}
+                onClick={goToPayment}
               >
                 Continuar compra
               </button>
@@ -271,28 +251,23 @@ export function RetailTemplate({ branch, services }: RetailTemplateProps) {
           </>
         )}
 
-        {step === 'delivery-data' && (
+        {/* Delivery vs. pickup, address/GPS, payment method — all one form
+            now (see CheckoutStep). Direct user feedback: a separate screen
+            just to ask pickup-vs-delivery before the actual form was
+            unnecessary friction. */}
+        {step === 'payment' && (
           <div className="retail-drawer-body retail-drawer-step-body">
-            <CheckoutDeliveryStep
+            <CheckoutStep
+              deliveryType={deliveryType}
+              onDeliveryTypeChange={setDeliveryType}
               deliveryAddress={deliveryAddress}
               onAddressChange={setDeliveryAddress}
               deliveryLocation={deliveryLocation}
               onLocationCapture={setDeliveryLocation}
-              onNext={goToPayment}
-              onBack={backToCart}
-            />
-          </div>
-        )}
-
-        {step === 'payment' && (
-          <div className="retail-drawer-body retail-drawer-step-body">
-            <CheckoutPaymentStep
-              deliveryType={deliveryType}
-              deliveryAddress={deliveryAddress}
               submitting={submitting}
               errorMessage={errorMessage}
               onSubmit={handleSubmit}
-              onBack={deliveryType === 'delivery' ? backToDelivery : backToCart}
+              onBack={backToCart}
             />
           </div>
         )}
@@ -571,29 +546,6 @@ function RetailStyles() {
         min-height: 48px;
       }
       .retail-checkout-btn:disabled { opacity: 0.4; cursor: not-allowed; }
-
-      /* ── Delivery toggle ── */
-      .retail-delivery-toggle {
-        display: flex;
-        border: 1px solid var(--retail-border);
-        border-radius: 8px;
-        overflow: hidden;
-        margin-bottom: 10px;
-      }
-      .retail-toggle-btn {
-        flex: 1;
-        padding: 9px;
-        font-size: 13px;
-        font-weight: 600;
-        background: var(--retail-bg);
-        color: var(--retail-text-secondary);
-        border: none;
-        cursor: pointer;
-      }
-      .retail-toggle-btn.is-active {
-        background: var(--retail-text);
-        color: #fff;
-      }
 
       /* ── Success page (still a full-page takeover — it's terminal) ── */
       .retail-checkout-page {
