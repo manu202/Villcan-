@@ -16,12 +16,16 @@ interface OrderPaymentSheetProps {
 
 export function OrderPaymentSheet({ order, items, open, onOpenChange, onCompleted }: OrderPaymentSheetProps) {
   const [montoRecibido, setMontoRecibido] = useState('');
+  const [deliveryFeeInput, setDeliveryFeeInput] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
+  const isDelivery = order.delivery_type === 'delivery';
   const isEfectivo = order.payment_method === 'efectivo';
+  const deliveryFee = isDelivery ? (parseInt(deliveryFeeInput, 10) || 0) : 0;
+  const finalTotal = order.total + deliveryFee;
   const monto = parseInt(montoRecibido, 10) || 0;
-  const vuelto = isEfectivo ? Math.max(0, monto - order.total) : 0;
-  const canConfirm = isEfectivo ? monto >= order.total : true;
+  const vuelto = isEfectivo ? Math.max(0, monto - finalTotal) : 0;
+  const canConfirm = isEfectivo ? monto >= finalTotal : true;
 
   const handleConfirm = async () => {
     if (!canConfirm || submitting) return;
@@ -30,11 +34,15 @@ export function OrderPaymentSheet({ order, items, open, onOpenChange, onComplete
     const supabase = createClient();
     const { data: { user } } = await supabase.auth.getUser();
 
+    if (isDelivery) {
+      await supabase.from('orders').update({ delivery_fee: deliveryFee }).eq('id', order.id);
+    }
+
     await supabase.from('movements').insert({
       type: 'servicio',
-      amount_charged: order.total,
-      income: order.total,
-      expense: isEfectivo ? monto - order.total : 0,
+      amount_charged: finalTotal,
+      income: finalTotal,
+      expense: isEfectivo ? monto - finalTotal : 0,
       payment_method: order.payment_method,
       contact_id: order.contact_id,
       user_id: user?.id,
@@ -67,13 +75,39 @@ export function OrderPaymentSheet({ order, items, open, onOpenChange, onComplete
     >
       <div className="ops-body">
         <div className="ops-summary-card">
-          <span className="ops-summary-label">Total del pedido</span>
-          <span className="ops-total" data-testid="ops-total">{formatGuaranies(order.total)}</span>
+          <span className="ops-summary-label">
+            {isDelivery && deliveryFee > 0 ? 'Total (c/delivery)' : 'Total del pedido'}
+          </span>
+          <span className="ops-total" data-testid="ops-total">{formatGuaranies(finalTotal)}</span>
         </div>
 
         <div className="ops-items-count">
           {items.length} {items.length === 1 ? 'ítem' : 'ítems'}
         </div>
+
+        {isDelivery && (
+          <div className="ops-delivery-section">
+            <label className="ops-field-label" htmlFor="ops-delivery-fee">
+              Costo de delivery
+            </label>
+            <input
+              id="ops-delivery-fee"
+              type="number"
+              placeholder="0"
+              value={deliveryFeeInput}
+              onChange={(e) => setDeliveryFeeInput(e.target.value)}
+              className="ops-input"
+              inputMode="numeric"
+              min={0}
+            />
+            {deliveryFee > 0 && (
+              <div className="ops-fee-breakdown">
+                <span>Productos</span>
+                <span>{formatGuaranies(order.total)}</span>
+              </div>
+            )}
+          </div>
+        )}
 
         {isEfectivo ? (
           <div className="ops-cash-section">
@@ -142,6 +176,20 @@ export function OrderPaymentSheet({ order, items, open, onOpenChange, onComplete
           font-size: 13px;
           color: var(--text-secondary);
           text-align: center;
+        }
+
+        .ops-delivery-section {
+          display: flex;
+          flex-direction: column;
+          gap: 8px;
+        }
+
+        .ops-fee-breakdown {
+          display: flex;
+          justify-content: space-between;
+          font-size: 13px;
+          color: var(--text-secondary);
+          padding: 8px 2px 0;
         }
 
         .ops-cash-section {

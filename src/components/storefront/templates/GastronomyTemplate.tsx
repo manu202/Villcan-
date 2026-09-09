@@ -6,8 +6,10 @@ import {
   ShoppingBag, X, Plus, Minus, MessageCircle, UtensilsCrossed,
   ChevronLeft, ChevronRight,
 } from 'lucide-react';
-import { CheckoutForm } from '../CheckoutForm';
+import { CheckoutDeliveryStep } from '../CheckoutDeliveryStep';
+import { CheckoutPaymentStep } from '../CheckoutPaymentStep';
 import { useStorefrontCart } from '../useStorefrontCart';
+import type { OrderDeliveryType } from '@/types';
 import { formatGuaranies } from '@/lib/utils';
 import type { Branch, Service } from '@/types';
 
@@ -121,11 +123,14 @@ export function GastronomyTemplate({ branch, services }: GastronomyTemplateProps
   const {
     cart, lines, total, itemCount, step,
     submitting, errorMessage, result, whatsappHref,
+    deliveryLocation, setDeliveryLocation,
     addToCart, increment, decrement,
-    goToCheckout, backToCatalog, handleSubmit,
+    goToDelivery, goToPayment, backToCatalog, backToDelivery, handleSubmit,
   } = useStorefrontCart(branch, services);
 
   const [cartOpen, setCartOpen] = useState(false);
+  const [deliveryType, setDeliveryType] = useState<OrderDeliveryType>('pickup');
+  const [deliveryAddress, setDeliveryAddress] = useState('');
   const [selectedIdx, setSelectedIdx] = useState<number | null>(null);
   const [navDir, setNavDir] = useState<'next' | 'prev' | null>(null);
   const [exiting, setExiting] = useState(false);
@@ -322,7 +327,7 @@ export function GastronomyTemplate({ branch, services }: GastronomyTemplateProps
     );
   }
 
-  if (step === 'cart') {
+  if (step === 'delivery-data') {
     return (
       <div className="gt">
         <link rel="stylesheet" href={FONTS} />
@@ -334,12 +339,40 @@ export function GastronomyTemplate({ branch, services }: GastronomyTemplateProps
           </div>
         </nav>
         <div className="gt-checkout-wrap">
+          <CheckoutDeliveryStep
+            deliveryAddress={deliveryAddress}
+            onAddressChange={setDeliveryAddress}
+            deliveryLocation={deliveryLocation}
+            onLocationCapture={setDeliveryLocation}
+            onNext={goToPayment}
+            onBack={backToCatalog}
+          />
+        </div>
+        <GtStyles />
+      </div>
+    );
+  }
+
+  if (step === 'payment') {
+    return (
+      <div className="gt">
+        <link rel="stylesheet" href={FONTS} />
+        <FireCanvas />
+        <nav className="gt-nav">
+          <div className="gt-nav-top">
+            <button type="button" className="gt-back-btn" onClick={deliveryType === 'delivery' ? backToDelivery : backToCatalog}>← Menú</button>
+            <span className="gt-brand">{branch.name}</span>
+          </div>
+        </nav>
+        <div className="gt-checkout-wrap">
           <p className="gt-checkout-eyebrow">Confirmá tu pedido</p>
-          <CheckoutForm
+          <CheckoutPaymentStep
+            deliveryType={deliveryType}
+            deliveryAddress={deliveryAddress}
             submitting={submitting}
             errorMessage={errorMessage}
             onSubmit={handleSubmit}
-            onBack={backToCatalog}
+            onBack={deliveryType === 'delivery' ? backToDelivery : backToCatalog}
           />
         </div>
         <GtStyles />
@@ -675,11 +708,31 @@ export function GastronomyTemplate({ branch, services }: GastronomyTemplateProps
             <span>Total</span>
             <strong>{formatGuaranies(total)}</strong>
           </div>
+          <div className="gt-delivery-toggle" role="group" aria-label="Tipo de entrega">
+            <button
+              type="button"
+              className={`gt-toggle-btn${deliveryType === 'pickup' ? ' is-active' : ''}`}
+              onClick={() => setDeliveryType('pickup')}
+            >
+              Retirar
+            </button>
+            <button
+              type="button"
+              className={`gt-toggle-btn${deliveryType === 'delivery' ? ' is-active' : ''}`}
+              onClick={() => setDeliveryType('delivery')}
+            >
+              Delivery
+            </button>
+          </div>
           <button
             type="button"
             className="gt-drawer-cta"
             disabled={lines.length === 0}
-            onClick={() => { setCartOpen(false); goToCheckout(); }}
+            onClick={() => {
+              setCartOpen(false);
+              if (deliveryType === 'delivery') goToDelivery();
+              else goToPayment();
+            }}
           >
             <MessageCircle size={15} aria-hidden="true" />
             Continuar pedido
@@ -1697,6 +1750,36 @@ function GtStyles() {
         font-size: .8rem;
         color: var(--ember);
         text-decoration: underline;
+      }
+
+      /* ── DELIVERY TOGGLE ── */
+      .gt-delivery-toggle {
+        display: flex;
+        border: 1px solid rgba(200,100,40,.28);
+        border-radius: 10px;
+        overflow: hidden;
+        margin-bottom: 10px;
+      }
+      .gt-toggle-btn {
+        flex: 1;
+        height: 40px;
+        border: none;
+        background: transparent;
+        color: var(--smoke);
+        font-family: var(--fb);
+        font-size: 12px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: background .18s, color .18s;
+        letter-spacing: .3px;
+      }
+      .gt-toggle-btn.is-active {
+        background: var(--ember);
+        color: #fff;
+      }
+      .gt-toggle-btn:not(.is-active):hover {
+        background: rgba(196,96,42,.12);
+        color: var(--cream);
       }
 
       /* ── REDUCED MOTION ── */

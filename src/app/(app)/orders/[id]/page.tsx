@@ -474,6 +474,23 @@ export default function OrderDetailPage() {
                     : 'Retiro en el local'}
                 </span>
               </div>
+              {order.delivery_type === 'delivery' && order.delivery_location && (
+                <a
+                  href={`https://www.google.com/maps?q=${order.delivery_location.lat},${order.delivery_location.lng}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="detail-info-row maps-link"
+                >
+                  <MapPin size={15} className="info-icon" />
+                  <span>Ver ubicación en Maps</span>
+                </a>
+              )}
+              {order.delivery_type === 'delivery' && order.delivery_fee != null && (
+                <div className="detail-info-row">
+                  <Truck size={15} className="info-icon" style={{ opacity: 0 }} aria-hidden="true" />
+                  <span className="delivery-fee-badge">Delivery: {formatGuaranies(order.delivery_fee)}</span>
+                </div>
+              )}
               <div className="detail-info-row">
                 <CreditCard size={15} className="info-icon" />
                 <span>{order.payment_method === 'efectivo' ? 'Efectivo' : 'Transferencia'}</span>
@@ -610,6 +627,20 @@ export default function OrderDetailPage() {
           font-size: 14px; color: var(--text-primary);
         }
         .info-icon { color: var(--text-secondary); flex-shrink: 0; }
+
+        .maps-link {
+          color: #1a73e8;
+          text-decoration: none;
+          cursor: pointer;
+        }
+        .maps-link:hover { text-decoration: underline; }
+        [data-theme='dark'] .maps-link { color: #8ab4f8; }
+
+        .delivery-fee-badge {
+          font-size: 14px;
+          font-weight: 600;
+          color: var(--text-primary);
+        }
 
         /* Note */
         .order-note {
