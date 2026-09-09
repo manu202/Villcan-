@@ -599,34 +599,53 @@ export function GtStyles() {
         .gt-drawer-foot { padding-bottom: max(28px, calc(14px + env(safe-area-inset-bottom, 0px))); }
       }
 
-      /* ── PRODUCT SHEET ── */
-      /* .gt-sheet-scrim / .gt-sheet are now rendered through vaul's
-         Drawer.Overlay / Drawer.Content (see StorefrontSheet primitive) —
-         vaul owns position/inset/z-index/transform/transition/open-state
-         itself via inline styles during drag+animation. These rules are
-         visual chrome ONLY. Desktop centering uses margin/max-width instead
-         of transform:translate(-50%, …), specifically so it doesn't fight
-         vaul's own transform (which drives the Y-axis drag). */
+      /* ── PRODUCT SHEET ── (hand-rolled — see the revert note in
+         GastronomyTemplate.tsx's JSX for why this isn't vaul-driven) */
       .gt-sheet-scrim {
+        position: fixed;
+        inset: 0;
         background: rgba(10,6,4,.62);
         backdrop-filter: blur(4px);
         -webkit-backdrop-filter: blur(4px);
+        z-index: 80;
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity .3s;
+      }
+      .gt-sheet-scrim.is-open {
+        opacity: 1;
+        pointer-events: auto;
       }
       .gt-sheet {
+        position: fixed;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        z-index: 81;
         background: var(--surf);
         border-top: 1px solid var(--line);
         border-radius: 20px 20px 0 0;
+        transform: translateY(100%);
+        transition: transform .36s cubic-bezier(.4,0,.2,1);
         touch-action: pan-y;
         max-height: 90svh;
         display: flex;
         flex-direction: column;
         overflow: hidden;
       }
+      /* base open state must come BEFORE the desktop media query so the
+         desktop rule wins at equal specificity via source order */
+      .gt-sheet.is-open { transform: translateY(0); }
       @media (min-width: 640px) {
         .gt-sheet {
-          max-width: 480px;
-          margin: 0 auto;
+          left: 50%;
+          right: auto;
+          transform: translate(-50%, 100%);
+          width: 480px;
           border-radius: 16px 16px 0 0;
+        }
+        .gt-sheet.is-open {
+          transform: translate(-50%, 0);
         }
       }
       /* hint dots for swipe navigation */
@@ -1105,13 +1124,9 @@ export function GtStyles() {
         .gt-nav-flame-outer, .gt-nav-flame-inner, .gt-nav-flame-tip { animation: none; }
         .gt-hero-glow { animation: none; }
         .gt-scroll-line { animation: none; }
-        /* .gt-sheet / .gt-sheet-scrim are excluded here — they no longer own
-           their own transition (vaul drives that via inline styles on
-           Drawer.Content/Overlay). vaul does not currently expose a
-           reduced-motion hook, so the product sheet's open/close animation
-           doesn't shorten for prefers-reduced-motion users; everything still
-           hand-rolled (the cart drawer) still does. */
+        .gt-sheet,
         .gt-drawer,
+        .gt-sheet-scrim,
         .gt-overlay { transition-duration: 0.01ms; }
       }
     `}</style>
