@@ -2,11 +2,13 @@
 
 import { useMemo, useState } from 'react';
 import { ShoppingCart, X, Plus, Minus, ImageOff } from 'lucide-react';
-import { CheckoutForm } from '../CheckoutForm';
+import { CheckoutDeliveryStep } from '../CheckoutDeliveryStep';
+import { CheckoutPaymentStep } from '../CheckoutPaymentStep';
 import { OrderSuccess } from '../OrderSuccess';
 import { useStorefrontCart } from '../useStorefrontCart';
 import { formatGuaranies } from '@/lib/utils';
 import type { Branch, Service } from '@/types';
+import type { OrderDeliveryType } from '@/types';
 
 interface RetailTemplateProps {
   branch: Branch;
@@ -32,16 +34,22 @@ export function RetailTemplate({ branch, services }: RetailTemplateProps) {
     errorMessage,
     result,
     whatsappHref,
+    deliveryLocation,
+    setDeliveryLocation,
     addToCart,
     increment,
     decrement,
-    goToCheckout,
+    goToDelivery,
+    goToPayment,
     backToCatalog,
+    backToDelivery,
     handleSubmit,
   } = useStorefrontCart(branch, services);
 
   const [activeCategory, setActiveCategory] = useState<string>(ALL);
   const [cartOpen, setCartOpen] = useState(false);
+  const [deliveryType, setDeliveryType] = useState<OrderDeliveryType>('pickup');
+  const [deliveryAddress, setDeliveryAddress] = useState('');
 
   const categories = useMemo(() => {
     const set = new Set<string>();
@@ -73,20 +81,42 @@ export function RetailTemplate({ branch, services }: RetailTemplateProps) {
     );
   }
 
-  if (step === 'cart') {
+  if (step === 'delivery-data') {
     return (
       <div className="retail-shell">
         <header className="retail-header">
           <h1>{branch.name}</h1>
-          <button type="button" className="retail-nav-back" onClick={backToCatalog}>← Volver</button>
+        </header>
+        <div className="retail-checkout-page">
+          <CheckoutDeliveryStep
+            deliveryAddress={deliveryAddress}
+            onAddressChange={setDeliveryAddress}
+            deliveryLocation={deliveryLocation}
+            onLocationCapture={setDeliveryLocation}
+            onNext={goToPayment}
+            onBack={backToCatalog}
+          />
+        </div>
+        <RetailStyles />
+      </div>
+    );
+  }
+
+  if (step === 'payment') {
+    return (
+      <div className="retail-shell">
+        <header className="retail-header">
+          <h1>{branch.name}</h1>
         </header>
         <div className="retail-checkout-page">
           <div className="retail-checkout-eyebrow">Finalizá tu compra</div>
-          <CheckoutForm
+          <CheckoutPaymentStep
+            deliveryType={deliveryType}
+            deliveryAddress={deliveryAddress}
             submitting={submitting}
             errorMessage={errorMessage}
             onSubmit={handleSubmit}
-            onBack={backToCatalog}
+            onBack={deliveryType === 'delivery' ? backToDelivery : backToCatalog}
           />
         </div>
         <RetailStyles />
@@ -223,13 +253,30 @@ export function RetailTemplate({ branch, services }: RetailTemplateProps) {
             <span>Total</span>
             <strong>{formatGuaranies(total)}</strong>
           </div>
+          <div className="retail-delivery-toggle" role="group" aria-label="Tipo de entrega">
+            <button
+              type="button"
+              className={`retail-toggle-btn${deliveryType === 'pickup' ? ' is-active' : ''}`}
+              onClick={() => setDeliveryType('pickup')}
+            >
+              Retirar
+            </button>
+            <button
+              type="button"
+              className={`retail-toggle-btn${deliveryType === 'delivery' ? ' is-active' : ''}`}
+              onClick={() => setDeliveryType('delivery')}
+            >
+              Delivery
+            </button>
+          </div>
           <button
             type="button"
             className="retail-checkout-btn"
             disabled={lines.length === 0}
             onClick={() => {
               setCartOpen(false);
-              goToCheckout();
+              if (deliveryType === 'delivery') goToDelivery();
+              else goToPayment();
             }}
           >
             Continuar compra
@@ -503,6 +550,29 @@ function RetailStyles() {
         min-height: 44px;
       }
       .retail-checkout-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+      /* ── Delivery toggle ── */
+      .retail-delivery-toggle {
+        display: flex;
+        border: 1px solid var(--retail-border);
+        border-radius: 8px;
+        overflow: hidden;
+        margin-bottom: 10px;
+      }
+      .retail-toggle-btn {
+        flex: 1;
+        padding: 9px;
+        font-size: 13px;
+        font-weight: 600;
+        background: var(--retail-bg);
+        color: var(--retail-text-secondary);
+        border: none;
+        cursor: pointer;
+      }
+      .retail-toggle-btn.is-active {
+        background: var(--retail-text);
+        color: #fff;
+      }
 
       /* ── Checkout / Success nav ── */
       .retail-nav-back {
