@@ -9,6 +9,7 @@ import {
   Phone,
   Mail,
   ChevronRight,
+  MapPin,
   Truck,
   CreditCard,
   ChevronDown,

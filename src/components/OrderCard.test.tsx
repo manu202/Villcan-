@@ -29,6 +29,8 @@ const BASE_ORDER: OrderWithItems = {
   payment_method: 'efectivo',
   delivery_type: 'pickup',
   delivery_address: null,
+  delivery_fee: null,
+  delivery_location: null,
   created_at: '2026-09-07T10:00:00Z',
   order_items: [
     { id: 'i1', order_id: 'o1', service_id: 's1', name_snapshot: 'Lomo Completo', unit_price: 25000, qty: 1, line_total: 25000 },

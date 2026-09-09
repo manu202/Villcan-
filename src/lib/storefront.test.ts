@@ -18,6 +18,8 @@ function makeOrder(overrides: Partial<Order> = {}): Order {
     payment_method: 'efectivo',
     delivery_type: 'pickup',
     delivery_address: null,
+    delivery_fee: null,
+    delivery_location: null,
     created_at: '2026-08-31T10:00:00Z',
     ...overrides,
   };
