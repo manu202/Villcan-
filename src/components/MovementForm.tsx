@@ -21,8 +21,6 @@ import { CartSheet, type CartLine } from './storefront/CartSheet';
 import { createClient } from '@/lib/supabase/client';
 import { getCurrentUserId } from '@/lib/auth';
 import { useBranch } from '@/contexts/BranchContext';
-import { useSettings } from '@/contexts/SettingsContext';
-import { computeCommissionPct } from '@/lib/commission';
 
 interface MovementFormProps {
   initialType?: MovementType;
@@ -83,7 +81,6 @@ export function buildFinalComment(
 export function MovementForm({ initialType, showToast }: MovementFormProps) {
   const router = useRouter();
   const { currentBranch } = useBranch();
-  const { settings } = useSettings();
   const [step, setStep] = useState<FormStep>(
     initialType ? (initialType === 'servicio' ? 'catalog' : 'details') : 'type'
   );
@@ -106,6 +103,8 @@ export function MovementForm({ initialType, showToast }: MovementFormProps) {
   const [selectedContact, setSelectedContact] = useState<Contact | null>(null);
   const [contactSearch, setContactSearch] = useState('');
   const [services, setServices] = useState<Service[]>([]);
+  const [servicesLoading, setServicesLoading] = useState(false);
+  const [servicesError, setServicesError] = useState<string | null>(null);
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [contactsLoading, setContactsLoading] = useState(false);
 
@@ -132,27 +131,27 @@ export function MovementForm({ initialType, showToast }: MovementFormProps) {
     });
   };
 
-  // Calculated change for efectivo (servicio uses cartTotal; others use income directly)
-  const incomeNum = parseGuaranies(income);
-  const change = paymentMethod === 'efectivo' && incomeNum > cartTotal && cartTotal > 0
-    ? incomeNum - cartTotal
-    : 0;
-
   // Load services from Supabase — branch-specific + global (branch_id IS NULL)
   useEffect(() => {
     if (!currentBranch) return;
     const loadServices = async () => {
+      setServicesLoading(true);
+      setServicesError(null);
       const supabase = createClient();
       const { data, error } = await supabase
         .from('services')
         .select('id, name, price')
         .eq('is_active', true)
+        .eq('is_available', true)
         .or(`branch_id.eq.${currentBranch.id},branch_id.is.null`)
         .order('name');
 
-      if (!error && data) {
+      if (error) {
+        setServicesError(error.message);
+      } else if (data) {
         setServices(data as Service[]);
       }
+      setServicesLoading(false);
     };
     loadServices();
   }, [currentBranch]);
@@ -238,98 +237,75 @@ export function MovementForm({ initialType, showToast }: MovementFormProps) {
     }
 
     const supabase = createClient();
-    const incomeNum = parseGuaranies(income);
 
+    // Ventas → pending order (appears in KDS); movement created by trigger on completion
+    if (type === 'servicio') {
+      const rpcPaymentMethod: 'efectivo' | 'transferencia' =
+        paymentMethod === 'transferencia' ? 'transferencia' : 'efectivo';
+
+      const { error: orderError } = await supabase.rpc('create_manual_order', {
+        p_branch_id: branchId,
+        p_customer_name: selectedContact?.full_name || 'Mostrador',
+        p_customer_phone: selectedContact?.phone || '0000000',
+        p_note: comment.trim() || null,
+        p_items: cartLines.map((l) => ({ service_id: l.service.id, qty: l.qty })),
+        p_payment_method: rpcPaymentMethod,
+        p_delivery_type: 'pickup',
+      });
+
+      if (orderError) {
+        showToast?.(orderError.message, 'error');
+        setIsSubmitting(false);
+        return;
+      }
+
+      setIsSubmitting(false);
+      showToast?.('Pedido creado', 'success');
+      setTimeout(() => router.push('/orders'), 500);
+      return;
+    }
+
+    const incomeNum = parseGuaranies(income);
     let finalIncome = 0;
     let finalExpense = 0;
 
-    if (type === 'servicio') {
-      // Cart-based: income = cartTotal (cash received minus vuelto); expense = vuelto
-      finalIncome = paymentMethod === 'efectivo'
-        ? incomeNum - change
-        : cartTotal;
-      finalExpense = change;
-    } else if (type === 'gasto') {
-      // income = 0 (no cash came in)
-      // expense = the amount spent (goes out)
+    if (type === 'gasto') {
       finalIncome = 0;
       finalExpense = incomeNum;
     } else if (type === 'apertura') {
-      // apertura: the amount entered is capital coming IN for the shift
       finalIncome = incomeNum;
       finalExpense = 0;
     } else {
-      // cierre ("Retiro"): cash going OUT of the register (e.g. to deposit at
-      // the bank) — same shape as gasto, not income like apertura.
+      // cierre
       finalIncome = 0;
       finalExpense = incomeNum;
     }
 
-    // Build comment with fuente for gastos
     const finalComment = buildFinalComment(type, fuente, comment);
 
-    const movementData: Record<string, unknown> = {
-      type,
-      income: finalIncome,
-      expense: finalExpense,
-      comment: finalComment,
-      user_id: userId,
-      branch_id: branchId,
-      created_at: new Date().toISOString(),
-    };
-
-    let isMultiService = false;
-
-    if (type === 'servicio') {
-      const serviceIds = Object.keys(cart);
-      isMultiService = serviceIds.length > 1;
-      const cartComment = cartLines
-        .map((l) => `${l.service.name}${l.qty > 1 ? ` ×${l.qty}` : ''}`)
-        .join(', ');
-      movementData.contact_id = selectedContact?.id || null;
-      movementData.service_id = serviceIds.length === 1 ? serviceIds[0] : null;
-      movementData.payment_method = paymentMethod || null;
-      movementData.amount_charged = cartTotal;
-      movementData.commission_pct = computeCommissionPct(settings);
-      if (isMultiService) {
-        movementData.comment = cartComment;
-      }
-    }
-
-    const { data: mvtRow, error } = await supabase
+    const { error } = await supabase
       .from('movements')
-      .insert(movementData)
+      .insert({
+        type,
+        income: finalIncome,
+        expense: finalExpense,
+        comment: finalComment,
+        user_id: userId,
+        branch_id: branchId,
+        created_at: new Date().toISOString(),
+      })
       .select('id')
       .single();
 
     if (error) {
-      console.error('Error inserting movement:', error);
-      alert('Error al registrar movimiento');
+      showToast?.(error.message, 'error');
       setIsSubmitting(false);
       return;
     }
 
-    if (isMultiService && mvtRow?.id) {
-      await supabase.from('movement_items').insert(
-        cartLines.map((l) => ({
-          movement_id: mvtRow.id,
-          name_snapshot: l.service.name,
-          qty: l.qty,
-          unit_price: l.service.price,
-          line_total: l.service.price * l.qty,
-        }))
-      );
-    }
-
     setIsSubmitting(false);
-
-    if (showToast) {
-      showToast('Movimiento registrado', 'success');
-    }
-
-    setTimeout(() => {
-      router.push('/movements');
-    }, 500);
+    showToast?.('Movimiento registrado', 'success');
+    setTimeout(() => router.push('/movements'), 500);
   };
 
   const isDirty = Object.keys(cart).length > 0 || !!selectedContact || !!contactSearch
@@ -510,11 +486,7 @@ export function MovementForm({ initialType, showToast }: MovementFormProps) {
 
   const isValid = () => {
     if (!type) return false;
-    if (type === 'servicio') {
-      if (cartLines.length === 0 || !paymentMethod) return false;
-      if (paymentMethod === 'efectivo') return parseGuaranies(income) >= cartTotal;
-      return true;
-    }
+    if (type === 'servicio') return cartLines.length > 0 && !!paymentMethod;
     if (type === 'gasto') return parseGuaranies(income) > 0 && !!fuente;
     return parseGuaranies(income) > 0;
   };
@@ -528,8 +500,14 @@ export function MovementForm({ initialType, showToast }: MovementFormProps) {
           <h1 className="page-title">Nueva Venta</h1>
         </header>
 
-        {services.length === 0 ? (
+        {servicesLoading ? (
           <p className="search-status" style={{ padding: '24px 0' }}>Cargando servicios...</p>
+        ) : servicesError ? (
+          <p className="search-status" style={{ padding: '24px 0', color: 'var(--error, #dc2626)' }}>
+            Error al cargar servicios
+          </p>
+        ) : services.length === 0 ? (
+          <p className="search-status" style={{ padding: '24px 0' }}>No hay servicios configurados</p>
         ) : (
           <ul className="catalog-list">
             {services.map((s) => (
@@ -670,33 +648,6 @@ export function MovementForm({ initialType, showToast }: MovementFormProps) {
             </div>
           </section>
 
-          {/* Dinero recibido (solo efectivo) */}
-          {paymentMethod === 'efectivo' && (
-            <>
-              <section className="section">
-                <h2 className="section-title">Dinero recibido</h2>
-                {attempted && parseGuaranies(income) < cartTotal && (
-                  <p className="field-error">El monto debe cubrir el total</p>
-                )}
-                <input
-                  type="text"
-                  inputMode="numeric"
-                  placeholder="0"
-                  value={income}
-                  onChange={(e) => setIncome(e.target.value)}
-                  className="input input-lg"
-                />
-              </section>
-              {change > 0 && (
-                <section className="section">
-                  <div className="change-box">
-                    <span className="change-label">Vuelto</span>
-                    <span className="change-value">{formatGuaranies(change)}</span>
-                  </div>
-                </section>
-              )}
-            </>
-          )}
 
           <section className="section">
             <button
@@ -704,7 +655,7 @@ export function MovementForm({ initialType, showToast }: MovementFormProps) {
               disabled={isSubmitting}
               className="btn-primary btn-full"
             >
-              {isSubmitting ? 'Guardando...' : 'Registrar venta'}
+              {isSubmitting ? 'Creando pedido...' : 'Crear pedido'}
             </button>
           </section>
         </form>
