@@ -10,6 +10,11 @@ vi.mock('@/contexts/ToastContext', () => ({
   useToast: () => ({ showToast: vi.fn() }),
 }));
 
+// ContactForm now requires BranchContext to include branch_id in inserts.
+vi.mock('@/contexts/BranchContext', () => ({
+  useBranch: () => ({ currentBranch: { id: 'branch-test', name: 'Test Branch', role: 'admin' } }),
+}));
+
 const mockSingle = vi.fn();
 const mockInsert = vi.fn();
 const mockUpdate = vi.fn();

@@ -18,7 +18,11 @@ interface StorefrontPageProps {
 // from spec.md: unknown/inactive slug, or storefront_enabled = false.
 async function getBranchBySlug(slug: string): Promise<Branch | null> {
   const supabase = await createClient();
-  const { data } = await supabase.from('branches').select('*').eq('slug', slug).maybeSingle();
+  const { data } = await supabase
+    .from('branches')
+    .select('id, name, address, vertical, created_at, slug, whatsapp_number, default_delivery_fee, latitude, longitude')
+    .eq('slug', slug)
+    .maybeSingle();
   return (data as Branch | null) ?? null;
 }
 
@@ -32,7 +36,7 @@ export async function getCatalog(branchId: string): Promise<Service[]> {
   // excluded every global service from the public catalog.
   const { data } = await supabase
     .from('services')
-    .select('*')
+    .select('id, name, price, description, image_url, category, is_available, branch_id, created_at, is_active')
     .or(`branch_id.eq.${branchId},branch_id.is.null`)
     .eq('is_active', true)
     .eq('is_available', true)

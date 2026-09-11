@@ -18,6 +18,7 @@ import {
 import { createClient } from '@/lib/supabase/client';
 import { formatGuaranies } from '@/lib/utils';
 import { useSettings } from '@/contexts/SettingsContext';
+import { useToast } from '@/contexts/ToastContext';
 import { ServiceCard } from '@/components/storefront/ServiceCard';
 import { CartSheet, type CartLine } from '@/components/storefront/CartSheet';
 import { buildStatusNotificationMessage, buildWhatsAppLink } from '@/lib/storefront';
@@ -64,6 +65,7 @@ export default function OrderDetailPage() {
   const params = useParams();
   const orderId = params.id as string;
   const { settings } = useSettings();
+  const { showToast } = useToast();
 
   const [order, setOrder] = useState<Order | null>(null);
   const [items, setItems] = useState<OrderItem[]>([]);
@@ -230,8 +232,19 @@ export default function OrderDetailPage() {
       return;
     }
     const supabase = createClient();
+    // .select('id').single() detects 0-row RLS blocks as PGRST116 (G3):
+    // a plain .update().eq() returns error:null even when no rows are affected.
+    const { data, error } = await supabase
+      .from('orders')
+      .update({ status })
+      .eq('id', order.id)
+      .select('id')
+      .single();
+    if (error || !data) {
+      showToast('Error al cambiar el estado del pedido', 'error');
+      return;
+    }
     setOrder({ ...order, status });
-    await supabase.from('orders').update({ status }).eq('id', order.id);
   };
 
   const handlePaymentCompleted = async () => {

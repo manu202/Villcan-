@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { parseGuaranies } from '@/lib/utils';
 import { createClient } from '@/lib/supabase/client';
+import { logClientError } from '@/lib/errorLogging';
 import { useBranch } from '@/contexts/BranchContext';
 import { useToast } from '@/contexts/ToastContext';
 import { Toggle } from '@/components/Toggle';
@@ -63,7 +64,10 @@ export function ServiceForm({ onCancel, onSuccess }: ServiceFormProps) {
     if (uploadErr) {
       setUploadingImage(false);
       setUploadError('No se pudo subir la imagen. Intenta de nuevo o pegá una URL.');
-      console.error('ServiceForm image upload error:', uploadErr);
+      void logClientError({
+        message: uploadErr instanceof Error ? uploadErr.message : String(uploadErr),
+        stack: uploadErr instanceof Error ? uploadErr.stack ?? null : null,
+      });
       return;
     }
 
@@ -128,7 +132,10 @@ export function ServiceForm({ onCancel, onSuccess }: ServiceFormProps) {
 
     if (error) {
       setError('Error al guardar. Intenta de nuevo.');
-      console.error('ServiceForm submit error:', error);
+      void logClientError({
+        message: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack ?? null : null,
+      });
       return;
     }
 

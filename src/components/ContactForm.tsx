@@ -3,7 +3,9 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
+import { logClientError } from '@/lib/errorLogging';
 import { useToast } from '@/contexts/ToastContext';
+import { useBranch } from '@/contexts/BranchContext';
 
 interface ContactFormData {
   full_name: string;
@@ -23,6 +25,7 @@ interface ContactFormProps {
 export function ContactForm({ initialData, contactId, hideHeader, onCancel, onSuccess }: ContactFormProps) {
   const router = useRouter();
   const { showToast } = useToast();
+  const { currentBranch } = useBranch();
   const handleBack = onCancel ?? (() => router.back());
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [form, setForm] = useState<ContactFormData>({
@@ -59,6 +62,8 @@ export function ContactForm({ initialData, contactId, hideHeader, onCancel, onSu
       };
 
       if (contactId) {
+        // UPDATE: branch_id is NOT included — the RLS WITH CHECK already prevents
+        // moving a contact to a different branch.
         const { error } = await supabase.from('contacts').update(payload).eq('id', contactId);
         if (error) throw error;
         setIsSubmitting(false);
@@ -69,9 +74,15 @@ export function ContactForm({ initialData, contactId, hideHeader, onCancel, onSu
           router.push('/contacts');
         }
       } else {
+        // INSERT: branch_id is required by the new RLS INSERT policy.
+        if (!currentBranch) {
+          setIsSubmitting(false);
+          setError('Seleccioná una sucursal antes de crear un contacto.');
+          return;
+        }
         const { data, error } = await supabase
           .from('contacts')
-          .insert(payload)
+          .insert({ ...payload, branch_id: currentBranch.id })
           .select()
           .single();
         if (error) throw error;
@@ -86,7 +97,10 @@ export function ContactForm({ initialData, contactId, hideHeader, onCancel, onSu
     } catch (err) {
       setIsSubmitting(false);
       setError('Error al guardar. Intenta de nuevo.');
-      console.error('ContactForm submit error:', err);
+      void logClientError({
+        message: err instanceof Error ? err.message : String(err),
+        stack: err instanceof Error ? err.stack ?? null : null,
+      });
     }
   };
 

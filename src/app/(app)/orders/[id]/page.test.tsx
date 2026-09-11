@@ -10,7 +10,19 @@ vi.mock('@/contexts/SettingsContext', () => ({
   useSettings: () => ({ settings: { business_name: 'Villcan Centro' } }),
 }));
 
+const mockShowToast = vi.fn();
+vi.mock('@/contexts/ToastContext', () => ({
+  useToast: () => ({ showToast: mockShowToast }),
+}));
+
 const mockRpc = vi.fn();
+
+// Mutable result for handleStatusChange's .update().eq().select().single() chain.
+// Tests override this to simulate success or RLS error.
+let mockUpdateResult: { data: unknown; error: unknown } = {
+  data: { id: 'order-1' },
+  error: null,
+};
 
 const order = {
   id: 'order-1',
@@ -47,7 +59,15 @@ function tableMock(table: string) {
   mock.eq = chain;
   mock.or = chain;
   mock.order = chain;
-  mock.update = () => ({ eq: async () => ({ data: null, error: null }) });
+  // handleStatusChange: .update({ status }).eq('id', ...).select('id').single()
+  // Returns mockUpdateResult so individual tests can simulate success / RLS errors.
+  mock.update = () => ({
+    eq: () => ({
+      select: () => ({
+        single: async () => mockUpdateResult,
+      }),
+    }),
+  });
   mock.single = async () => {
     if (table === 'orders') return { data: order, error: null };
     if (table === 'contacts') return { data: contact, error: null };
@@ -71,6 +91,8 @@ vi.mock('@/lib/supabase/client', () => ({
 describe('OrderDetailPage (REQ: order detail + full edit)', () => {
   beforeEach(() => {
     mockRpc.mockReset();
+    mockShowToast.mockReset();
+    mockUpdateResult = { data: { id: 'order-1' }, error: null };
   });
 
   it('shows customer data, items, total, payment/delivery, and a link to the linked contact', async () => {
@@ -78,9 +100,8 @@ describe('OrderDetailPage (REQ: order detail + full edit)', () => {
 
     await waitFor(() => expect(screen.getByText('Juan Pérez')).toBeTruthy());
     expect(screen.getByText(/corte/i)).toBeTruthy();
-    expect(screen.getByText(/ver contacto vinculado/i).closest('a')?.getAttribute('href')).toBe(
-      '/contacts/contact-1'
-    );
+    // "Ver contacto vinculado" opens a ContactDetailSheet (button), not a direct link
+    expect(screen.getByText(/ver contacto vinculado/i)).toBeTruthy();
     expect(screen.getByText(/retiro en el local/i)).toBeTruthy();
   });
 
@@ -102,6 +123,40 @@ describe('OrderDetailPage (REQ: order detail + full edit)', () => {
       p_order_id: 'order-1',
       p_items: expect.arrayContaining([expect.objectContaining({ service_id: 's1' })]),
     })));
+  });
+
+  // TDD (RED→GREEN): handleStatusChange now uses .select().single() to detect
+  // 0-row RLS blocks as PGRST116, and shows a toast on error without mutating state.
+
+  it('handleStatusChange: on success updates order status without showing a toast', async () => {
+    mockUpdateResult = { data: { id: 'order-1' }, error: null };
+    render(<OrderDetailPage />);
+    await waitFor(() => expect(screen.getByText('Juan Pérez')).toBeTruthy());
+
+    const statusSelect = screen.getByLabelText('Estado del pedido');
+    fireEvent.change(statusSelect, { target: { value: 'confirmed' } });
+
+    // Allow the async update to resolve
+    await waitFor(() => expect(mockShowToast).not.toHaveBeenCalled());
+  });
+
+  it('handleStatusChange: on RLS error (PGRST116) shows toast and does NOT update order status', async () => {
+    mockUpdateResult = { data: null, error: { code: 'PGRST116', message: 'JSON object requested, multiple (or no) rows returned' } };
+    render(<OrderDetailPage />);
+    await waitFor(() => expect(screen.getByText('Juan Pérez')).toBeTruthy());
+
+    const statusSelect = screen.getByLabelText('Estado del pedido');
+    fireEvent.change(statusSelect, { target: { value: 'confirmed' } });
+
+    await waitFor(() =>
+      expect(mockShowToast).toHaveBeenCalledWith(
+        'Error al cambiar el estado del pedido',
+        'error'
+      )
+    );
+
+    // Select must revert to original status (state not mutated on error)
+    expect(statusSelect).toHaveProperty('value', 'pending');
   });
 
   it('"Notificar cliente" opens a wa.me link built from the customer phone and current status (REQ: order-notify-customer)', async () => {

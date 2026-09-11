@@ -20,7 +20,7 @@ import { Spinner } from './Spinner';
 // moved OUTSIDE this component's subtree entirely via route groups —
 // `(app)/layout.tsx` mounts AuthGuard, `(public)/layout.tsx` does not. See
 // design "AuthGuard — el fix" (sdd/storefront-whatsapp-orders/design).
-const PUBLIC_PATHS = ['/login', '/logout'];
+const PUBLIC_PATHS = ['/login', '/logout', '/auth/set-password'];
 
 export function AuthGuard({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -35,9 +35,11 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
     let cancelled = false;
 
     async function checkSession() {
-      const { data: { session } } = await supabase.auth.getSession();
+      // getUser() validates the JWT against the auth server — getSession() only
+      // reads localStorage and accepts expired/tampered tokens.
+      const { data: { user }, error } = await supabase.auth.getUser();
       if (cancelled) return;
-      if (!session) {
+      if (error || !user) {
         router.replace('/login');
       } else {
         setSessionConfirmed(true);
@@ -45,8 +47,11 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
     }
     checkSession();
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (!session) {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      // Filter: only redirect on explicit sign-out or a failed token refresh.
+      // Ignoring INITIAL_SESSION (null during SSR hydration) avoids a spurious
+      // redirect race that getUser() would detect and handle correctly anyway.
+      if (event === 'SIGNED_OUT' || (event === 'TOKEN_REFRESHED' && !session)) {
         router.replace('/login');
       }
     });

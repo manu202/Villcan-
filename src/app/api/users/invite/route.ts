@@ -56,7 +56,7 @@ export async function POST(request: Request) {
   // idempotent alta: find the existing user instead of failing.
   const { data: inviteData, error: inviteError } = await admin.auth.admin.inviteUserByEmail(
     normalizedEmail,
-    { redirectTo: `${new URL(request.url).origin}/login` }
+    { redirectTo: `${new URL(request.url).origin}/auth/set-password` }
   );
 
   let userId: string | undefined = inviteData?.user?.id;

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
 import { useBranch } from '@/contexts/BranchContext';
@@ -52,7 +52,7 @@ export default function UsersPage() {
 
   const [rowPendingDelete, setRowPendingDelete] = useState<AccessRow | null>(null);
 
-  const loadAccess = async () => {
+  const loadAccess = useCallback(async () => {
     if (!currentBranch) {
       setRows([]);
       setLoading(false);
@@ -83,15 +83,11 @@ export default function UsersPage() {
       );
     }
     setLoading(false);
-  };
+  }, [currentBranch, showToast]);
 
   useEffect(() => {
-    const load = async () => {
-      await loadAccess();
-    };
-    load();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentBranch?.id]);
+    void loadAccess();
+  }, [loadAccess]);
 
   const handleAddUser = async (e: React.FormEvent) => {
     e.preventDefault();

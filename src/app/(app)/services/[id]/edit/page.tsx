@@ -4,6 +4,7 @@ import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
+import { logClientError } from '@/lib/errorLogging';
 import { Toggle } from '@/components/Toggle';
 import { useBranch } from '@/contexts/BranchContext';
 
@@ -72,7 +73,10 @@ export default function ServiceEditPage() {
     if (uploadErr) {
       setUploadingImage(false);
       setUploadError('No se pudo subir la imagen. Intenta de nuevo o pegá una URL.');
-      console.error('ServiceEditPage image upload error:', uploadErr);
+      void logClientError({
+        message: uploadErr instanceof Error ? uploadErr.message : String(uploadErr),
+        stack: uploadErr instanceof Error ? uploadErr.stack ?? null : null,
+      });
       return;
     }
 

@@ -3,6 +3,7 @@
 import { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
 import type { BusinessSettings } from '@/types';
 import { getBusinessSettings, DEFAULT_BUSINESS_SETTINGS } from '@/lib/settings';
+import { logClientError } from '@/lib/errorLogging';
 
 interface SettingsContextValue {
   settings: BusinessSettings; // never null — falls back to hardcoded defaults on error/loading
@@ -47,7 +48,10 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
       // it specifically to skip a doomed request. Only log genuine fetch errors.
       const isNoSession = error instanceof Error && error.message.includes('No session');
       if (!isNoSession) {
-        console.error('Failed to load business settings:', error);
+        void logClientError({
+          message: error instanceof Error ? error.message : String(error),
+          stack: error instanceof Error ? error.stack ?? null : null,
+        });
       }
       setSettings(DEFAULT_BUSINESS_SETTINGS);
     } finally {

@@ -10,13 +10,15 @@ vi.mock('next/navigation', () => ({
   useRouter: () => ({ replace: mockReplace }),
 }));
 
-const mockGetSession = vi.fn();
+// TDD (RED→GREEN): tests use getUser (server-validated) instead of getSession
+// (localStorage-only). getUser returns { data: { user }, error }.
+const mockGetUser = vi.fn();
 const mockOnAuthStateChange = vi.fn();
 
 vi.mock('@/lib/supabase/client', () => ({
   createClient: () => ({
     auth: {
-      getSession: () => mockGetSession(),
+      getUser: () => mockGetUser(),
       onAuthStateChange: (cb: (event: string, session: unknown) => void) => {
         mockOnAuthStateChange(cb);
         return { data: { subscription: { unsubscribe: vi.fn() } } };
@@ -28,13 +30,13 @@ vi.mock('@/lib/supabase/client', () => ({
 describe('AuthGuard', () => {
   beforeEach(() => {
     mockReplace.mockReset();
-    mockGetSession.mockReset();
+    mockGetUser.mockReset();
     mockOnAuthStateChange.mockReset();
     mockPathname = '/';
   });
 
-  it('redirects to /login when there is no session on a protected route', async () => {
-    mockGetSession.mockResolvedValue({ data: { session: null } });
+  it('redirects to /login when there is no user on a protected route', async () => {
+    mockGetUser.mockResolvedValue({ data: { user: null }, error: null });
     render(
       <AuthGuard>
         <p>Protected content</p>
@@ -45,8 +47,23 @@ describe('AuthGuard', () => {
     expect(screen.queryByText('Protected content')).toBeNull();
   });
 
-  it('renders children when a session exists', async () => {
-    mockGetSession.mockResolvedValue({ data: { session: { user: { id: 'u1' } } } });
+  it('redirects to /login when getUser returns an error (e.g. AuthSessionMissingError)', async () => {
+    mockGetUser.mockResolvedValue({
+      data: { user: null },
+      error: { name: 'AuthSessionMissingError', message: 'No active session' },
+    });
+    render(
+      <AuthGuard>
+        <p>Protected content</p>
+      </AuthGuard>
+    );
+
+    await waitFor(() => expect(mockReplace).toHaveBeenCalledWith('/login'));
+    expect(screen.queryByText('Protected content')).toBeNull();
+  });
+
+  it('renders children when a valid user is returned', async () => {
+    mockGetUser.mockResolvedValue({ data: { user: { id: 'u1' } }, error: null });
     render(
       <AuthGuard>
         <p>Protected content</p>
@@ -57,9 +74,9 @@ describe('AuthGuard', () => {
     expect(mockReplace).not.toHaveBeenCalled();
   });
 
-  it('does not redirect or block rendering on /login itself, even with no session', () => {
+  it('does not redirect or block rendering on /login itself, even with no user', () => {
     mockPathname = '/login';
-    mockGetSession.mockResolvedValue({ data: { session: null } });
+    mockGetUser.mockResolvedValue({ data: { user: null }, error: null });
     render(
       <AuthGuard>
         <p>Login form</p>
@@ -72,7 +89,7 @@ describe('AuthGuard', () => {
 
   it('treats /tienda/[slug] as protected if ever rendered inside it (documents why route groups, not PUBLIC_PATHS, keep the storefront public)', async () => {
     mockPathname = '/tienda/mi-negocio';
-    mockGetSession.mockResolvedValue({ data: { session: null } });
+    mockGetUser.mockResolvedValue({ data: { user: null }, error: null });
     render(
       <AuthGuard>
         <p>Storefront content</p>
@@ -83,8 +100,8 @@ describe('AuthGuard', () => {
     expect(screen.queryByText('Storefront content')).toBeNull();
   });
 
-  it('redirects to /login if the session disappears later (e.g. expiry) on a protected route', async () => {
-    mockGetSession.mockResolvedValue({ data: { session: { user: { id: 'u1' } } } });
+  it('redirects to /login if the session disappears later (SIGNED_OUT event)', async () => {
+    mockGetUser.mockResolvedValue({ data: { user: { id: 'u1' } }, error: null });
     render(
       <AuthGuard>
         <p>Protected content</p>
@@ -97,5 +114,21 @@ describe('AuthGuard', () => {
     authChangeCallback('SIGNED_OUT', null);
 
     await waitFor(() => expect(mockReplace).toHaveBeenCalledWith('/login'));
+  });
+
+  it('does NOT redirect on INITIAL_SESSION event with no session (avoids hydration redirect)', async () => {
+    mockGetUser.mockResolvedValue({ data: { user: { id: 'u1' } }, error: null });
+    render(
+      <AuthGuard>
+        <p>Protected content</p>
+      </AuthGuard>
+    );
+    await waitFor(() => expect(screen.getByText('Protected content')).toBeTruthy());
+
+    const authChangeCallback = mockOnAuthStateChange.mock.calls.at(-1)![0];
+    authChangeCallback('INITIAL_SESSION', null);
+
+    // Should NOT have redirected (INITIAL_SESSION is filtered out)
+    expect(mockReplace).not.toHaveBeenCalled();
   });
 });

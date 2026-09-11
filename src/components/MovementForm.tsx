@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   ShoppingCart,
@@ -156,12 +156,17 @@ export function MovementForm({ initialType, showToast }: MovementFormProps) {
     loadServices();
   }, [currentBranch]);
 
-  // Load contacts from Supabase on search
+  const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Load contacts from Supabase on search (A5: 300ms debounce to avoid a
+  // query on every keystroke).
   useEffect(() => {
     let cancelled = false;
 
+    if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
+
     if (contactSearch.length >= 2) {
-      const searchContacts = async () => {
+      searchDebounceRef.current = setTimeout(async () => {
         setContactsLoading(true);
         const supabase = createClient();
         const escaped = escapeSearchQuery(contactSearch);
@@ -178,19 +183,15 @@ export function MovementForm({ initialType, showToast }: MovementFormProps) {
           setContacts(data as Contact[]);
         }
         setContactsLoading(false);
-      };
-      searchContacts();
+      }, 300);
     } else {
-      Promise.resolve().then(() => {
-        if (!cancelled) {
-          setContacts([]);
-          setContactsLoading(false);
-        }
-      });
+      setContacts([]);
+      setContactsLoading(false);
     }
 
     return () => {
       cancelled = true;
+      if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
     };
   }, [contactSearch]);
 

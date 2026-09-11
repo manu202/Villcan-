@@ -4,6 +4,7 @@ import { createContext, useContext, useState, useEffect, ReactNode, useCallback 
 import type { BranchWithRole } from '@/types';
 import { getUserBranches } from '@/lib/branches';
 import { createClient } from '@/lib/supabase/client';
+import { logClientError } from '@/lib/errorLogging';
 
 interface BranchContextValue {
   currentBranch: BranchWithRole | null;
@@ -46,7 +47,10 @@ export function BranchProvider({ children }: { children: ReactNode }) {
         setCurrentBranch(null);
       }
     } catch (error) {
-      console.error('Failed to load branches:', error);
+      void logClientError({
+        message: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack ?? null : null,
+      });
       setBranches([]);
       setCurrentBranch(null);
     } finally {

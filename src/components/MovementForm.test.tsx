@@ -46,11 +46,16 @@ let contactDeferreds: ReturnType<typeof createDeferred>[] = [];
 let servicesData: unknown[] = [];
 let lastMovementInsert: Record<string, unknown> | null = null;
 let lastMovementItemsInsert: unknown = null;
+let lastRpcCall: Record<string, unknown> | null = null;
 
 vi.mock('@/lib/supabase/client', () => ({
   createClient: () => ({
     auth: {
       getUser: () => Promise.resolve({ data: { user: { id: 'user-1' } } }),
+    },
+    rpc: (_name: string, args: Record<string, unknown>) => {
+      lastRpcCall = args;
+      return Promise.resolve({ error: null });
     },
     from: (table: string) => {
       if (table === 'contacts') {
@@ -292,6 +297,7 @@ describe('commission_pct frozen at insert, servicio branch only (REQ-PROFIT-1/2)
     servicesData = [{ id: 'svc-1', name: 'Corte', price: 100000 }];
     lastMovementInsert = null;
     lastMovementItemsInsert = null;
+    lastRpcCall = null;
     mockUseBranch.mockReturnValue({
       currentBranch: { id: 'branch-1', name: 'Centro' },
       isLoading: false,
@@ -317,29 +323,35 @@ describe('commission_pct frozen at insert, servicio branch only (REQ-PROFIT-1/2)
 
     fireEvent.click(screen.getByText('Transferencia'));
 
-    fireEvent.click(screen.getByText('Registrar venta'));
+    fireEvent.click(screen.getByText('Crear pedido'));
 
-    await waitFor(() => expect(lastMovementInsert).not.toBeNull());
+    await waitFor(() => expect(lastRpcCall).not.toBeNull());
   }
 
-  it('commissions disabled -> commission_pct is null/undefined on the inserted movement', async () => {
+  // Commission is now handled server-side by the create_manual_order RPC.
+  // These tests verify the RPC is called and doesn't carry client-side commission fields.
+  it('commissions disabled -> create_manual_order RPC is called (commission is server-side)', async () => {
     mockUseSettings.mockReturnValue({
       settings: { commissions_enabled: false, default_commission_pct: 15 },
     });
 
     await fillAndSubmitServicio();
 
-    expect(lastMovementInsert?.commission_pct ?? null).toBeNull();
+    expect(lastRpcCall).not.toBeNull();
+    expect(lastRpcCall?.p_items).toBeDefined();
+    expect(lastRpcCall?.commission_pct).toBeUndefined();
   });
 
-  it('commissions enabled -> commission_pct = business_settings.default_commission_pct', async () => {
+  it('commissions enabled -> create_manual_order RPC is called (commission is server-side)', async () => {
     mockUseSettings.mockReturnValue({
       settings: { commissions_enabled: true, default_commission_pct: 12.5 },
     });
 
     await fillAndSubmitServicio();
 
-    expect(lastMovementInsert?.commission_pct).toBe(12.5);
+    expect(lastRpcCall).not.toBeNull();
+    expect(lastRpcCall?.p_items).toBeDefined();
+    expect(lastRpcCall?.commission_pct).toBeUndefined();
   });
 });
 
@@ -351,6 +363,7 @@ describe('MovementForm — multi-servicio inserta movement_items (REQ-FIN-3)', (
     contactDeferreds = [createDeferred(), createDeferred()];
     lastMovementInsert = null;
     lastMovementItemsInsert = null;
+    lastRpcCall = null;
     mockUseBranch.mockReturnValue({
       currentBranch: { id: 'branch-1', name: 'Centro' },
       isLoading: false,
@@ -369,24 +382,25 @@ describe('MovementForm — multi-servicio inserta movement_items (REQ-FIN-3)', (
     fireEvent.click(screen.getByText('Continuar con el pago →'));
     await waitFor(() => screen.getByText('Transferencia'));
     fireEvent.click(screen.getByText('Transferencia'));
-    fireEvent.click(screen.getByText('Registrar venta'));
-    await waitFor(() => expect(lastMovementInsert).not.toBeNull());
+    fireEvent.click(screen.getByText('Crear pedido'));
+    await waitFor(() => expect(lastRpcCall).not.toBeNull());
   }
 
-  it('single-service: NO inserta en movement_items', async () => {
+  // Items are now sent as p_items to the create_manual_order RPC.
+  // The server (RPC + trigger) handles movement_items insertion.
+  it('single-service: RPC receives p_items with one item', async () => {
     await submitServicioWith([{ id: 'svc-1', name: 'Corte', price: 30000 }]);
-    expect(lastMovementItemsInsert).toBeNull();
+    expect(lastRpcCall?.p_items).toHaveLength(1);
+    expect(lastRpcCall?.p_items[0]).toMatchObject({ service_id: 'svc-1', qty: 1 });
   });
 
-  it('multi-service: inserta movement_items con name_snapshot, qty, unit_price, line_total', async () => {
+  it('multi-service: RPC receives p_items with all services', async () => {
     await submitServicioWith([
       { id: 'svc-1', name: 'Corte', price: 30000 },
       { id: 'svc-2', name: 'Barba', price: 15000 },
     ]);
-    expect(lastMovementItemsInsert).not.toBeNull();
-    const items = lastMovementItemsInsert as Array<Record<string, unknown>>;
-    expect(items).toHaveLength(2);
-    expect(items[0]).toMatchObject({ name_snapshot: 'Corte', qty: 1, unit_price: 30000, line_total: 30000 });
-    expect(items[1]).toMatchObject({ name_snapshot: 'Barba', qty: 1, unit_price: 15000, line_total: 15000 });
+    expect(lastRpcCall?.p_items).toHaveLength(2);
+    expect(lastRpcCall?.p_items).toContainEqual({ service_id: 'svc-1', qty: 1 });
+    expect(lastRpcCall?.p_items).toContainEqual({ service_id: 'svc-2', qty: 1 });
   });
 });
