@@ -18,11 +18,7 @@ interface StorefrontPageProps {
 // from spec.md: unknown/inactive slug, or storefront_enabled = false.
 async function getBranchBySlug(slug: string): Promise<Branch | null> {
   const supabase = await createClient();
-  const { data } = await supabase
-    .from('branches')
-    .select('id, name, address, vertical, created_at, slug, whatsapp_number, default_delivery_fee, latitude, longitude')
-    .eq('slug', slug)
-    .maybeSingle();
+  const { data } = await supabase.from('branches').select('*').eq('slug', slug).maybeSingle();
   return (data as Branch | null) ?? null;
 }
 
