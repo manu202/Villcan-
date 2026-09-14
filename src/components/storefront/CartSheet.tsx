@@ -52,7 +52,7 @@ export function CartSheet({ lines, onIncrement, onDecrement, onCheckout, checkou
       <style>{`
         .cart-sheet {
           position: sticky;
-          bottom: 0;
+          bottom: calc(56px + env(safe-area-inset-bottom));
           background: var(--surface);
           border-top: 1px solid var(--border);
           padding: 16px 20px;
