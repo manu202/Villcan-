@@ -1,80 +1,32 @@
 import type { Order } from '@/types';
 
 // Pure helpers for the public storefront (public-storefront capability).
-// `formatGs`/`formatOrderMessage` mirror public.format_gs / the message
-// built inside create_storefront_order (supabase/migrations/20260831140000_storefront.sql)
-// exactly — the RPC is the actual source of truth for `orders.whatsapp_message`
-// (persisted server-side), this TS copy exists so the format can be unit
-// tested and reused client-side (e.g. a checkout preview) without a round
-// trip. See design "Mensaje de WhatsApp".
-
-export interface StorefrontOrderLine {
-  name: string;
-  qty: number;
-  unitPrice: number;
-  lineTotal: number;
-}
-
-export interface FormatOrderMessageInput {
-  orderCode: string;
-  branchName: string;
-  customerName: string;
-  customerPhone: string;
-  items: StorefrontOrderLine[];
-  note?: string | null;
-  total: number;
-  paymentMethod?: string;
-  deliveryType?: 'pickup' | 'delivery';
-  deliveryAddress?: string | null;
-  deliveryLocation?: { lat: number; lng: number } | null;
-}
+//
+// Q-3 (audit finding, resolved 2026-09-22): this file used to also contain
+// formatOrderMessage(), a TypeScript mirror of the WhatsApp message text
+// built inside create_storefront_order/create_manual_order. It had already
+// diverged from the SQL version (the TS copy only added a "Pago" line for
+// delivery orders; the SQL always adds it) — a second source of truth
+// nobody was keeping in sync. Turned out nothing in the app actually called
+// it: useStorefrontCart.ts always reads the real, already-built
+// `result.whatsapp_message` straight from the RPC response (the message
+// stored in `orders.whatsapp_message`), never regenerates it client-side.
+// Removed rather than "unified" — there was only ever one live source
+// (SQL), the TS copy was dead code exercised only by its own tests.
+//
+// `formatGs` mirrors `public.format_gs(int)` and stays: it's genuinely used
+// by `buildStatusNotificationMessage` below, a real, separate message (the
+// "Notificar cliente" status update) that IS built client-side on purpose.
 
 /**
- * Thousands-separator formatter for guarani amounts inside the WhatsApp
- * message. Mirrors `public.format_gs(int)` — NOT the same as
- * `formatGuaranies` in src/lib/utils.ts, which prefixes "₲" for on-screen
- * display; this one is bare digits+dots to match the SQL-built text exactly.
+ * Thousands-separator formatter for guarani amounts inside WhatsApp
+ * messages built client-side (buildStatusNotificationMessage). Mirrors
+ * `public.format_gs(int)` — NOT the same as `formatGuaranies` in
+ * src/lib/utils.ts, which prefixes "₲" for on-screen display; this one is
+ * bare digits+dots to match the SQL-built text style.
  */
 export function formatGs(amount: number): string {
   return Math.round(amount).toLocaleString('en-US').replace(/,/g, '.');
-}
-
-/**
- * Builds the exact WhatsApp order message text. Fixed order: code+branch /
- * customer+phone / items / note (omitted entirely when null/empty) / total.
- */
-export function formatOrderMessage(input: FormatOrderMessageInput): string {
-  const lines: string[] = [
-    `*Pedido #${input.orderCode}* — ${input.branchName}`,
-    '',
-    `*Cliente:* ${input.customerName}`,
-    `*Teléfono:* ${input.customerPhone}`,
-    '',
-    '*Pedido:*',
-  ];
-
-  for (const item of input.items) {
-    lines.push(`• ${item.qty}x ${item.name} — Gs. ${formatGs(item.lineTotal)}`);
-  }
-
-  if (input.note && input.note.trim().length > 0) {
-    lines.push('', `*Nota:* ${input.note.trim()}`);
-  }
-
-  if (input.deliveryType === 'delivery') {
-    const paymentLabel = input.paymentMethod === 'transferencia' ? 'Transferencia' : 'Efectivo';
-    lines.push('', `*Pago:* ${paymentLabel}`);
-    lines.push(`*Entrega:* Delivery${input.deliveryAddress ? ` — ${input.deliveryAddress}` : ''}`);
-    if (input.deliveryLocation) {
-      lines.push(`📍 https://maps.google.com/?q=${input.deliveryLocation.lat},${input.deliveryLocation.lng}`);
-    }
-    lines.push('', `*Subtotal: Gs. ${formatGs(input.total)}*`);
-    lines.push('_Costo de delivery: a confirmar por el local_');
-  } else {
-    lines.push('', `*Total: Gs. ${formatGs(input.total)}*`);
-  }
-
-  return lines.join('\n');
 }
 
 /**

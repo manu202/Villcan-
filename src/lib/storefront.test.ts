@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { formatGs, formatOrderMessage, buildWhatsAppLink, buildStatusNotificationMessage, normalizeWhatsAppNumber } from './storefront';
+import { formatGs, buildWhatsAppLink, buildStatusNotificationMessage, normalizeWhatsAppNumber } from './storefront';
 import type { Order } from '@/types';
 
 function makeOrder(overrides: Partial<Order> = {}): Order {
@@ -32,104 +32,6 @@ describe('formatGs (REQ: WhatsApp message thousands separator)', () => {
 
   it('formats a small amount without separators', () => {
     expect(formatGs(500)).toBe('500');
-  });
-});
-
-describe('formatOrderMessage (REQ: WhatsApp order handoff — TS mirror of the SQL-built message)', () => {
-  it('builds the exact format from design.md, including a note line', () => {
-    const message = formatOrderMessage({
-      orderCode: 'A1B2C3',
-      branchName: 'Villcan Centro',
-      customerName: 'Juan Pérez',
-      customerPhone: '0981123456',
-      items: [
-        { name: 'Corte clásico', qty: 2, unitPrice: 40000, lineTotal: 80000 },
-        { name: 'Barba', qty: 1, unitPrice: 30000, lineTotal: 30000 },
-      ],
-      note: 'sin gel',
-      total: 110000,
-    });
-
-    expect(message).toBe(
-      '*Pedido #A1B2C3* — Villcan Centro\n\n' +
-      '*Cliente:* Juan Pérez\n' +
-      '*Teléfono:* 0981123456\n\n' +
-      '*Pedido:*\n' +
-      '• 2x Corte clásico — Gs. 80.000\n' +
-      '• 1x Barba — Gs. 30.000\n' +
-      '\n*Nota:* sin gel\n' +
-      '\n*Total: Gs. 110.000*'
-    );
-  });
-
-  it('builds a delivery order message matching the SQL RPC format (address + maps + subtotal + fee-pending)', () => {
-    const message = formatOrderMessage({
-      orderCode: 'A1B2C3',
-      branchName: 'Villcan Centro',
-      customerName: 'Juan',
-      customerPhone: '0981123456',
-      items: [{ name: 'Lomo', qty: 1, unitPrice: 50000, lineTotal: 50000 }],
-      note: null,
-      total: 50000,
-      paymentMethod: 'efectivo',
-      deliveryType: 'delivery',
-      deliveryAddress: 'Av. España 123',
-      deliveryLocation: { lat: -25.28, lng: -57.63 },
-    });
-
-    expect(message).toBe(
-      '*Pedido #A1B2C3* — Villcan Centro\n\n' +
-      '*Cliente:* Juan\n' +
-      '*Teléfono:* 0981123456\n\n' +
-      '*Pedido:*\n' +
-      '• 1x Lomo — Gs. 50.000\n' +
-      '\n*Pago:* Efectivo\n' +
-      '*Entrega:* Delivery — Av. España 123\n' +
-      '📍 https://maps.google.com/?q=-25.28,-57.63\n' +
-      '\n*Subtotal: Gs. 50.000*\n' +
-      '_Costo de delivery: a confirmar por el local_'
-    );
-  });
-
-  it('omits the maps link when deliveryLocation is null (different data path)', () => {
-    const message = formatOrderMessage({
-      orderCode: 'A1B2C3',
-      branchName: 'Villcan Centro',
-      customerName: 'Juan',
-      customerPhone: '0981123456',
-      items: [{ name: 'Lomo', qty: 1, unitPrice: 50000, lineTotal: 50000 }],
-      note: null,
-      total: 50000,
-      paymentMethod: 'efectivo',
-      deliveryType: 'delivery',
-      deliveryAddress: 'Av. España 123',
-      deliveryLocation: null,
-    });
-
-    expect(message).not.toContain('maps.google.com');
-    expect(message).toContain('*Entrega:* Delivery — Av. España 123');
-  });
-
-  it('omits the Nota line entirely when there is no note (different data path)', () => {
-    const message = formatOrderMessage({
-      orderCode: 'X9Y8Z7',
-      branchName: 'Villcan Norte',
-      customerName: 'Ana',
-      customerPhone: '0981000000',
-      items: [{ name: 'Corte', qty: 1, unitPrice: 25000, lineTotal: 25000 }],
-      note: null,
-      total: 25000,
-    });
-
-    expect(message).not.toContain('Nota');
-    expect(message).toBe(
-      '*Pedido #X9Y8Z7* — Villcan Norte\n\n' +
-      '*Cliente:* Ana\n' +
-      '*Teléfono:* 0981000000\n\n' +
-      '*Pedido:*\n' +
-      '• 1x Corte — Gs. 25.000\n' +
-      '\n*Total: Gs. 25.000*'
-    );
   });
 });
 
