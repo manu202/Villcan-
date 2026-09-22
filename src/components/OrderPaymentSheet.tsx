@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { formatGuaranies } from '@/lib/utils';
 import { AppSheet } from './AppSheet';
+import { GuaraniesInput } from './GuaraniesInput';
 import type { Order, OrderItem } from '@/types';
 
 interface OrderPaymentSheetProps {
@@ -12,6 +13,17 @@ interface OrderPaymentSheetProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onCompleted: () => void;
+}
+
+const PAYMENT_ERROR_COPY: Record<string, string> = {
+  VC404: 'Pedido no encontrado.',
+  VC409: 'El pedido ya fue completado o cancelado.',
+  VC403: 'No tenés permisos para completar este pedido.',
+};
+
+function copyForPaymentError(error: { code?: string; message?: string } | null): string {
+  if (!error) return 'Ocurrió un error. Intentá de nuevo.';
+  return PAYMENT_ERROR_COPY[error.code ?? ''] ?? 'Ocurrió un error. Intentá de nuevo.';
 }
 
 export function OrderPaymentSheet({ order, items, open, onOpenChange, onCompleted }: OrderPaymentSheetProps) {
@@ -23,7 +35,7 @@ export function OrderPaymentSheet({ order, items, open, onOpenChange, onComplete
   const isEfectivo = order.payment_method === 'efectivo';
   const deliveryFee = isDelivery ? (order.delivery_fee ?? 0) : 0;
   const finalTotal = order.total + deliveryFee;
-  const monto = parseInt(montoRecibido, 10) || 0;
+  const monto = Number(montoRecibido) || 0;
   const vuelto = isEfectivo ? Math.max(0, monto - finalTotal) : 0;
   const canConfirm = isEfectivo ? monto >= finalTotal : true;
 
@@ -43,7 +55,7 @@ export function OrderPaymentSheet({ order, items, open, onOpenChange, onComplete
     setSubmitting(false);
 
     if (error) {
-      setErrorMsg(error.message);
+      setErrorMsg(copyForPaymentError(error));
       return;
     }
 
@@ -96,15 +108,12 @@ export function OrderPaymentSheet({ order, items, open, onOpenChange, onComplete
             <label className="ops-field-label" htmlFor="ops-monto">
               Monto recibido
             </label>
-            <input
+            <GuaraniesInput
               id="ops-monto"
-              type="number"
               placeholder="Monto recibido"
               value={montoRecibido}
-              onChange={(e) => setMontoRecibido(e.target.value)}
+              onChange={setMontoRecibido}
               className="ops-input"
-              inputMode="numeric"
-              min={0}
             />
             {monto > 0 && (
               <div className="ops-vuelto-row">

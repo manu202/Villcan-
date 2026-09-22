@@ -23,7 +23,7 @@ vi.mock('@/lib/utils', () => ({
 
 let lastRpcName: string | null = null;
 let lastRpcArgs: Record<string, unknown> | null = null;
-let rpcError: { message: string } | null = null;
+let rpcError: { code?: string; message?: string } | null = null;
 
 vi.mock('@/lib/supabase/client', () => ({
   createClient: () => ({
@@ -162,8 +162,8 @@ describe('OrderPaymentSheet — efectivo (REQ-PAY-1)', () => {
     await waitFor(() => expect(onCompleted).toHaveBeenCalled());
   });
 
-  it('muestra un error y no llama onCompleted si el RPC falla (p.ej. pedido ya completado)', async () => {
-    rpcError = { message: 'El pedido ya esta completado o cancelado' };
+  it('muestra copy en español para VC409 (pedido ya completado/cancelado) y no llama onCompleted', async () => {
+    rpcError = { code: 'VC409', message: 'duplicate key value violates unique constraint' };
     const onCompleted = vi.fn();
     render(
       <OrderPaymentSheet
@@ -177,9 +177,63 @@ describe('OrderPaymentSheet — efectivo (REQ-PAY-1)', () => {
     fireEvent.change(screen.getByPlaceholderText('Monto recibido'), { target: { value: '60000' } });
     fireEvent.click(screen.getByRole('button', { name: /confirmar/i }));
     await waitFor(() =>
-      expect(screen.getByTestId('ops-error').textContent).toBe('El pedido ya esta completado o cancelado')
+      expect(screen.getByTestId('ops-error').textContent).toBe('El pedido ya fue completado o cancelado.')
     );
     expect(onCompleted).not.toHaveBeenCalled();
+  });
+
+  it('muestra copy en español para VC404 (pedido no encontrado)', async () => {
+    rpcError = { code: 'VC404', message: 'no rows returned' };
+    render(
+      <OrderPaymentSheet
+        order={BASE_ORDER}
+        items={BASE_ITEMS}
+        open={true}
+        onOpenChange={vi.fn()}
+        onCompleted={vi.fn()}
+      />
+    );
+    fireEvent.change(screen.getByPlaceholderText('Monto recibido'), { target: { value: '60000' } });
+    fireEvent.click(screen.getByRole('button', { name: /confirmar/i }));
+    await waitFor(() =>
+      expect(screen.getByTestId('ops-error').textContent).toBe('Pedido no encontrado.')
+    );
+  });
+
+  it('muestra copy en español para VC403 (sin permisos)', async () => {
+    rpcError = { code: 'VC403', message: 'permission denied' };
+    render(
+      <OrderPaymentSheet
+        order={BASE_ORDER}
+        items={BASE_ITEMS}
+        open={true}
+        onOpenChange={vi.fn()}
+        onCompleted={vi.fn()}
+      />
+    );
+    fireEvent.change(screen.getByPlaceholderText('Monto recibido'), { target: { value: '60000' } });
+    fireEvent.click(screen.getByRole('button', { name: /confirmar/i }));
+    await waitFor(() =>
+      expect(screen.getByTestId('ops-error').textContent).toBe('No tenés permisos para completar este pedido.')
+    );
+  });
+
+  it('muestra copy genérico para un código de error no mapeado', async () => {
+    rpcError = { code: 'VC999', message: 'unexpected internal error' };
+    render(
+      <OrderPaymentSheet
+        order={BASE_ORDER}
+        items={BASE_ITEMS}
+        open={true}
+        onOpenChange={vi.fn()}
+        onCompleted={vi.fn()}
+      />
+    );
+    fireEvent.change(screen.getByPlaceholderText('Monto recibido'), { target: { value: '60000' } });
+    fireEvent.click(screen.getByRole('button', { name: /confirmar/i }));
+    await waitFor(() =>
+      expect(screen.getByTestId('ops-error').textContent).toBe('Ocurrió un error. Intentá de nuevo.')
+    );
   });
 });
 
