@@ -202,6 +202,87 @@ Owner made 5 explicit product decisions before any work started (each a real for
 
 **Full-suite check after Phase 3 (2026-09-22):** `npm run test` → 467/468 pass. The 1 failure (`StorefrontClient.test.tsx`, a different file than Phase 2's flake) passed 4/4 when run in isolation — same environment worker-pool timeout flakiness under full-suite load, not a regression.
 
+## Phase 5 — Deep money/UX/UI audit of orders, movements, closings ("swiss watch" pass)
+
+Requested 2026-09-22: owner asked for a thorough pass on everything money-related — orders, movements, closings/arqueo, and cross-screen number coherence — covering not just correctness but functional completeness, UX, and UI coherence. Four parallel read-only agents (no file overlap risk, pure analysis), one per area. **DISCOVERY ONLY — nothing below is fixed yet.**
+
+### Orders (list, detail, new, payment)
+
+| ID | Severity | Finding | Evidence | Status |
+|----|----------|---------|----------|--------|
+| SW-O1 | HIGH | Two separate "complete an order" paths exist. `orders/[id]/page.tsx` correctly routes through the atomic `complete_order_payment` RPC. But `orders/page.tsx`'s `handleStatusChange` (list-page quick actions) and `OrderDetailSheet.tsx` both do a raw `.from('orders').update({status})` — this can still set status to `completed` directly, which fires the OLD legacy trigger `fn_order_completed_to_movement` (confirmed still live, no later migration drops it) that inserts a movement from `NEW.total` alone, **never adding delivery_fee**. This is the fastest, most-used path (tap "Marcar completado" from the list) and it's the one that's wrong. | `orders/page.tsx:68-78` [V], `OrderDetailSheet.tsx:47-52` [A], `20260909000000_orders_movements_link.sql:134-136` [V] | [V] |
+| SW-O2 | HIGH | Order total shown on list/detail cards never includes delivery fee — only `OrderPaymentSheet.tsx` computes `total + deliveryFee`. Customer/cashier sees one total everywhere, a different (higher) one only at the moment of payment. | `orders/[id]/page.tsx:475`, `OrderDetailSheet.tsx:98`, `OrderCard.tsx:85` vs `OrderPaymentSheet.tsx:25` | [A] |
+| SW-O3 | HIGH | `OrderPaymentSheet.tsx:26` still uses `parseInt(montoRecibido, 10)`, not the app's own `parseGuaranies` (which correctly handles `.`-thousands-separated Paraguayan input). `parseInt("50.000", 10)` stops at the `.` and returns 50, not 50000 — a cashier typing the amount the natural local way undercharges by orders of magnitude. Same bug in `OrderCard.tsx:56`'s delivery-fee input. | `OrderPaymentSheet.tsx:26` [V], `OrderCard.tsx:56` [A] | [V] |
+| SW-O4 | MEDIUM | Delivery fee has no edit path after initial entry; confirming with an empty fee input silently submits 0, no validation. | `OrderCard.tsx:117-141` | [A] |
+| SW-O5 | HIGH | `OrderPaymentSheet.tsx:46` shows the raw Postgres/PostgREST error message to the cashier — every other order flow maps `error.code` through a Spanish `ERROR_COPY` dict, this one doesn't. | `OrderPaymentSheet.tsx:46` vs `orders/[id]/page.tsx:40-50` | [A] |
+| SW-O6 | MEDIUM | `orders/page.tsx`'s `handleStatusChange` optimistically updates local UI state *before* awaiting the DB write and never checks the result for an error — if the DB-level freeze trigger rejects a change (e.g. double-tap on an already-completed order), the UI shows the change succeeded when it didn't, with no toast. | `orders/page.tsx:72-77` | [V] |
+| SW-O7 | MEDIUM | Cancelling an order requires no confirmation (just picking it from a status dropdown), despite being effectively irreversible once the freeze trigger applies — inconsistent with completing, which requires a whole sheet. | `orders/[id]/page.tsx:401-411`, `OrderDetailSheet.tsx:104-113` | [A] |
+| SW-O8 | MEDIUM | Small/inconsistent touch targets on repeated-tap controls: `CartSheet.tsx` qty +/- buttons 28×28px, `OrderCard.tsx` notify button 36×36px, vs 44px+ elsewhere in the same screens. | `CartSheet.tsx:77-84`, `OrderCard.tsx` | [A] |
+| SW-O9 | MEDIUM | Two different visual implementations of the same "order status control": `orders/[id]/page.tsx`'s colored status-pill dropdown vs `OrderDetailSheet.tsx`'s plain unstyled select (classes applied, no matching CSS rules exist for them). | `orders/[id]/page.tsx` vs `OrderDetailSheet.tsx` | [A] |
+| SW-O10 | LOW | No submitting/disabled guard on `orders/page.tsx`/`OrderDetailSheet.tsx` status-change actions — risk of duplicate-tap duplicate requests. | - | [A] |
+
+Solid: `complete_order_payment` RPC itself is well-built; `formatGuaranies` formatting is uniform; `ORDER_STATUS_LABELS` is a single source of truth; the freeze-guard trigger applies unconditionally regardless of path (it just doesn't cover this specific dual-path total/delivery-fee gap, which is a different mechanism — trigger only blocks edits to *already* completed/cancelled orders, not the *initial* raw completion).
+
+### Movements (MovementForm — the highest-traffic screen)
+
+| ID | Severity | Finding | Evidence | Status |
+|----|----------|---------|----------|--------|
+| SW-M1 | HIGH | The Venta payment step offers Efectivo/Transferencia/POS, but `rpcPaymentMethod` coerces anything that isn't `'transferencia'` to `'efectivo'` — **POS sales are silently recorded and reconciled as cash**, inflating the cash total and guaranteeing arqueo mismatches with no visible cause. | `MovementForm.tsx:244-245` | [V] |
+| SW-M2 | HIGH | No guard against double-submission in `handleSubmit` — only a reactive `disabled` prop on the button, no `if (isSubmitting) return` or ref-lock. A fast double-tap before re-render can fire the insert/RPC twice. | `MovementForm.tsx:218-231` | [A] |
+| SW-M3 | MEDIUM | No monto-recibido/vuelto capture in the Venta flow itself — dead CSS for a change display exists (`.change-box` etc.) but is never rendered; change is only computed later, in `OrderPaymentSheet`, a separate screen. | `MovementForm.tsx:556-699,1000-1020` | [A] |
+| SW-M4 | MEDIUM | Raw Postgres/Supabase error text shown directly to the cashier on insert/RPC failure, no retry guidance or classification. | `MovementForm.tsx:258,302` | [A] |
+| SW-M5 | MEDIUM | `MovementForm` (full-page, its own `.section/.method-btn` styling) and `OrderPaymentSheet` (bottom sheet, `.ops-*` styling) are two structurally separate implementations of the same "show total → pick method → confirm" pattern — no shared component, separate error UI, separate button classes. | both files | [A] |
+| SW-M6 | LOW | `parseGuaranies` treats `,` as a decimal separator and doesn't reject negatives; only indirectly blocked by a `>0` check on some fields, not at the parse layer. | `src/lib/utils.ts:15-18` | [A] |
+| SW-M7 | LOW | Dead no-op code left from a refactor (`handlePaymentMethodSelect` sets state to itself). | `MovementForm.tsx:203-209` | [A] |
+| SW-M8 | LOW | Payment-method badge on the movements list is an unstyled raw string (`efectivo`/`transferencia`/`pos`), no label map. | `movements/page.tsx:177` | [A] |
+
+Solid: debounced contact search correctly cancels stale requests; `isDirty` + discard-confirm protects against accidental back-navigation data loss; cart total is fully derived (no manual amount to desync); numeric-keyboard input pattern (`text` + `inputMode="numeric"`) is the right mobile choice.
+
+### Closings/arqueo (ClosingWizard, arqueo.ts, closings.ts)
+
+**`ClosingForm.tsx` dead-code status RE-CONFIRMED**: still only referenced by its own test, `closings/new/page.tsx` wires in `ClosingWizard`. Safe to delete per the existing T-15 backlog item.
+
+| ID | Severity | Finding | Evidence | Status |
+|----|----------|---------|----------|--------|
+| SW-C1 | HIGH | At the final confirm step, the discrepancy color (`.wz-mismatch { color: #ef4444 }`, red) applies to **any** nonzero difference — a cash surplus gets the same alarm-red as a shortage, right before the irreversible confirm. Only the historical list page correctly splits surplus (green)/shortage (red). | `ClosingWizard.tsx:258,264,270,324` | [V] |
+| SW-C2 | HIGH | No DB constraint (unique/exclusion) prevents two overlapping closings for the same branch+period. `periodStart` is derived client-side at load time; two concurrent admins (or double-tap across tabs) could both compute and insert overlapping closings, double-reporting the same movements. | `baseline.sql:126-149` (no such constraint), `closings.ts:96-108` | [V] no constraint exists; [A] exploit scenario |
+| SW-C3 | MEDIUM | `notes` column exists in the schema and is plumbed through `buildClosingPayload`, but `ClosingWizard.tsx` never renders an input for it — always null. A field meant to record "why was there a shortage" is dead in the UI. | `arqueo.ts:26,42`, `ClosingWizard.tsx` | [A] |
+| SW-C4 | MEDIUM | No detail/permalink route for a single past closing (`/closings/[id]`) — history is visible inline on the list but not deep-linkable/printable. | `closings/page.tsx` | [A] |
+| SW-C5 | LOW | `ClosingWizard` alone uses a hold-to-confirm `HoldButton` (used nowhere else in the app) vs. plain tap-buttons in `MovementForm`/`OrderPaymentSheet` — a deliberately heavier, justified friction for an irreversible action, but makes the module feel like a different interaction language. Worth a conscious note, not necessarily a bug. | `HoldButton.tsx` usage | [A] |
+| SW-C6 | LOW | `parseGuaranies`'s comma-as-decimal parsing (see SW-M6) applies here too; low real-world risk since Gs. has no cents. | `utils.ts:15-18` | [A] |
+
+Solid: `buildClosingPayload` correctly nulls counted/discrepancy fields when `mandatory_arqueo_enabled` is off, and only computes real discrepancy when on — the toggle's contract is honored in what's saved, not just displayed; cash/transferencia/pos split delegates to the single shared `computeCashBalance`; failed-save handling is clean (single insert, toast + re-enable, no partial state); `cash_closings` genuinely has no UPDATE/DELETE RLS policy (append-only, confirmed); empty-period closings work correctly.
+
+### Cross-screen money coherence (dashboard, Reports, Liquidación, KPIs)
+
+| ID | Severity | Finding | Evidence | Status |
+|----|----------|---------|----------|--------|
+| SW-K1 | HIGH | Dashboard's "Balance Global"/"Balance en Efectivo" and Reports' "Balance Neto" look like the same concept but use different time boundaries — dashboard is "since the last cash closing" (could span days), Reports is the selected calendar range (Hoy/Semana/Mes). Both individually correct, but nothing in the UI explains the scope difference, so they'll disagree and look contradictory to an owner comparing screens. | `page.tsx:111-116` vs `reports/page.tsx:442-449` | [A] |
+| SW-K2 | MEDIUM | Dashboard's Hoy/Semana/Mes filter toggle sits directly under the balance cards (visually implying it controls them) but only actually drives the Ingresos/Egresos activity figures below — the balance cards never change when the filter changes. | `page.tsx:110-139` | [A] |
+| SW-K3 | MEDIUM | Color coding for negative/positive amounts is inconsistent: movement cards use green/red, but the dashboard KPI card and Reports' Balance Neto card use plain grey text regardless of sign — a negative balance isn't visually flagged as bad the way a negative movement is. | `MovementCard.tsx:167-168` vs `KPICard.tsx`, `reports/page.tsx:443-448` | [A] |
+| SW-K4 | LOW | Per-row commission figure in Liquidación has no header/label, just muted text next to "Facturado" — a new user could misread money owed to staff as revenue. | `reports/liquidacion/page.tsx:158` | [A] |
+| SW-K5 | LOW | No stale-data indicator/manual refresh on dashboard/Reports — figures only refetch on mount/filter-change. | - | [A] |
+
+Solid: `computeCashBalance` is genuinely the one shared formula now, `closings.ts`/`kpis.ts`/`reports/page.tsx` all delegate to it (only legitimate scope/boundary differences remain, not math drift); `calcCashBoxKPIs` being left separate from `computeCashBalance` is correct (different concept: period P&L, not a cash balance); Reports/Liquidación filters are all genuinely live, no dead filters found there; `amount_charged`/`income` are guaranteed equal for `servicio` movements, so "Total Servicios" and "Facturado" agreeing is not a hidden bug.
+
+### Not verified without a browser (across all four areas)
+
+Real rendered colors/contrast in light and dark themes; actual mobile keyboard/touch behavior; real concurrent double-closing outcome (schema gap confirmed statically, not exercised); timing/flicker of stale values during fast filter switches; whether the legacy `fn_order_completed_to_movement` trigger and the new RPC's insert could ever race in a way not caught by the unique partial index.
+
+### Proposed Phase 5 execution order (NOT approved, for later)
+
+Roughly by severity, but SW-O1/SW-M1 should go first since they're actively-wrong money outcomes reachable today through the most common cashier actions:
+- [ ] SW-O1 — close the raw-update completion path (route list/sheet quick-actions through `complete_order_payment`, or apply the same freeze/financial-guard trigger logic to block direct completion entirely).
+- [ ] SW-M1 — stop coercing POS to efectivo; either add a real `pos` value to the `payment_method` check constraint end-to-end, or make the UI honest about what gets recorded.
+- [ ] SW-O3 — switch `OrderPaymentSheet`/`OrderCard` amount inputs from `parseInt` to `parseGuaranies`.
+- [ ] SW-O2 — show the delivery-fee-inclusive total everywhere an order total is displayed, not just at payment.
+- [ ] SW-C1 — fix discrepancy color logic to distinguish surplus (green) from shortage (red) at the confirm step, matching the list page.
+- [ ] SW-C2 — add a DB-level constraint (or an application-level lock/check) preventing overlapping closings for the same branch+period.
+- [ ] SW-K1/SW-K2 — either align the dashboard balance's time boundary with the selected filter, or make the scope difference explicit in the label/UI.
+- [ ] SW-O5/SW-M4 — route remaining raw-error surfaces through the existing `ERROR_COPY` pattern.
+- [ ] SW-O6/SW-O7 — add error handling + confirmation to the remaining raw status-change paths.
+- [ ] Remaining MEDIUM/LOW items (SW-O4/O8/O9/O10, SW-M2/M3/M5/M6/M7/M8, SW-C3/C4/C5/C6, SW-K3/K4/K5) — batch into follow-up work, not urgent.
+
 **Phase 4 — Order and maintainability:**
 12. Data access layer, split the largest files, unify the WhatsApp message source.
 13. Delete dead code (`ClosingForm.tsx`).
