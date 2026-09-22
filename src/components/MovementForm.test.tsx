@@ -365,6 +365,20 @@ describe('commission_pct frozen at insert, servicio branch only (REQ-PROFIT-1/2)
     expect(lastRpcCall?.p_items).toBeDefined();
     expect(lastRpcCall?.commission_pct).toBeUndefined();
   });
+
+  // SW-M1: 'pos' must be sent through as-is to the RPC, not coerced to
+  // 'efectivo' — the DB now accepts it end to end (see
+  // 20260922050000_pos_payment_method_and_closing_overlap_guard.sql).
+  it("payment method 'POS' is sent as p_payment_method='pos', not coerced to 'efectivo'", async () => {
+    render(<MovementForm initialType="servicio" />);
+    await navigateToCatalogPaymentStep();
+
+    fireEvent.click(screen.getByText('POS'));
+    fireEvent.click(screen.getByText('Crear pedido'));
+
+    await waitFor(() => expect(lastRpcCall).not.toBeNull());
+    expect(lastRpcCall?.p_payment_method).toBe('pos');
+  });
 });
 
 // ─── movement_items para ventas multi-servicio (REQ-FIN-3) ────────────────────

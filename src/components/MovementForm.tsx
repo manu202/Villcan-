@@ -273,8 +273,11 @@ export function MovementForm({ initialType, showToast }: MovementFormProps) {
 
     // Ventas → pending order (appears in KDS); movement created by trigger on completion
     if (type === 'servicio') {
-      const rpcPaymentMethod: 'efectivo' | 'transferencia' =
-        paymentMethod === 'transferencia' ? 'transferencia' : 'efectivo';
+      // SW-M1: 'pos' is now a valid orders.payment_method value end to end
+      // (see 20260922050000_pos_payment_method_and_closing_overlap_guard.sql)
+      // — no longer coerced to 'efectivo', which used to inflate recorded
+      // cash and guarantee arqueo mismatches for card sales.
+      const rpcPaymentMethod: PaymentMethod = paymentMethod || 'efectivo';
 
       const { error: orderError } = await supabase.rpc('create_manual_order', {
         p_branch_id: branchId,

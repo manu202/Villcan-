@@ -294,6 +294,32 @@ The shared money-input component is a **dependency**: every other UI fix that to
 
 Not yet scoped for this pass (left for a later, smaller round): SW-M5's remaining structural duplication beyond the shared input (still two separate component trees), SW-M6/SW-C6 (`parseGuaranies` comma/negative edge cases), SW-K3/K4/K5 (color coding, commission labeling, stale-data indicator) — all LOW severity, none block the swiss-watch pass's core money correctness.
 
+### Phase 5 — DONE 2026-09-22
+
+All of Round 1, Round 2, and R-DB completed, real RED-then-GREEN throughout, deployed where DB-side, first RDD-reviewed candidate this session.
+
+- **R1-A** `8b3f52b` — `GuaraniesInput`, live thousands-separator money input, cursor-position preserving. 9/9 new tests.
+- **R-DB** `79ba6a0` — SW-M1 ('pos' payment method end to end for staff-facing order paths only — storefront checkout correctly never offers it to customers) + SW-C2 (per-branch advisory-locked trigger rejecting overlapping `cash_closings`). Deployed to production, re-verified against the live schema dump.
+- **R2-F** `5796ae4` — OrderPaymentSheet: SW-O5 (VC404/VC409/VC403 → Spanish copy) + GuaraniesInput wired into the amount-received field.
+- **R2-G** `c6a1640` — ClosingWizard: SW-C1 (surplus green / shortage red, matching the historical list — previously both used the same alarm-red) + SW-C3 (wired up the previously-dead notes field) + GuaraniesInput on the 3 counted fields.
+- **R2-E** `fb30f70` — MovementForm: SW-M2 (synchronous ref-lock against double-submission — state-only guards don't close a fast-double-tap race) + SW-M4 (Spanish error copy) + SW-M3/M7 (dead code removed) + GuaraniesInput on both amount fields. SW-M1's client-side coercion intentionally untouched here (the actual fix was the DB-side R-DB above; MovementForm's `paymentMethod === 'transferencia' ? 'transferencia' : 'efectivo'` line still needs its own follow-up once the DB accepts 'pos' — **not yet done, see Phase 5 residuals below**).
+- **R2-D** `e0551f2` — orders list/detail/OrderCard/OrderDetailSheet: SW-O1 (quick-complete now opens `OrderPaymentSheet` instead of a raw update that could bypass the atomic RPC), SW-O2 (delivery-inclusive totals everywhere), SW-O6 (await + check + toast instead of optimistic-then-silent), SW-O7 (`window.confirm` before cancelling — no existing confirm-dialog component found in the app), SW-O8 (touch targets), SW-O9 (status-select color parity), SW-O10 (submitting guards), GuaraniesInput on the delivery-fee field.
+
+**Verification after all merged:** `npm run test` → **510/510 pass** (the earlier flaky test did not reproduce this run). `npm run test:integration` → **24/24 pass** (one test needed a fix for cross-describe-block fixture collision, not a product bug — see below).
+
+**One test-only bug found and fixed by the assistant directly**: the SW-C2 negative test originally reused `branchX`, which by that point in the suite already had a cash_closing from an earlier describe block (item 7's movements-guard fixture) with a future `closed_at` — the new overlap trigger correctly rejected the test's own "anchor" insert as an overlap. This was the trigger working correctly catching a test-isolation bug, not a product bug. Fixed by giving that test its own dedicated branch.
+
+**First RDD-reviewed candidate this session**: `gentle-ai review assess` on the accumulated 6 commits (18 files, 1760 lines) returned `review_due: true` (`slice_budget_reached`). Owner granted consent. Lens selected: `review-reliability` (medium risk). **Result: approved**, with 3 non-blocking advisory findings (none opened a correction):
+  - `GuaraniesInput.test.tsx`'s caret-position test doesn't actually prove the caret-restoration logic works (jsdom doesn't propagate `selectionStart` through `fireEvent.change`) — the component's core interactive property is unverified by test, though manually reasoned through.
+  - `OrderDetailSheet.tsx`'s new `handlePaymentCompleted` refetch silently swallows a fetch error after the RPC already succeeded — no toast, unlike every other new write path in this candidate.
+  - The new migration's `create or replace` of `update_order`/`create_manual_order` claims byte-for-byte parity with the prior versions except the stated changes, but nothing in this candidate mechanically verifies that claim.
+  Authority acknowledged and burned (`review-2d9ed8e6368a606a`).
+
+**Phase 5 residuals:**
+- ✅ **DONE** (caught while writing this section, fixed immediately): MovementForm's client-side POS→efectivo coercion — the R-DB fix only unblocked the database; the UI still forced the old default. Fixed with a real RED-then-GREEN test (`git stash` of just the source change proved RED, restored for GREEN). Full suite: 511/511.
+- Still open: the 3 RDD advisory findings above (none blocking, all logged for later).
+- SW-O4 (delivery fee has no edit path after initial entry), SW-K1–K5 (Reports, deprioritized), SW-M5/M6/C4/C6 and the rest of the LOW-severity items logged earlier, never in scope for this round.
+
 ### Proposed Phase 5 execution order (NOT approved, for later)
 
 Roughly by severity, but SW-O1/SW-M1 should go first since they're actively-wrong money outcomes reachable today through the most common cashier actions:
