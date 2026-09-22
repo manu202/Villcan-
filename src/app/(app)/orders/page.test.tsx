@@ -11,7 +11,18 @@ vi.mock('@/contexts/SettingsContext', () => ({
   useSettings: () => ({ settings: { business_name: 'Villcan Centro' } }),
 }));
 
+const mockShowToast = vi.fn();
+vi.mock('@/contexts/ToastContext', () => ({
+  useToast: () => ({ showToast: mockShowToast }),
+}));
+
 const eqCalls: Array<[string, unknown]> = [];
+
+// Mutable result for handleStatusChange's .update().eq().select().single() chain.
+let mockUpdateResult: { data: unknown; error: unknown } = {
+  data: { id: 'o1' },
+  error: null,
+};
 
 function createQueryMock(resultPromise: Promise<unknown>) {
   const mock: Record<string, unknown> = {};
@@ -22,7 +33,9 @@ function createQueryMock(resultPromise: Promise<unknown>) {
     return mock;
   };
   mock.order = chainable;
+  // handleStatusChange: .update(...).eq('id', ...).select('id').single()
   mock.update = () => mock;
+  mock.single = () => Promise.resolve(mockUpdateResult);
   mock.then = (onFulfilled: (v: unknown) => unknown, onRejected?: (e: unknown) => unknown) =>
     resultPromise.then(onFulfilled, onRejected);
   return mock;
@@ -51,6 +64,8 @@ const ORDER_BASE = {
 describe('OrdersPage (REQ: incoming orders panel)', () => {
   beforeEach(() => {
     eqCalls.length = 0;
+    mockShowToast.mockReset();
+    mockUpdateResult = { data: { id: 'o1' }, error: null };
     mockUseBranch.mockReturnValue({
       currentBranch: { id: 'branch-1', name: 'Centro', user_role: 'admin' },
       initialized: true,
@@ -126,5 +141,49 @@ describe('OrdersPage (REQ: incoming orders panel)', () => {
     render(<OrdersPage />);
     await waitFor(() => expect(screen.getByText('#A1B2C3')).toBeTruthy());
     expect(screen.getByTestId('order-card-o1').getAttribute('data-urgent')).toBeNull();
+  });
+
+  // SW-O1 (TDD RED->GREEN): advancing a "confirmed" order to "completed"
+  // must open the atomic OrderPaymentSheet flow instead of a raw status
+  // update.
+  it('marcar "confirmed" como completado abre OrderPaymentSheet en vez de actualizar directo (SW-O1)', async () => {
+    queryResult = Promise.resolve({ data: [{ ...ORDER_BASE, status: 'confirmed' }], error: null });
+    render(<OrdersPage />);
+    await waitFor(() => expect(screen.getByText('#A1B2C3')).toBeTruthy());
+
+    fireEvent.click(screen.getByRole('button', { name: /marcar completado/i }));
+
+    await waitFor(() => expect(screen.getByText('Confirmar pago')).toBeTruthy());
+    // Opening the payment sheet must not have issued a direct status update.
+    expect(eqCalls).not.toContainEqual(['id', 'o1']);
+  });
+
+  // SW-O6 (TDD RED->GREEN): status write result must be checked before
+  // mutating local state, and errors must be surfaced via toast.
+  it('handleStatusChange: en éxito no muestra toast', async () => {
+    queryResult = Promise.resolve({ data: [ORDER_BASE], error: null });
+    mockUpdateResult = { data: { id: 'o1' }, error: null };
+    render(<OrdersPage />);
+    await waitFor(() => expect(screen.getByText('#A1B2C3')).toBeTruthy());
+
+    fireEvent.click(screen.getByRole('button', { name: /aceptar pedido/i }));
+
+    await waitFor(() => expect(screen.queryByRole('button', { name: /aceptar pedido/i })).toBeNull());
+    expect(mockShowToast).not.toHaveBeenCalled();
+  });
+
+  it('handleStatusChange: en error de RLS muestra toast y NO cambia el estado local', async () => {
+    queryResult = Promise.resolve({ data: [ORDER_BASE], error: null });
+    mockUpdateResult = { data: null, error: { code: 'PGRST116' } };
+    render(<OrdersPage />);
+    await waitFor(() => expect(screen.getByText('#A1B2C3')).toBeTruthy());
+
+    fireEvent.click(screen.getByRole('button', { name: /aceptar pedido/i }));
+
+    await waitFor(() =>
+      expect(mockShowToast).toHaveBeenCalledWith('Error al cambiar el estado del pedido', 'error')
+    );
+    // Card still shows "Aceptar pedido" — local state was not mutated.
+    expect(screen.getByRole('button', { name: /aceptar pedido/i })).toBeTruthy();
   });
 });

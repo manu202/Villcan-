@@ -79,6 +79,7 @@ export default function OrderDetailPage() {
   const [paymentSheetOpen, setPaymentSheetOpen] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [edit, setEdit] = useState<EditState | null>(null);
+  const [statusSubmitting, setStatusSubmitting] = useState(false);
 
   useEffect(() => {
     if (!orderId) return;
@@ -231,6 +232,14 @@ export default function OrderDetailPage() {
       setPaymentSheetOpen(true);
       return;
     }
+    // SW-O7: cancelling is effectively irreversible (a DB-level freeze
+    // trigger blocks any further status change once an order is
+    // completed/cancelled), so require confirmation first.
+    if (status === 'cancelled') {
+      const confirmed = window.confirm('¿Cancelar este pedido? Esta acción no se puede deshacer.');
+      if (!confirmed) return;
+    }
+    setStatusSubmitting(true);
     const supabase = createClient();
     // .select('id').single() detects 0-row RLS blocks as PGRST116 (G3):
     // a plain .update().eq() returns error:null even when no rows are affected.
@@ -240,6 +249,7 @@ export default function OrderDetailPage() {
       .eq('id', order.id)
       .select('id')
       .single();
+    setStatusSubmitting(false);
     if (error || !data) {
       showToast('Error al cambiar el estado del pedido', 'error');
       return;
@@ -404,6 +414,7 @@ export default function OrderDetailPage() {
                 value={order.status}
                 onChange={(e) => handleStatusChange(e.target.value as OrderStatus)}
                 aria-label="Estado del pedido"
+                disabled={statusSubmitting}
               >
                 {STATUS_OPTIONS.map((s) => (
                   <option key={s} value={s}>{ORDER_STATUS_LABELS[s]}</option>
@@ -472,7 +483,11 @@ export default function OrderDetailPage() {
             </ul>
             <div className="grand-total-row">
               <span>Total</span>
-              <strong>{formatGuaranies(order.total)}</strong>
+              <strong>
+                {formatGuaranies(
+                  order.total + (order.delivery_type === 'delivery' ? (order.delivery_fee ?? 0) : 0)
+                )}
+              </strong>
             </div>
           </div>
 
@@ -567,6 +582,7 @@ export default function OrderDetailPage() {
           cursor: pointer; border: 1px solid transparent; width: auto;
         }
         .status-chevron { position: absolute; right: 10px; pointer-events: none; opacity: 0.7; }
+        .status-pill:disabled { opacity: 0.6; cursor: not-allowed; }
 
         .status-pill.status-pending  { background: rgba(217,119,6,.14); color: #92400e; border-color: rgba(217,119,6,.28); }
         .status-pill.status-confirmed { background: rgba(37,99,235,.12); color: #1e40af; border-color: rgba(37,99,235,.24); }

@@ -39,12 +39,15 @@ const order = {
   payment_method: 'efectivo',
   delivery_type: 'pickup',
   delivery_address: null,
+  delivery_fee: null as number | null,
   created_at: '2026-08-31T10:00:00Z',
 };
 
 const orderItems = [
   { id: 'item-1', order_id: 'order-1', service_id: 's1', name_snapshot: 'Corte', unit_price: 40000, qty: 1, line_total: 40000 },
 ];
+
+let orderOverride: typeof order = order;
 
 const contact = { id: 'contact-1', full_name: 'Juan Pérez', ci: null, phone: '+595981123456', comment: null, created_at: '2026-01-01' };
 
@@ -69,7 +72,7 @@ function tableMock(table: string) {
     }),
   });
   mock.single = async () => {
-    if (table === 'orders') return { data: order, error: null };
+    if (table === 'orders') return { data: orderOverride, error: null };
     if (table === 'contacts') return { data: contact, error: null };
     return { data: null, error: null };
   };
@@ -93,6 +96,7 @@ describe('OrderDetailPage (REQ: order detail + full edit)', () => {
     mockRpc.mockReset();
     mockShowToast.mockReset();
     mockUpdateResult = { data: { id: 'order-1' }, error: null };
+    orderOverride = order;
   });
 
   it('shows customer data, items, total, payment/delivery, and a link to the linked contact', async () => {
@@ -157,6 +161,41 @@ describe('OrderDetailPage (REQ: order detail + full edit)', () => {
 
     // Select must revert to original status (state not mutated on error)
     expect(statusSelect).toHaveProperty('value', 'pending');
+  });
+
+  // SW-O2 (TDD RED->GREEN): grand total must include delivery fee.
+  it('for delivery orders, the grand total includes the delivery fee (SW-O2)', async () => {
+    orderOverride = { ...order, delivery_type: 'delivery', delivery_fee: 15000, total: 40000 };
+    render(<OrderDetailPage />);
+    await waitFor(() => expect(screen.getByText('Juan Pérez')).toBeTruthy());
+    // 40000 + 15000 = 55000
+    expect(screen.getByText(/55,000|55\.000/)).toBeTruthy();
+  });
+
+  // SW-O7 (new UI, no prior behavior to be RED against): cancelling requires confirmation.
+  it('selecting "Cancelado" asks for confirmation before writing (SW-O7)', async () => {
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(false);
+    render(<OrderDetailPage />);
+    await waitFor(() => expect(screen.getByText('Juan Pérez')).toBeTruthy());
+
+    const statusSelect = screen.getByLabelText('Estado del pedido');
+    fireEvent.change(statusSelect, { target: { value: 'cancelled' } });
+
+    expect(confirmSpy).toHaveBeenCalled();
+    expect(statusSelect).toHaveProperty('value', 'pending');
+    confirmSpy.mockRestore();
+  });
+
+  it('selecting "Cancelado" and confirming does write the new status', async () => {
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true);
+    render(<OrderDetailPage />);
+    await waitFor(() => expect(screen.getByText('Juan Pérez')).toBeTruthy());
+
+    const statusSelect = screen.getByLabelText('Estado del pedido');
+    fireEvent.change(statusSelect, { target: { value: 'cancelled' } });
+
+    await waitFor(() => expect(statusSelect).toHaveProperty('value', 'cancelled'));
+    confirmSpy.mockRestore();
   });
 
   it('"Notificar cliente" opens a wa.me link built from the customer phone and current status (REQ: order-notify-customer)', async () => {

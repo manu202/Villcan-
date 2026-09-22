@@ -6,8 +6,10 @@ import { createClient } from '@/lib/supabase/client';
 import { formatGuaranies, formatRelativeTime } from '@/lib/utils';
 import { buildStatusNotificationMessage, buildWhatsAppLink } from '@/lib/storefront';
 import { useSettings } from '@/contexts/SettingsContext';
+import { useToast } from '@/contexts/ToastContext';
 import { ORDER_STATUS_LABELS, type OrderStatus, type OrderWithItems } from '@/types';
 import { Spinner } from '@/components/Spinner';
+import { OrderPaymentSheet } from '@/components/OrderPaymentSheet';
 import { MessageCircle, ExternalLink } from 'lucide-react';
 
 const STATUS_OPTIONS: OrderStatus[] = ['pending', 'confirmed', 'completed', 'cancelled'];
@@ -19,8 +21,11 @@ interface OrderDetailSheetProps {
 
 export function OrderDetailSheet({ orderId, onClose }: OrderDetailSheetProps) {
   const { settings } = useSettings();
+  const { showToast } = useToast();
   const [order, setOrder] = useState<OrderWithItems | null>(null);
   const [loading, setLoading] = useState(true);
+  const [statusSubmitting, setStatusSubmitting] = useState(false);
+  const [paymentSheetOpen, setPaymentSheetOpen] = useState(false);
 
   useEffect(() => {
     if (!orderId) return;
@@ -46,9 +51,54 @@ export function OrderDetailSheet({ orderId, onClose }: OrderDetailSheetProps) {
 
   const handleStatusChange = async (status: OrderStatus) => {
     if (!order) return;
-    setOrder((prev) => prev ? { ...prev, status } : prev);
+
+    // SW-O1: completing an order must go through the atomic
+    // complete_order_payment RPC (via OrderPaymentSheet), never a raw
+    // status update — that path can bypass the RPC and undercount the
+    // delivery fee through a legacy trigger.
+    if (status === 'completed') {
+      setPaymentSheetOpen(true);
+      return;
+    }
+
+    // SW-O7: cancelling is effectively irreversible (a DB-level freeze
+    // trigger blocks any further status change once an order is
+    // completed/cancelled), so require confirmation first.
+    if (status === 'cancelled') {
+      const confirmed = window.confirm('¿Cancelar este pedido? Esta acción no se puede deshacer.');
+      if (!confirmed) return;
+    }
+
+    setStatusSubmitting(true);
     const supabase = createClient();
-    await supabase.from('orders').update({ status }).eq('id', orderId);
+    // .select('id').single() detects 0-row RLS/trigger blocks as an error
+    // (SW-O6): a plain .update().eq() returns error:null even when no rows
+    // are affected.
+    const { data, error } = await supabase
+      .from('orders')
+      .update({ status })
+      .eq('id', orderId)
+      .select('id')
+      .single();
+    setStatusSubmitting(false);
+
+    if (error || !data) {
+      showToast('Error al cambiar el estado del pedido', 'error');
+      return;
+    }
+    setOrder((prev) => prev ? { ...prev, status } : prev);
+  };
+
+  const handlePaymentCompleted = async () => {
+    setPaymentSheetOpen(false);
+    if (!orderId) return;
+    const supabase = createClient();
+    const { data } = await supabase
+      .from('orders')
+      .select('*, order_items(*)')
+      .eq('id', orderId)
+      .single();
+    if (data) setOrder(data as OrderWithItems);
   };
 
   const handleNotify = () => {
@@ -95,7 +145,11 @@ export function OrderDetailSheet({ orderId, onClose }: OrderDetailSheetProps) {
 
       <div className="ods-total">
         <span>Total</span>
-        <strong>{formatGuaranies(order.total)}</strong>
+        <strong>
+          {formatGuaranies(
+            order.total + (order.delivery_type === 'delivery' ? (order.delivery_fee ?? 0) : 0)
+          )}
+        </strong>
       </div>
 
       {order.note && <p className="ods-note">{order.note}</p>}
@@ -106,6 +160,7 @@ export function OrderDetailSheet({ orderId, onClose }: OrderDetailSheetProps) {
           value={order.status}
           onChange={(e) => handleStatusChange(e.target.value as OrderStatus)}
           aria-label="Estado del pedido"
+          disabled={statusSubmitting}
         >
           {STATUS_OPTIONS.map((s) => (
             <option key={s} value={s}>{ORDER_STATUS_LABELS[s]}</option>
@@ -123,6 +178,14 @@ export function OrderDetailSheet({ orderId, onClose }: OrderDetailSheetProps) {
         Ver / Editar pedido completo
       </Link>
 
+      <OrderPaymentSheet
+        order={order}
+        items={order.order_items}
+        open={paymentSheetOpen}
+        onOpenChange={setPaymentSheetOpen}
+        onCompleted={handlePaymentCompleted}
+      />
+
       <style>{`
         .ods { display: flex; flex-direction: column; gap: 16px; }
         .ods-meta { display: flex; justify-content: space-between; align-items: center; }
@@ -139,7 +202,17 @@ export function OrderDetailSheet({ orderId, onClose }: OrderDetailSheetProps) {
         .ods-total { display: flex; justify-content: space-between; padding: 4px 0; font-size: 15px; color: var(--text-primary); border-top: 2px solid var(--border); padding-top: 12px; }
         .ods-note { font-size: 13px; color: var(--text-secondary); background: var(--accent-subtle); padding: 10px 12px; border-radius: 8px; margin: 0; }
         .ods-actions { display: flex; gap: 8px; }
-        .ods-status-select { flex: 1; padding: 10px 12px; border: 1px solid var(--border); border-radius: 8px; font-size: 14px; background: var(--surface); color: var(--text-primary); }
+        .ods-status-select { flex: 1; padding: 10px 12px; border: 1px solid var(--border); border-radius: 8px; font-size: 14px; background: var(--surface); color: var(--text-primary); font-weight: 600; }
+        .ods-status-select:disabled { opacity: 0.6; cursor: not-allowed; }
+        /* SW-O9: same status→color tokens as orders/[id]/page.tsx's status pill. */
+        .ods-status-select.status-pending  { background: rgba(217,119,6,.14); color: #92400e; border-color: rgba(217,119,6,.28); }
+        .ods-status-select.status-confirmed { background: rgba(37,99,235,.12); color: #1e40af; border-color: rgba(37,99,235,.24); }
+        .ods-status-select.status-completed { background: rgba(22,163,74,.12); color: #166534; border-color: rgba(22,163,74,.24); }
+        .ods-status-select.status-cancelled { background: rgba(107,114,128,.1); color: #6b7280; border-color: rgba(107,114,128,.2); }
+        [data-theme='dark'] .ods-status-select.status-pending  { background: rgba(251,191,36,.15); color: #fbbf24; border-color: rgba(251,191,36,.3); }
+        [data-theme='dark'] .ods-status-select.status-confirmed { background: rgba(96,165,250,.12); color: #60a5fa; border-color: rgba(96,165,250,.25); }
+        [data-theme='dark'] .ods-status-select.status-completed { background: rgba(74,222,128,.12); color: #4ade80; border-color: rgba(74,222,128,.25); }
+        [data-theme='dark'] .ods-status-select.status-cancelled { background: rgba(156,163,175,.1); color: #9ca3af; border-color: rgba(156,163,175,.2); }
         .ods-btn-notify { display: flex; align-items: center; gap: 6px; padding: 10px 14px; background: #25D366; color: #fff; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; border: none; }
         .ods-link-full { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--text-secondary); text-decoration: none; border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; justify-content: center; }
         .ods-link-full:active { background: var(--accent-subtle); }

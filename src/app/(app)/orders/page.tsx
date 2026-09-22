@@ -2,10 +2,10 @@
 
 import { useEffect, useState, useRef, useCallback } from 'react';
 import Link from 'next/link';
-import { formatGuaranies } from '@/lib/utils';
 import { createClient } from '@/lib/supabase/client';
 import { useBranch } from '@/contexts/BranchContext';
 import { useSettings } from '@/contexts/SettingsContext';
+import { useToast } from '@/contexts/ToastContext';
 import { ErrorState } from '@/components/ErrorState';
 import { EmptyState } from '@/components/EmptyState';
 import { buildStatusNotificationMessage, buildWhatsAppLink } from '@/lib/storefront';
@@ -13,6 +13,7 @@ import { type OrderStatus, type OrderWithItems } from '@/types';
 import { AppSheet } from '@/components/AppSheet';
 import { OrderDetailSheet } from '@/components/OrderDetailSheet';
 import { OrderCard } from '@/components/OrderCard';
+import { OrderPaymentSheet } from '@/components/OrderPaymentSheet';
 
 const STATUS_TABS: Array<{ value: OrderStatus | 'all'; label: string }> = [
   { value: 'all', label: 'Todos' },
@@ -27,12 +28,16 @@ const POLL_INTERVAL_MS = 30_000;
 export default function OrdersPage() {
   const { currentBranch, initialized } = useBranch();
   const { settings } = useSettings();
+  const { showToast } = useToast();
   const [orders, setOrders] = useState<OrderWithItems[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   const [statusFilter, setStatusFilter] = useState<OrderStatus | 'all'>('all');
   const [reloadToken, setReloadToken] = useState(0);
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
+  const [submittingOrderId, setSubmittingOrderId] = useState<string | null>(null);
+  const [paymentOrder, setPaymentOrder] = useState<OrderWithItems | null>(null);
+  const [paymentSheetOpen, setPaymentSheetOpen] = useState(false);
 
   const currentBranchRef = useRef(currentBranch);
   useEffect(() => { currentBranchRef.current = currentBranch; }, [currentBranch]);
@@ -43,9 +48,12 @@ export default function OrdersPage() {
     if (!silent) setLoading(true);
     setError(false);
     const supabase = createClient();
+    // Full order_items columns (not just id/qty/name_snapshot) so the same
+    // in-memory order object can be handed straight to OrderPaymentSheet
+    // (SW-O1) without a second fetch.
     const { data, error: fetchError } = await supabase
       .from('orders')
-      .select('*, order_items(id,qty,name_snapshot)')
+      .select('*, order_items(*)')
       .eq('branch_id', branch.id)
       .order('created_at', { ascending: false });
 
@@ -66,15 +74,58 @@ export default function OrdersPage() {
   }, [initialized, currentBranch, loadOrders]);
 
   const handleStatusChange = async (orderId: string, status: OrderStatus, deliveryFee?: number) => {
+    // SW-O1: completing an order must go through the atomic
+    // complete_order_payment RPC (via OrderPaymentSheet), never a raw
+    // status update — that path can bypass the RPC and undercount the
+    // delivery fee through a legacy trigger.
+    if (status === 'completed') {
+      const target = orders.find((o) => o.id === orderId);
+      if (!target) return;
+      setPaymentOrder(target);
+      setPaymentSheetOpen(true);
+      return;
+    }
+
+    // SW-O7: cancelling is effectively irreversible (a DB-level freeze
+    // trigger blocks any further status change once an order is
+    // completed/cancelled), so require confirmation first.
+    if (status === 'cancelled') {
+      const confirmed = window.confirm('¿Cancelar este pedido? Esta acción no se puede deshacer.');
+      if (!confirmed) return;
+    }
+
+    setSubmittingOrderId(orderId);
     const supabase = createClient();
     const update: Record<string, unknown> = { status };
     if (deliveryFee !== undefined) update.delivery_fee = deliveryFee;
+    // SW-O6: check the write result before mutating local state — a plain
+    // .update().eq() returns error:null even when RLS/a trigger blocks the
+    // write (0 rows affected), so .select('id').single() is needed to
+    // detect that case.
+    const { data, error } = await supabase
+      .from('orders')
+      .update(update)
+      .eq('id', orderId)
+      .select('id')
+      .single();
+    setSubmittingOrderId(null);
+
+    if (error || !data) {
+      showToast('Error al cambiar el estado del pedido', 'error');
+      return;
+    }
+
     setOrders((prev) => prev.map((o) =>
       o.id === orderId
         ? { ...o, status, ...(deliveryFee !== undefined ? { delivery_fee: deliveryFee } : {}) }
         : o
     ));
-    await supabase.from('orders').update(update).eq('id', orderId);
+  };
+
+  const handlePaymentCompleted = () => {
+    setPaymentSheetOpen(false);
+    setPaymentOrder(null);
+    setReloadToken((t) => t + 1);
   };
 
   const visibleOrders = orders.filter((o) => statusFilter === 'all' || o.status === statusFilter);
@@ -121,6 +172,7 @@ export default function OrdersPage() {
                 onStatusChange={handleStatusChange}
                 onNotify={handleNotify}
                 onClick={setSelectedOrderId}
+                submitting={submittingOrderId === order.id}
               />
             ))}
           </ul>
@@ -167,6 +219,16 @@ export default function OrdersPage() {
           <OrderDetailSheet orderId={selectedOrderId} onClose={() => setSelectedOrderId(null)} />
         )}
       </AppSheet>
+
+      {paymentOrder && (
+        <OrderPaymentSheet
+          order={paymentOrder}
+          items={paymentOrder.order_items}
+          open={paymentSheetOpen}
+          onOpenChange={setPaymentSheetOpen}
+          onCompleted={handlePaymentCompleted}
+        />
+      )}
     </div>
   );
 }

@@ -5,6 +5,7 @@ import { MessageCircle } from 'lucide-react';
 import { formatGuaranies, formatRelativeTime, isOlderThan } from '@/lib/utils';
 import { buildStatusNotificationMessage, buildWhatsAppLink } from '@/lib/storefront';
 import { ORDER_STATUS_LABELS, type OrderStatus, type OrderWithItems } from '@/types';
+import { GuaraniesInput } from './GuaraniesInput';
 
 const NEXT_STATUS: Partial<Record<OrderStatus, OrderStatus>> = {
   pending: 'confirmed',
@@ -28,18 +29,24 @@ interface OrderCardProps {
   onStatusChange: (orderId: string, status: OrderStatus, deliveryFee?: number) => void;
   onNotify: (order: OrderWithItems) => void;
   onClick: (orderId: string) => void;
+  /** True while a status-change write for THIS order is in flight (SW-O10). */
+  submitting?: boolean;
 }
 
-export function OrderCard({ order, onStatusChange, onNotify, onClick }: OrderCardProps) {
+export function OrderCard({ order, onStatusChange, onNotify, onClick, submitting = false }: OrderCardProps) {
   const nextStatus = NEXT_STATUS[order.status];
   const actionLabel = ACTION_LABEL[order.status];
   const isUrgent = isOlderThan(order.created_at, 10) && order.status === 'pending';
   const itemsSummary = order.order_items
     .map((i) => `${i.qty}× ${i.name_snapshot}`)
     .join(', ');
+  // SW-O2: totals must include the delivery fee, not just order.total.
+  const grandTotal = order.total + (order.delivery_type === 'delivery' ? (order.delivery_fee ?? 0) : 0);
 
   const [showFeeForm, setShowFeeForm] = useState(false);
-  const [feeInput, setFeeInput] = useState('');
+  // Raw digit string from GuaraniesInput (SW-O3: parseInt on a raw number
+  // input mis-parsed Paraguayan-formatted values like "15.000" -> 15).
+  const [feeDigits, setFeeDigits] = useState('');
 
   const handleAdvance = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -53,15 +60,15 @@ export function OrderCard({ order, onStatusChange, onNotify, onClick }: OrderCar
 
   const handleFeeConfirm = (e: React.MouseEvent) => {
     e.stopPropagation();
-    onStatusChange(order.id, 'confirmed', parseInt(feeInput, 10) || 0);
+    onStatusChange(order.id, 'confirmed', parseInt(feeDigits, 10) || 0);
     setShowFeeForm(false);
-    setFeeInput('');
+    setFeeDigits('');
   };
 
   const handleFeeCancel = (e: React.MouseEvent) => {
     e.stopPropagation();
     setShowFeeForm(false);
-    setFeeInput('');
+    setFeeDigits('');
   };
 
   const handleNotify = (e: React.MouseEvent) => {
@@ -82,7 +89,7 @@ export function OrderCard({ order, onStatusChange, onNotify, onClick }: OrderCar
         <span className={`kds-badge ${STATUS_COLORS[order.status]}`}>
           {ORDER_STATUS_LABELS[order.status]}
         </span>
-        <span className="kds-amount">{formatGuaranies(order.total)}</span>
+        <span className="kds-amount">{formatGuaranies(grandTotal)}</span>
       </div>
 
       {/* Body — items */}
@@ -109,7 +116,7 @@ export function OrderCard({ order, onStatusChange, onNotify, onClick }: OrderCar
           aria-label="Notificar cliente por WhatsApp"
           onClick={handleNotify}
         >
-          <MessageCircle size={16} aria-hidden="true" />
+          <MessageCircle size={18} aria-hidden="true" />
         </button>
       </div>
 
@@ -119,22 +126,30 @@ export function OrderCard({ order, onStatusChange, onNotify, onClick }: OrderCar
           <label className="kds-fee-label" htmlFor={`kds-fee-${order.id}`}>
             Costo de delivery (Gs.)
           </label>
-          <input
+          <GuaraniesInput
             id={`kds-fee-${order.id}`}
-            type="number"
             className="kds-fee-input"
             placeholder="Ej: 15000"
-            value={feeInput}
-            onChange={(e) => setFeeInput(e.target.value)}
-            inputMode="numeric"
-            min={0}
+            value={feeDigits}
+            onChange={setFeeDigits}
             autoFocus
+            disabled={submitting}
           />
           <div className="kds-fee-actions">
-            <button type="button" className="kds-action kds-action-pending" onClick={handleFeeConfirm}>
+            <button
+              type="button"
+              className="kds-action kds-action-pending"
+              onClick={handleFeeConfirm}
+              disabled={submitting}
+            >
               Confirmar
             </button>
-            <button type="button" className="kds-fee-cancel" onClick={handleFeeCancel}>
+            <button
+              type="button"
+              className="kds-fee-cancel"
+              onClick={handleFeeCancel}
+              disabled={submitting}
+            >
               Cancelar
             </button>
           </div>
@@ -144,8 +159,9 @@ export function OrderCard({ order, onStatusChange, onNotify, onClick }: OrderCar
           type="button"
           className={`kds-action kds-action-${order.status}`}
           onClick={handleAdvance}
+          disabled={submitting}
         >
-          {actionLabel}
+          {submitting ? 'Procesando...' : actionLabel}
         </button>
       ) : null}
 
@@ -242,8 +258,8 @@ export function OrderCard({ order, onStatusChange, onNotify, onClick }: OrderCar
           display: flex;
           align-items: center;
           justify-content: center;
-          width: 36px;
-          height: 36px;
+          width: 44px;
+          height: 44px;
           min-height: unset;
           min-width: unset;
           padding: 0;
@@ -269,6 +285,7 @@ export function OrderCard({ order, onStatusChange, onNotify, onClick }: OrderCar
           transition: opacity 0.1s;
         }
         .kds-action:active { opacity: 0.85; }
+        .kds-action:disabled { opacity: 0.5; cursor: not-allowed; }
         .kds-action-pending {
           background: #f59e0b;
           color: #1c1003;
@@ -317,6 +334,7 @@ export function OrderCard({ order, onStatusChange, onNotify, onClick }: OrderCar
           background: var(--surface-elevated);
           color: var(--text-secondary);
         }
+        .kds-fee-cancel:disabled { opacity: 0.5; cursor: not-allowed; }
       `}</style>
     </li>
   );
