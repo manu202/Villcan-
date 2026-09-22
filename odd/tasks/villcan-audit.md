@@ -342,9 +342,10 @@ Roughly by severity, but SW-O1/SW-M1 should go first since they're actively-wron
 - [ ] SW-O6/SW-O7 — add error handling + confirmation to the remaining raw status-change paths.
 - [ ] Remaining MEDIUM/LOW items (SW-O4/O8/O9/O10, SW-M2/M3/M5/M6/M7/M8, SW-C3/C4/C5/C6, SW-K3/K4/K5) — batch into follow-up work, not urgent.
 
-**Phase 4 — Order and maintainability:**
-12. Data access layer, split the largest files, unify the WhatsApp message source.
-13. Delete dead code (`ClosingForm.tsx`).
+**Phase 4 — Order and maintainability. IN PROGRESS 2026-09-22.**
+12. WhatsApp message "unification" (Q-3) — ✅ **DONE, but not as originally planned.** Investigated before building any unification layer: `formatOrderMessage` (the TS copy) turned out to be dead code, never called anywhere in the app (`useStorefrontCart.ts` always reads the real `whatsapp_message` from the RPC response). There was only ever one live source of truth; removed the dead copy instead of reconciling two live ones. Commit `01e3e31`. 501/501 tests, `tsc --noEmit` clean.
+13. ✅ **DONE.** Deleted dead code (`ClosingForm.tsx` + its test) — re-confirmed dead one more time before removal. Commit `749e6e3`. 505/505 tests.
+14. **Not started**: data access layer (extract Supabase calls out of ~25 components into a shared layer) and splitting the largest files (`MovementForm.tsx` 1065 lines, `GastronomyTheme.tsx`/`GastronomyTemplate.tsx` ~1148, `reports/page.tsx` 720, `orders/[id]/page.tsx` 695). Both are large, open-ended refactors with no user-facing risk if deferred — lower urgency than everything else this session, which was security/money-correctness driven. Owner's call whether/when to take these on.
 
 ### Active work unit (2026-09-21): fix the recurring `'barber'` role regression
 
