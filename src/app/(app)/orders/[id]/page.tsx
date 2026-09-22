@@ -3,39 +3,21 @@
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
-import {
-  MessageCircle,
-  User,
-  Phone,
-  Mail,
-  ChevronRight,
-  MapPin,
-  Truck,
-  CreditCard,
-  ChevronDown,
-  StickyNote,
-} from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
-import { formatGuaranies } from '@/lib/utils';
 import { useSettings } from '@/contexts/SettingsContext';
 import { useToast } from '@/contexts/ToastContext';
-import { ServiceCard } from '@/components/storefront/ServiceCard';
-import { CartSheet, type CartLine } from '@/components/storefront/CartSheet';
+import { type CartLine } from '@/components/storefront/CartSheet';
 import { buildStatusNotificationMessage, buildWhatsAppLink } from '@/lib/storefront';
-import { ContactDetailSheet } from '@/components/ContactDetailSheet';
 import { OrderPaymentSheet } from '@/components/OrderPaymentSheet';
+import { OrderViewPanel } from './OrderViewPanel';
+import { OrderEditForm, type EditState } from './OrderEditForm';
 import {
-  ORDER_STATUS_LABELS,
   type Contact,
   type Order,
-  type OrderDeliveryType,
   type OrderItem,
-  type OrderPaymentMethod,
   type OrderStatus,
   type Service,
 } from '@/types';
-
-const STATUS_OPTIONS: OrderStatus[] = ['pending', 'confirmed', 'completed', 'cancelled'];
 
 const ERROR_COPY: Record<string, string> = {
   VC400: 'Revisá los datos ingresados.',
@@ -47,18 +29,6 @@ const ERROR_COPY: Record<string, string> = {
 function copyForError(error: { code?: string; message?: string } | null): string {
   if (!error) return 'Ocurrió un error. Intentá de nuevo.';
   return ERROR_COPY[error.code ?? ''] ?? 'Ocurrió un error. Intentá de nuevo.';
-}
-
-interface EditState {
-  customerName: string;
-  customerPhone: string;
-  customerEmail: string;
-  note: string;
-  paymentMethod: OrderPaymentMethod;
-  deliveryType: OrderDeliveryType;
-  deliveryAddress: string;
-  status: OrderStatus;
-  cart: Record<string, number>;
 }
 
 export default function OrderDetailPage() {
@@ -309,237 +279,31 @@ export default function OrderDetailPage() {
       </header>
 
       {isEditing && edit ? (
-        <section className="section edit-section">
-          <label>
-            Nombre
-            <input
-              value={edit.customerName}
-              onChange={(e) => setEdit({ ...edit, customerName: e.target.value })}
-            />
-          </label>
-          <label>
-            Teléfono
-            <input
-              value={edit.customerPhone}
-              onChange={(e) => setEdit({ ...edit, customerPhone: e.target.value })}
-            />
-          </label>
-          <label>
-            Email
-            <input
-              value={edit.customerEmail}
-              onChange={(e) => setEdit({ ...edit, customerEmail: e.target.value })}
-            />
-          </label>
-          <label>
-            Método de pago
-            <select
-              value={edit.paymentMethod}
-              onChange={(e) => setEdit({ ...edit, paymentMethod: e.target.value as OrderPaymentMethod })}
-            >
-              <option value="efectivo">Efectivo</option>
-              <option value="transferencia">Transferencia</option>
-            </select>
-          </label>
-          <label>
-            Entrega
-            <select
-              value={edit.deliveryType}
-              onChange={(e) => setEdit({ ...edit, deliveryType: e.target.value as OrderDeliveryType })}
-            >
-              <option value="pickup">Retirar en el local</option>
-              <option value="delivery">Delivery</option>
-            </select>
-          </label>
-          {edit.deliveryType === 'delivery' && (
-            <label>
-              Dirección
-              <input
-                value={edit.deliveryAddress}
-                onChange={(e) => setEdit({ ...edit, deliveryAddress: e.target.value })}
-              />
-            </label>
-          )}
-          <label>
-            Estado
-            <select
-              value={edit.status}
-              onChange={(e) => setEdit({ ...edit, status: e.target.value as OrderStatus })}
-            >
-              {STATUS_OPTIONS.map((status) => (
-                <option key={status} value={status}>
-                  {ORDER_STATUS_LABELS[status]}
-                </option>
-              ))}
-            </select>
-          </label>
-
-          <h2 className="section-title">Items</h2>
-          <ul className="edit-service-list">
-            {services.map((service) => (
-              <ServiceCard
-                key={service.id}
-                service={service}
-                qtyInCart={edit.cart[service.id] ?? 0}
-                onAdd={addToCart}
-              />
-            ))}
-          </ul>
-          <CartSheet
-            lines={editLines}
-            onIncrement={increment}
-            onDecrement={decrement}
-            onCheckout={() => {}}
-          />
-          <p className="edit-total">Nuevo total: {formatGuaranies(editTotal)}</p>
-
-          {saveError && <p role="alert" className="save-error">{saveError}</p>}
-
-          <div className="edit-actions">
-            <button type="button" className="cancel-btn" onClick={cancelEditing} disabled={saving}>
-              Cancelar
-            </button>
-            <button type="button" className="save-btn" onClick={handleSave} disabled={saving}>
-              {saving ? 'Guardando...' : 'Guardar cambios'}
-            </button>
-          </div>
-        </section>
+        <OrderEditForm
+          edit={edit}
+          onEditChange={setEdit}
+          services={services}
+          editLines={editLines}
+          editTotal={editTotal}
+          onAddToCart={addToCart}
+          onIncrement={increment}
+          onDecrement={decrement}
+          saveError={saveError}
+          saving={saving}
+          onCancel={cancelEditing}
+          onSave={handleSave}
+        />
       ) : (
-        <>
-          {/* Status control row */}
-          <div className="order-control-row">
-            <div className="status-pill-wrap">
-              <select
-                className={`status-pill status-${order.status}`}
-                value={order.status}
-                onChange={(e) => handleStatusChange(e.target.value as OrderStatus)}
-                aria-label="Estado del pedido"
-                disabled={statusSubmitting}
-              >
-                {STATUS_OPTIONS.map((s) => (
-                  <option key={s} value={s}>{ORDER_STATUS_LABELS[s]}</option>
-                ))}
-              </select>
-              <ChevronDown size={11} className="status-chevron" aria-hidden="true" />
-            </div>
-            <button type="button" className="whatsapp-btn" onClick={handleNotify}>
-              <MessageCircle size={15} />
-              Notificar cliente
-            </button>
-          </div>
-
-          {/* Cliente */}
-          <div className="detail-card">
-            <div className="detail-card-label">Cliente</div>
-            <div className="detail-card-body">
-              <div className="customer-name">{order.customer_name}</div>
-              {order.customer_phone && (
-                <div className="customer-meta">
-                  <Phone size={13} className="meta-icon" />
-                  <span>{order.customer_phone}</span>
-                </div>
-              )}
-              {order.customer_email && (
-                <div className="customer-meta">
-                  <Mail size={13} className="meta-icon" />
-                  <span>{order.customer_email}</span>
-                </div>
-              )}
-              {order.contact_id && (
-                <>
-                  <button
-                    type="button"
-                    className="contact-pill"
-                    onClick={() => setContactSheetOpen(true)}
-                  >
-                    <User size={13} />
-                    <span>Ver contacto vinculado</span>
-                    <ChevronRight size={13} />
-                  </button>
-                  <ContactDetailSheet
-                    contactId={order.contact_id}
-                    open={contactSheetOpen}
-                    onOpenChange={setContactSheetOpen}
-                    onEdit={() => setContactSheetOpen(false)}
-                  />
-                </>
-              )}
-            </div>
-          </div>
-
-          {/* Items */}
-          <div className="detail-card">
-            <div className="detail-card-label">Items</div>
-            <ul className="items-list">
-              {items.map((item) => (
-                <li key={item.id} className="item-row">
-                  <div className="item-left">
-                    <span className="item-qty">{item.qty}×</span>
-                    <span className="item-name">{item.name_snapshot}</span>
-                  </div>
-                  <span className="item-total">{formatGuaranies(item.line_total)}</span>
-                </li>
-              ))}
-            </ul>
-            <div className="grand-total-row">
-              <span>Total</span>
-              <strong>
-                {formatGuaranies(
-                  order.total + (order.delivery_type === 'delivery' ? (order.delivery_fee ?? 0) : 0)
-                )}
-              </strong>
-            </div>
-          </div>
-
-          {/* Entrega & Pago */}
-          <div className="detail-card">
-            <div className="detail-card-label">Entrega & Pago</div>
-            <div className="detail-card-body detail-row-group">
-              <div className="detail-info-row">
-                <Truck size={15} className="info-icon" />
-                <span>
-                  {order.delivery_type === 'delivery'
-                    ? `Delivery${order.delivery_address ? ` — ${order.delivery_address}` : ''}`
-                    : 'Retiro en el local'}
-                </span>
-              </div>
-              {order.delivery_type === 'delivery' && order.delivery_location && (
-                <a
-                  href={`https://www.google.com/maps?q=${order.delivery_location.lat},${order.delivery_location.lng}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="detail-info-row maps-link"
-                >
-                  <MapPin size={15} className="info-icon" />
-                  <span>Ver ubicación en Maps</span>
-                </a>
-              )}
-              {order.delivery_type === 'delivery' && order.delivery_fee != null && (
-                <div className="detail-info-row">
-                  <Truck size={15} className="info-icon" style={{ opacity: 0 }} aria-hidden="true" />
-                  <span className="delivery-fee-badge">Delivery: {formatGuaranies(order.delivery_fee)}</span>
-                </div>
-              )}
-              <div className="detail-info-row">
-                <CreditCard size={15} className="info-icon" />
-                <span>{order.payment_method === 'efectivo' ? 'Efectivo' : 'Transferencia'}</span>
-              </div>
-            </div>
-          </div>
-
-          {/* Nota */}
-          {order.note && (
-            <div className="detail-card">
-              <div className="detail-card-label">Nota</div>
-              <div className="detail-card-body">
-                <div className="order-note">
-                  <StickyNote size={13} className="info-icon" />
-                  <span>{order.note}</span>
-                </div>
-              </div>
-            </div>
-          )}
-        </>
+        <OrderViewPanel
+          order={order}
+          items={items}
+          contact={contact}
+          contactSheetOpen={contactSheetOpen}
+          onContactSheetOpenChange={setContactSheetOpen}
+          statusSubmitting={statusSubmitting}
+          onStatusChange={handleStatusChange}
+          onNotify={handleNotify}
+        />
       )}
 
       <OrderPaymentSheet
