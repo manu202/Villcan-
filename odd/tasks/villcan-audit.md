@@ -281,7 +281,7 @@ The shared money-input component is a **dependency**: every other UI fix that to
 
 **Round 1 — parallel, independent files, no DB:**
 - **R1-A: build the shared money-input component** (new file, e.g. `src/components/GuaraniesInput.tsx` + tests) — TDD on the cursor-preserving formatting logic specifically, since that's the error-prone part. No dependents yet, blocks nothing else from starting, but Round 2's money-input application waits on this being merged.
-- **R1-B: dashboard/Reports balance-boundary coherence** (SW-K1, SW-K2) — `src/app/(app)/page.tsx`, `reports/page.tsx`. Independent file set from everything else.
+- ~~R1-B: dashboard/Reports balance-boundary coherence~~ — **DEPROPRITIZED 2026-09-22 (owner decision)**: Reports (`https://villcan.vercel.app/reports`) is going to be rethought and rebuilt later — "demasiado básico y redundante, no se aprecia nada por el usuario." Not worth polishing coherence with a screen that's getting replaced. SW-K1/K2/K3/K4/K5 stay logged as findings but are explicitly OUT of this pass. Focus is the caja itself — orders, movements, closings — since that's what gets used the most day to day.
 
 **Round 2 — parallel, after R1-A lands, still no DB, split by file ownership so nothing collides:**
 - **R2-D: orders list/detail bundle** — `orders/page.tsx`, `OrderDetailSheet.tsx`, `orders/[id]/page.tsx`, `OrderCard.tsx`. Covers SW-O1 (UI side — route through a safe RPC or add proper error handling/guard), SW-O2 (delivery-inclusive total everywhere), SW-O6, SW-O7, SW-O8, SW-O9, SW-O10, plus applying the money-input component to `OrderCard`'s fee field.
