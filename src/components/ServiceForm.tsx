@@ -57,8 +57,16 @@ export function ServiceForm({ onCancel, onSuccess }: ServiceFormProps) {
     setUploadError('');
     setUploadingImage(true);
 
+    if (!currentBranch) {
+      setUploadingImage(false);
+      setUploadError('Seleccioná una sucursal antes de subir una imagen.');
+      return;
+    }
+
     const supabase = createClient();
-    const path = `${crypto.randomUUID()}-${file.name}`;
+    // Branch-scoped path ("<branch_id>/<file>") — storage.objects RLS checks
+    // the first path segment against the uploader's branch access.
+    const path = `${currentBranch.id}/${crypto.randomUUID()}-${file.name}`;
     const { error: uploadErr } = await supabase.storage.from('service-images').upload(path, file);
 
     if (uploadErr) {

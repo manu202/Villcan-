@@ -531,6 +531,101 @@ describe('RLS/RPC authorization (real Postgres, local stack)', () => {
     });
   });
 
+  // ===========================================================================
+  // S-1/S-4 — service-images Storage: bucket applied, uploads/updates/deletes
+  // scoped by branch folder. Fixed in
+  // 20260922030000_service_images_branch_scoped.sql.
+  // ===========================================================================
+  describe('S-1/S-4: service-images storage is applied and branch-scoped', () => {
+    const uploadedPaths: string[] = [];
+
+    afterAll(async () => {
+      if (uploadedPaths.length > 0) {
+        await admin.storage.from('service-images').remove(uploadedPaths);
+      }
+    });
+
+    it('positive: a branch member can upload into their own branch folder', async () => {
+      const path = `${branchX}/test-${RUN_ID}.txt`;
+      const { error } = await userC.client.storage
+        .from('service-images')
+        .upload(path, new Blob(['test image bytes']), { contentType: 'text/plain' });
+      expect(error).toBeNull();
+      uploadedPaths.push(path);
+    });
+
+    it('positive: an uploaded object is publicly readable (anon, no session)', async () => {
+      const path = `${branchX}/test-public-${RUN_ID}.txt`;
+      await admin.storage.from('service-images').upload(path, new Blob(['public']), {
+        contentType: 'text/plain',
+      });
+      uploadedPaths.push(path);
+
+      const anon = createClient(SUPABASE_URL, ANON_KEY!, {
+        auth: { autoRefreshToken: false, persistSession: false },
+      });
+      const { data } = anon.storage.from('service-images').getPublicUrl(path);
+      const res = await fetch(data.publicUrl);
+      expect(res.status).toBe(200);
+    });
+
+    it('negative: a member of branch Y cannot upload into branch X\'s folder', async () => {
+      const path = `${branchX}/cross-branch-${RUN_ID}.txt`;
+      const { error } = await userB.client.storage
+        .from('service-images')
+        .upload(path, new Blob(['should be blocked']), { contentType: 'text/plain' });
+      expect(error).not.toBeNull();
+    });
+
+    it('negative: a member of branch Y cannot delete an object in branch X\'s folder', async () => {
+      const path = `${branchX}/delete-target-${RUN_ID}.txt`;
+      await admin.storage.from('service-images').upload(path, new Blob(['keep me']), {
+        contentType: 'text/plain',
+      });
+      uploadedPaths.push(path);
+
+      const { error } = await userB.client.storage.from('service-images').remove([path]);
+      // Supabase storage remove() on a denied object resolves without an
+      // error but the object simply isn't removed — assert on persisted
+      // state via the admin client instead of the (often null) error.
+      void error;
+      const { data: listing } = await admin.storage.from('service-images').list(branchX);
+      expect(listing?.some((f) => path.endsWith(f.name))).toBe(true);
+    });
+  });
+
+  // ===========================================================================
+  // Follow-up: legacy objects with a non-UUID folder segment (found in
+  // production, e.g. "taitashu/menu-bbq.jpg" predating branch-scoped
+  // policies) must not crash policy evaluation with a Postgres cast error.
+  // Fixed in 20260922040000_fix_storage_uuid_cast_crash.sql.
+  // ===========================================================================
+  describe('storage: legacy non-UUID-folder objects do not crash RLS evaluation', () => {
+    it('a delete attempt on a legacy non-UUID-folder object is a graceful denial, not a DB error', async () => {
+      const legacyPath = `taitashu-legacy-${RUN_ID}/menu.jpg`;
+      await admin.storage.from('service-images').upload(legacyPath, new Blob(['legacy']), {
+        contentType: 'text/plain',
+      });
+
+      // The bug: the DELETE policy's USING clause cast the folder segment
+      // straight to uuid. For a legacy path like this one ("taitashu-...",
+      // not a UUID), evaluating that cast raises a real Postgres error
+      // ("invalid input syntax for type uuid") instead of just denying —
+      // remove() surfaces that as a genuine error, not the usual silent
+      // "0 rows affected" RLS denial (see the cross-branch delete test
+      // above for what a normal denial looks like: no error, row persists).
+      const { error: deleteErr } = await userC.client.storage
+        .from('service-images')
+        .remove([legacyPath]);
+      expect(deleteErr).toBeNull();
+
+      const { data: stillThere } = await admin.storage.from('service-images').list('taitashu-legacy-' + RUN_ID);
+      expect(stillThere?.some((f) => f.name === 'menu.jpg')).toBe(true);
+
+      await admin.storage.from('service-images').remove([legacyPath]);
+    });
+  });
+
   async function seedService(branchId: string, name: string) {
     const { data, error } = await admin
       .from('services')
