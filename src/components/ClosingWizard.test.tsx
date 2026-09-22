@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { ClosingWizard } from './ClosingWizard';
 
@@ -7,9 +7,10 @@ vi.mock('@/contexts/BranchContext', () => ({
   useBranch: () => ({ currentBranch: BRANCH }),
 }));
 
+const settingsState = vi.hoisted(() => ({ mandatory_arqueo_enabled: false }));
 vi.mock('@/contexts/SettingsContext', () => ({
   useSettings: () => ({
-    settings: { mandatory_arqueo_enabled: false },
+    settings: settingsState,
   }),
 }));
 
@@ -29,8 +30,9 @@ vi.mock('@/lib/closings', () => ({
   getCalculatedBalanceSince: (...args: unknown[]) => mockGetCalculatedBalanceSince(...args),
 }));
 
+const mockBuildClosingPayload = vi.fn(() => ({ branch_id: 'b1', total: 50000 }));
 vi.mock('@/lib/arqueo', () => ({
-  buildClosingPayload: () => ({ branch_id: 'b1', total: 50000 }),
+  buildClosingPayload: (...args: unknown[]) => mockBuildClosingPayload(...args),
 }));
 
 const mockInsert = vi.fn();
@@ -137,5 +139,70 @@ describe('ClosingWizard — paso 3 (confirmación)', () => {
     fireEvent.click(screen.getByRole('button', { name: /confirmar/i }));
     fireEvent.click(screen.getByRole('button', { name: /volver/i }));
     expect(screen.getByTestId('wizard-step-2')).toBeTruthy();
+  });
+});
+
+describe('ClosingWizard — paso 3 (arqueo obligatorio: discrepancias y notas)', () => {
+  beforeEach(() => {
+    settingsState.mandatory_arqueo_enabled = true;
+    mockGetLastClosing.mockResolvedValue(null);
+    mockGetCalculatedBalanceSince.mockResolvedValue(BALANCE);
+    mockInsert.mockResolvedValue({ error: null });
+    mockBuildClosingPayload.mockClear();
+  });
+
+  afterEach(() => {
+    settingsState.mandatory_arqueo_enabled = false;
+  });
+
+  const goToStep3 = async (efectivoDigits: string) => {
+    render(<ClosingWizard onClose={vi.fn()} onSaved={vi.fn()} />);
+    await waitFor(() => screen.getByRole('button', { name: /siguiente/i }));
+    fireEvent.click(screen.getByRole('button', { name: /siguiente/i }));
+
+    fireEvent.change(screen.getByLabelText(/efectivo contado/i), { target: { value: efectivoDigits } });
+    fireEvent.change(screen.getByLabelText(/transferencia contada/i), { target: { value: String(BALANCE.transferencia) } });
+    fireEvent.change(screen.getByLabelText(/pos contado/i), { target: { value: String(BALANCE.pos) } });
+
+    fireEvent.click(screen.getByRole('button', { name: /confirmar/i }));
+  };
+
+  it('un superávit de efectivo se muestra en verde (wz-surplus), no en rojo de alarma', async () => {
+    await goToStep3(String(BALANCE.efectivo + 5000));
+
+    const efectivoRow = screen.getByText('Efectivo').closest('.wz-balance-row') as HTMLElement;
+    const discSpan = efectivoRow.querySelector('span:last-child') as HTMLElement;
+    expect(discSpan.className).toBe('wz-surplus');
+    expect(discSpan.className).not.toBe('wz-mismatch');
+  });
+
+  it('un faltante de efectivo se muestra en rojo (wz-shortage)', async () => {
+    await goToStep3(String(BALANCE.efectivo - 5000));
+
+    const efectivoRow = screen.getByText('Efectivo').closest('.wz-balance-row') as HTMLElement;
+    const discSpan = efectivoRow.querySelector('span:last-child') as HTMLElement;
+    expect(discSpan.className).toBe('wz-shortage');
+    expect(discSpan.className).not.toBe('wz-mismatch');
+  });
+
+  it('permite ingresar notas y las incluye en el payload de cierre', async () => {
+    await goToStep3(String(BALANCE.efectivo));
+
+    fireEvent.change(screen.getByLabelText(/notas/i), { target: { value: '  Vuelto mal entregado  ' } });
+    fireEvent.click(screen.getByTestId('hold-button'));
+
+    await waitFor(() => expect(mockBuildClosingPayload).toHaveBeenCalled());
+    const payloadArg = mockBuildClosingPayload.mock.calls[0][0] as { notes?: string | null };
+    expect(payloadArg.notes).toBe('Vuelto mal entregado');
+  });
+
+  it('sin notas ingresadas, envía notes null en el payload', async () => {
+    await goToStep3(String(BALANCE.efectivo));
+
+    fireEvent.click(screen.getByTestId('hold-button'));
+
+    await waitFor(() => expect(mockBuildClosingPayload).toHaveBeenCalled());
+    const payloadArg = mockBuildClosingPayload.mock.calls[0][0] as { notes?: string | null };
+    expect(payloadArg.notes).toBeNull();
   });
 });

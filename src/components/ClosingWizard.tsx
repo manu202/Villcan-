@@ -10,6 +10,7 @@ import { buildClosingPayload } from '@/lib/arqueo';
 import { createClient } from '@/lib/supabase/client';
 import { formatGuaranies, parseGuaranies, formatDate } from '@/lib/utils';
 import { HoldButton } from './HoldButton';
+import { GuaraniesInput } from './GuaraniesInput';
 import type { ArqueoAmounts } from '@/types';
 
 const FALLBACK_PERIOD_START = '2000-01-01T00:00:00.000Z';
@@ -35,6 +36,7 @@ export function ClosingWizard({ onClose, onSaved }: ClosingWizardProps) {
   const [countedEfectivo, setCountedEfectivo] = useState('');
   const [countedTransferencia, setCountedTransferencia] = useState('');
   const [countedPos, setCountedPos] = useState('');
+  const [notes, setNotes] = useState('');
 
   const arqueoEnabled = settings.mandatory_arqueo_enabled;
 
@@ -81,6 +83,7 @@ export function ClosingWizard({ onClose, onSaved }: ClosingWizardProps) {
       branchId: currentBranch.id,
       closedBy: userId,
       periodStart,
+      notes: notes.trim() === '' ? null : notes.trim(),
     });
 
     const supabase = createClient();
@@ -121,6 +124,12 @@ export function ClosingWizard({ onClose, onSaved }: ClosingWizardProps) {
   const formatSigned = (value: number) => {
     const sign = value > 0 ? '+' : value < 0 ? '−' : '';
     return `${sign}${formatGuaranies(Math.abs(value))}`;
+  };
+
+  const discrepancyClass = (countedValue: number, calculatedValue: number) => {
+    if (countedValue > calculatedValue) return 'wz-surplus';
+    if (countedValue < calculatedValue) return 'wz-shortage';
+    return '';
   };
 
   return (
@@ -176,14 +185,12 @@ export function ClosingWizard({ onClose, onSaved }: ClosingWizardProps) {
 
               <div className="wz-field">
                 <label htmlFor="wz-efectivo">Efectivo contado</label>
-                <input
+                <GuaraniesInput
                   id="wz-efectivo"
-                  type="text"
-                  inputMode="numeric"
                   placeholder="0"
                   className="wz-input"
                   value={countedEfectivo}
-                  onChange={(e) => setCountedEfectivo(e.target.value)}
+                  onChange={setCountedEfectivo}
                 />
                 {countedEfectivo !== '' && (
                   <span className="wz-disc">{formatSigned(counted.efectivo - calculated.efectivo)}</span>
@@ -192,14 +199,12 @@ export function ClosingWizard({ onClose, onSaved }: ClosingWizardProps) {
 
               <div className="wz-field">
                 <label htmlFor="wz-transferencia">Transferencia contada</label>
-                <input
+                <GuaraniesInput
                   id="wz-transferencia"
-                  type="text"
-                  inputMode="numeric"
                   placeholder="0"
                   className="wz-input"
                   value={countedTransferencia}
-                  onChange={(e) => setCountedTransferencia(e.target.value)}
+                  onChange={setCountedTransferencia}
                 />
                 {countedTransferencia !== '' && (
                   <span className="wz-disc">{formatSigned(counted.transferencia - calculated.transferencia)}</span>
@@ -208,14 +213,12 @@ export function ClosingWizard({ onClose, onSaved }: ClosingWizardProps) {
 
               <div className="wz-field">
                 <label htmlFor="wz-pos">POS contado</label>
-                <input
+                <GuaraniesInput
                   id="wz-pos"
-                  type="text"
-                  inputMode="numeric"
                   placeholder="0"
                   className="wz-input"
                   value={countedPos}
-                  onChange={(e) => setCountedPos(e.target.value)}
+                  onChange={setCountedPos}
                 />
                 {countedPos !== '' && (
                   <span className="wz-disc">{formatSigned(counted.pos - calculated.pos)}</span>
@@ -255,24 +258,35 @@ export function ClosingWizard({ onClose, onSaved }: ClosingWizardProps) {
             <div className="wz-balance">
               <div className="wz-balance-row">
                 <span>Efectivo</span>
-                <span className={counted.efectivo !== calculated.efectivo ? 'wz-mismatch' : ''}>
+                <span className={discrepancyClass(counted.efectivo, calculated.efectivo)}>
                   {formatSigned(counted.efectivo - calculated.efectivo)}
                 </span>
               </div>
               <div className="wz-balance-row">
                 <span>Transferencia</span>
-                <span className={counted.transferencia !== calculated.transferencia ? 'wz-mismatch' : ''}>
+                <span className={discrepancyClass(counted.transferencia, calculated.transferencia)}>
                   {formatSigned(counted.transferencia - calculated.transferencia)}
                 </span>
               </div>
               <div className="wz-balance-row">
                 <span>POS</span>
-                <span className={counted.pos !== calculated.pos ? 'wz-mismatch' : ''}>
+                <span className={discrepancyClass(counted.pos, calculated.pos)}>
                   {formatSigned(counted.pos - calculated.pos)}
                 </span>
               </div>
             </div>
           )}
+
+          <div className="wz-field">
+            <label htmlFor="wz-notes">Notas (opcional)</label>
+            <textarea
+              id="wz-notes"
+              className="wz-textarea"
+              placeholder="Ej: diferencia por vuelto mal entregado"
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+            />
+          </div>
 
           <div className="wz-nav">
             <button className="wz-btn-back" onClick={() => setStep(2)}>← Volver</button>
@@ -321,7 +335,8 @@ export function ClosingWizard({ onClose, onSaved }: ClosingWizardProps) {
           font-size: 15px; font-weight: 700; color: var(--text-primary);
           border-top: 1px solid var(--border); padding-top: 8px; margin-top: 4px;
         }
-        .wz-mismatch { color: #ef4444; }
+        .wz-surplus { color: #16a34a; }
+        .wz-shortage { color: #dc2626; }
 
         .wz-field { display: flex; flex-direction: column; gap: 6px; margin-bottom: 14px; }
         .wz-field label { font-size: 14px; font-weight: 600; color: var(--text-primary); }
@@ -331,6 +346,12 @@ export function ClosingWizard({ onClose, onSaved }: ClosingWizardProps) {
           background: var(--surface); color: var(--text-primary);
         }
         .wz-input:focus { outline: 2px solid var(--accent); border-color: var(--accent); }
+        .wz-textarea {
+          padding: 12px 14px; font-size: 15px; min-height: 72px; resize: vertical;
+          border: 1px solid var(--border); border-radius: 8px;
+          background: var(--surface); color: var(--text-primary); font-family: inherit;
+        }
+        .wz-textarea:focus { outline: 2px solid var(--accent); border-color: var(--accent); }
         .wz-disc { font-size: 13px; font-weight: 600; color: var(--text-secondary); }
 
         .wz-no-arqueo {
