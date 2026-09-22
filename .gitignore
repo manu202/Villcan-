@@ -36,6 +36,14 @@ yarn-error.log*
 # vercel
 .vercel
 
+# one-off customer/business data migration artifacts (audit finding H-1)
+contacts*.csv
+movements*.csv
+services*.csv
+clean_excel.py
+migrate_excel.py
+regenerate_csv.py
+
 # supabase CLI local cache
 supabase/.temp
 
