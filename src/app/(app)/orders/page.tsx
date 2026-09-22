@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useRef, useCallback } from 'react';
 import Link from 'next/link';
-import { createClient } from '@/lib/supabase/client';
+import { listOrdersForBranch, updateOrderStatus } from '@/lib/data/orders';
 import { useBranch } from '@/contexts/BranchContext';
 import { useSettings } from '@/contexts/SettingsContext';
 import { useToast } from '@/contexts/ToastContext';
@@ -47,15 +47,7 @@ export default function OrdersPage() {
     if (!branch) return;
     if (!silent) setLoading(true);
     setError(false);
-    const supabase = createClient();
-    // Full order_items columns (not just id/qty/name_snapshot) so the same
-    // in-memory order object can be handed straight to OrderPaymentSheet
-    // (SW-O1) without a second fetch.
-    const { data, error: fetchError } = await supabase
-      .from('orders')
-      .select('*, order_items(*)')
-      .eq('branch_id', branch.id)
-      .order('created_at', { ascending: false });
+    const { data, error: fetchError } = await listOrdersForBranch(branch.id);
 
     if (fetchError) { setError(true); }
     else if (data) { setOrders(data as OrderWithItems[]); }
@@ -95,19 +87,13 @@ export default function OrdersPage() {
     }
 
     setSubmittingOrderId(orderId);
-    const supabase = createClient();
-    const update: Record<string, unknown> = { status };
+    const update: { status: OrderStatus; delivery_fee?: number } = { status };
     if (deliveryFee !== undefined) update.delivery_fee = deliveryFee;
     // SW-O6: check the write result before mutating local state — a plain
     // .update().eq() returns error:null even when RLS/a trigger blocks the
     // write (0 rows affected), so .select('id').single() is needed to
     // detect that case.
-    const { data, error } = await supabase
-      .from('orders')
-      .update(update)
-      .eq('id', orderId)
-      .select('id')
-      .single();
+    const { data, error } = await updateOrderStatus(orderId, update);
     setSubmittingOrderId(null);
 
     if (error || !data) {

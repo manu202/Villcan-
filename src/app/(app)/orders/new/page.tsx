@@ -3,7 +3,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { createClient } from '@/lib/supabase/client';
+import { createManualOrder } from '@/lib/data/orders';
+import { listActiveServicesForBranch } from '@/lib/data/services';
 import { useBranch } from '@/contexts/BranchContext';
 import { ServiceCard } from '@/components/storefront/ServiceCard';
 import { CartSheet, type CartLine } from '@/components/storefront/CartSheet';
@@ -47,14 +48,7 @@ export default function NewManualOrderPage() {
     if (!initialized || !currentBranch) return;
     const loadServices = async () => {
       setLoading(true);
-      const supabase = createClient();
-      const { data } = await supabase
-        .from('services')
-        .select('*')
-        .eq('is_active', true)
-        .eq('is_available', true)
-        .or(`branch_id.eq.${currentBranch.id},branch_id.is.null`)
-        .order('name');
+      const { data } = await listActiveServicesForBranch(currentBranch.id);
       setServices((data as Service[]) || []);
       setLoading(false);
     };
@@ -97,8 +91,7 @@ export default function NewManualOrderPage() {
     setSubmitting(true);
     setErrorMessage(null);
 
-    const supabase = createClient();
-    const { data, error } = await supabase.rpc('create_manual_order', {
+    const { data, error } = await createManualOrder({
       p_branch_id: branch.id,
       p_customer_name: values.name,
       p_customer_phone: values.phone,

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { createClient } from '@/lib/supabase/client';
+import { completeOrderPayment } from '@/lib/data/orders';
 import { formatGuaranies } from '@/lib/utils';
 import { AppSheet } from './AppSheet';
 import { GuaraniesInput } from './GuaraniesInput';
@@ -44,13 +44,9 @@ export function OrderPaymentSheet({ order, items, open, onOpenChange, onComplete
     setSubmitting(true);
     setErrorMsg(null);
 
-    const supabase = createClient();
     // Atomic RPC (movement insert + order completion in one transaction,
     // idempotent against double-completion) instead of two separate writes.
-    const { error } = await supabase.rpc('complete_order_payment', {
-      p_order_id: order.id,
-      p_amount_received: isEfectivo ? monto : null,
-    });
+    const { error } = await completeOrderPayment(order.id, isEfectivo ? monto : null);
 
     setSubmitting(false);
 

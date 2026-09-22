@@ -3,7 +3,7 @@
 import { useParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { createClient } from '@/lib/supabase/client';
+import { getMovement } from '@/lib/data/movements';
 import { ContactDetailSheet } from '@/components/ContactDetailSheet';
 import { formatGuaranies, formatDate, formatTime, getMovementTypeLabel, getPaymentMethodLabel } from '@/lib/utils';
 import type { MovementWithDetails } from '@/types';
@@ -17,16 +17,7 @@ export default function MovementDetailPage() {
 
   useEffect(() => {
     async function fetchMovement() {
-      const supabase = createClient();
-      const { data } = await supabase
-        .from('movements')
-        .select(`
-          id, type, amount_charged, income, expense, payment_method, comment, created_at,
-          contact:contacts(id, full_name),
-          service:services(id, name)
-        `)
-        .eq('id', movementId)
-        .single();
+      const { data } = await getMovement(movementId);
       setMovement(data as MovementWithDetails | null);
       setLoading(false);
     }

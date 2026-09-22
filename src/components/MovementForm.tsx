@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import type { MovementType, PaymentMethod, Service, Contact } from '@/types';
-import { parseGuaranies, escapeSearchQuery } from '@/lib/utils';
+import { parseGuaranies } from '@/lib/utils';
 import { ContactForm } from './ContactForm';
 import { TypeStep } from './movement-form/TypeStep';
 import { CatalogStep } from './movement-form/CatalogStep';
@@ -11,7 +11,10 @@ import { PaymentStep } from './movement-form/PaymentStep';
 import { DetailsStep } from './movement-form/DetailsStep';
 import { fuentes } from './movement-form/shared';
 import type { CartLine } from './storefront/CartSheet';
-import { createClient } from '@/lib/supabase/client';
+import { listActiveServicesForBranch } from '@/lib/data/services';
+import { searchContacts } from '@/lib/data/contacts';
+import { createMovement } from '@/lib/data/movements';
+import { createManualOrder } from '@/lib/data/orders';
 import { getCurrentUserId } from '@/lib/auth';
 import { useBranch } from '@/contexts/BranchContext';
 
@@ -126,14 +129,7 @@ export function MovementForm({ initialType, showToast }: MovementFormProps) {
     const loadServices = async () => {
       setServicesLoading(true);
       setServicesError(null);
-      const supabase = createClient();
-      const { data, error } = await supabase
-        .from('services')
-        .select('id, name, price')
-        .eq('is_active', true)
-        .eq('is_available', true)
-        .or(`branch_id.eq.${currentBranch.id},branch_id.is.null`)
-        .order('name');
+      const { data, error } = await listActiveServicesForBranch(currentBranch.id, 'id, name, price');
 
       if (error) {
         setServicesError(error.message);
@@ -157,14 +153,7 @@ export function MovementForm({ initialType, showToast }: MovementFormProps) {
     if (contactSearch.length >= 2) {
       searchDebounceRef.current = setTimeout(async () => {
         setContactsLoading(true);
-        const supabase = createClient();
-        const escaped = escapeSearchQuery(contactSearch);
-        const { data } = await supabase
-          .from('contacts')
-          .select('id, full_name')
-          .ilike('full_name', `%${escaped}%`)
-          .order('full_name')
-          .limit(10);
+        const { data } = await searchContacts(contactSearch);
 
         if (cancelled) return;
 
@@ -232,8 +221,6 @@ export function MovementForm({ initialType, showToast }: MovementFormProps) {
       return;
     }
 
-    const supabase = createClient();
-
     // Ventas → pending order (appears in KDS); movement created by trigger on completion
     if (type === 'servicio') {
       // SW-M1: 'pos' is now a valid orders.payment_method value end to end
@@ -242,8 +229,8 @@ export function MovementForm({ initialType, showToast }: MovementFormProps) {
       // cash and guarantee arqueo mismatches for card sales.
       const rpcPaymentMethod: PaymentMethod = paymentMethod || 'efectivo';
 
-      const { error: orderError } = await supabase.rpc('create_manual_order', {
-        p_branch_id: branchId,
+      const { error: orderError } = await createManualOrder({
+        p_branch_id: branchId as string,
         p_customer_name: selectedContact?.full_name || 'Mostrador',
         p_customer_phone: selectedContact?.phone || '0000000',
         p_note: comment.trim() || null,
@@ -282,19 +269,15 @@ export function MovementForm({ initialType, showToast }: MovementFormProps) {
 
     const finalComment = buildFinalComment(type, fuente, comment);
 
-    const { error } = await supabase
-      .from('movements')
-      .insert({
-        type,
-        income: finalIncome,
-        expense: finalExpense,
-        comment: finalComment,
-        user_id: userId,
-        branch_id: branchId,
-        created_at: new Date().toISOString(),
-      })
-      .select('id')
-      .single();
+    const { error } = await createMovement({
+      type,
+      income: finalIncome,
+      expense: finalExpense,
+      comment: finalComment,
+      user_id: userId,
+      branch_id: branchId as string,
+      created_at: new Date().toISOString(),
+    });
 
     if (error) {
       showToast?.(copyForError(error), 'error');

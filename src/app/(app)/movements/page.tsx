@@ -3,7 +3,7 @@
 import { useEffect, useState, useRef } from 'react';
 import Link from 'next/link';
 import { formatGuaranies, formatDate, formatTime, getMovementTypeLabel } from '@/lib/utils';
-import { createClient } from '@/lib/supabase/client';
+import { listMovementsForBranch } from '@/lib/data/movements';
 import { useBranch } from '@/contexts/BranchContext';
 import type { MovementWithDetails } from '@/types';
 import { Spinner } from '@/components/Spinner';
@@ -43,24 +43,9 @@ export default function MovementsPage() {
 
       setLoading(true);
       setError(false);
-      const supabase = createClient();
       const { start, end } = getDateRange(filter);
 
-      let query = supabase
-        .from('movements')
-        .select(`
-          id, type, amount_charged, income, expense, payment_method, comment, created_at,
-          contact:contacts(id, full_name),
-          service:services(id, name)
-        `)
-        .gte('created_at', start)
-        .lt('created_at', end)
-        .order('created_at', { ascending: false })
-        .limit(100);
-
-      query = query.eq('branch_id', branch.id);
-
-      const { data, error: fetchError } = await query;
+      const { data, error: fetchError } = await listMovementsForBranch(branch.id, start, end);
 
       if (cancelled) return;
 

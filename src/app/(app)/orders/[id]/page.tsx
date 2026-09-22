@@ -3,7 +3,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
-import { createClient } from '@/lib/supabase/client';
+import { getOrderAndItems, updateOrder, updateOrderStatus } from '@/lib/data/orders';
+import { listActiveServicesForBranch } from '@/lib/data/services';
 import { useSettings } from '@/contexts/SettingsContext';
 import { useToast } from '@/contexts/ToastContext';
 import { type CartLine } from '@/components/storefront/CartSheet';
@@ -55,12 +56,8 @@ export default function OrderDetailPage() {
     const load = async () => {
       setLoading(true);
       setError(null);
-      const supabase = createClient();
 
-      const [orderResult, itemsResult] = await Promise.all([
-        supabase.from('orders').select('*').eq('id', orderId).single(),
-        supabase.from('order_items').select('*').eq('order_id', orderId),
-      ]);
+      const { orderResult, itemsResult } = await getOrderAndItems(orderId);
 
       if (orderResult.error || !orderResult.data) {
         setError('Pedido no encontrado');
@@ -72,13 +69,7 @@ export default function OrderDetailPage() {
       setOrder(loadedOrder);
       setItems((itemsResult.data as OrderItem[]) || []);
 
-      const { data: servicesData } = await supabase
-        .from('services')
-        .select('*')
-        .eq('is_active', true)
-        .eq('is_available', true)
-        .or(`branch_id.eq.${loadedOrder.branch_id},branch_id.is.null`)
-        .order('name');
+      const { data: servicesData } = await listActiveServicesForBranch(loadedOrder.branch_id);
       setServices((servicesData as Service[]) || []);
 
       setLoading(false);
@@ -154,8 +145,7 @@ export default function OrderDetailPage() {
     setSaving(true);
     setSaveError(null);
 
-    const supabase = createClient();
-    const { error: updateError } = await supabase.rpc('update_order', {
+    const { error: updateError } = await updateOrder({
       p_order_id: order.id,
       p_customer_name: edit.customerName,
       p_customer_phone: edit.customerPhone,
@@ -175,10 +165,7 @@ export default function OrderDetailPage() {
       return;
     }
 
-    const [orderResult, itemsResult] = await Promise.all([
-      supabase.from('orders').select('*').eq('id', order.id).single(),
-      supabase.from('order_items').select('*').eq('order_id', order.id),
-    ]);
+    const { orderResult, itemsResult } = await getOrderAndItems(order.id);
     if (orderResult.data) setOrder(orderResult.data as Order);
     setItems((itemsResult.data as OrderItem[]) || []);
     setIsEditing(false);
@@ -199,15 +186,9 @@ export default function OrderDetailPage() {
       if (!confirmed) return;
     }
     setStatusSubmitting(true);
-    const supabase = createClient();
     // .select('id').single() detects 0-row RLS blocks as PGRST116 (G3):
     // a plain .update().eq() returns error:null even when no rows are affected.
-    const { data, error } = await supabase
-      .from('orders')
-      .update({ status })
-      .eq('id', order.id)
-      .select('id')
-      .single();
+    const { data, error } = await updateOrderStatus(order.id, { status });
     setStatusSubmitting(false);
     if (error || !data) {
       showToast('Error al cambiar el estado del pedido', 'error');
@@ -219,11 +200,7 @@ export default function OrderDetailPage() {
   const handlePaymentCompleted = async () => {
     setPaymentSheetOpen(false);
     if (!order) return;
-    const supabase = createClient();
-    const [orderResult, itemsResult] = await Promise.all([
-      supabase.from('orders').select('*').eq('id', order.id).single(),
-      supabase.from('order_items').select('*').eq('order_id', order.id),
-    ]);
+    const { orderResult, itemsResult } = await getOrderAndItems(order.id);
     if (orderResult.data) setOrder(orderResult.data as Order);
     setItems((itemsResult.data as OrderItem[]) || []);
   };

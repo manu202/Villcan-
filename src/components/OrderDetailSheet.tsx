@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { createClient } from '@/lib/supabase/client';
+import { getOrderWithItems, updateOrderStatus } from '@/lib/data/orders';
 import { formatGuaranies, formatRelativeTime } from '@/lib/utils';
 import { buildStatusNotificationMessage, buildWhatsAppLink } from '@/lib/storefront';
 import { useSettings } from '@/contexts/SettingsContext';
@@ -33,12 +33,7 @@ export function OrderDetailSheet({ orderId, onClose }: OrderDetailSheetProps) {
     setLoading(true);
 
     const load = async () => {
-      const supabase = createClient();
-      const { data } = await supabase
-        .from('orders')
-        .select('*, order_items(*)')
-        .eq('id', orderId)
-        .single();
+      const { data } = await getOrderWithItems(orderId);
 
       if (!cancelled) {
         setOrder(data as OrderWithItems);
@@ -70,16 +65,10 @@ export function OrderDetailSheet({ orderId, onClose }: OrderDetailSheetProps) {
     }
 
     setStatusSubmitting(true);
-    const supabase = createClient();
     // .select('id').single() detects 0-row RLS/trigger blocks as an error
     // (SW-O6): a plain .update().eq() returns error:null even when no rows
     // are affected.
-    const { data, error } = await supabase
-      .from('orders')
-      .update({ status })
-      .eq('id', orderId)
-      .select('id')
-      .single();
+    const { data, error } = await updateOrderStatus(orderId, { status });
     setStatusSubmitting(false);
 
     if (error || !data) {
@@ -92,12 +81,7 @@ export function OrderDetailSheet({ orderId, onClose }: OrderDetailSheetProps) {
   const handlePaymentCompleted = async () => {
     setPaymentSheetOpen(false);
     if (!orderId) return;
-    const supabase = createClient();
-    const { data } = await supabase
-      .from('orders')
-      .select('*, order_items(*)')
-      .eq('id', orderId)
-      .single();
+    const { data } = await getOrderWithItems(orderId);
     // complete_order_payment already succeeded server-side by the time this
     // runs (OrderPaymentSheet only calls onCompleted on success) — a failure
     // here is just this refetch, not the payment, but the sheet must not
