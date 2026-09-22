@@ -269,6 +269,31 @@ Solid: `computeCashBalance` is genuinely the one shared formula now, `closings.t
 
 Real rendered colors/contrast in light and dark themes; actual mobile keyboard/touch behavior; real concurrent double-closing outcome (schema gap confirmed statically, not exercised); timing/flicker of stale values during fast filter switches; whether the legacy `fn_order_completed_to_movement` trigger and the new RPC's insert could ever race in a way not caught by the unique partial index.
 
+### SW-O3/SW-M6 fix scope decision (owner, 2026-09-22)
+
+Two options were presented: (A) minimal — swap `parseInt` for the existing `parseGuaranies` wherever it's wrong; (B) build a shared, live-auto-formatting money-input component (inserts thousands separators as you type, cursor-position-preserving) and apply it everywhere an amount is entered, closing SW-M5 (MovementForm vs OrderPaymentSheet feeling like different products) as a side effect. **Owner chose B.**
+
+Confirmed via `Grep` (`inputMode="numeric"` across `src/`): today there is NO live formatting anywhere — every amount field is raw text, parsed only on submit/render. Money-shaped `inputMode="numeric"` fields that exist right now: `MovementForm.tsx` (2 income fields), `OrderPaymentSheet.tsx` (`ops-monto`), `OrderCard.tsx` (`kds-fee-input`), `ClosingWizard.tsx` (3 counted fields: efectivo/transferencia/pos), `ServiceForm.tsx` (price, cost), `ServiceEditSheet.tsx` (price, cost). `ContactForm.tsx`'s numeric field is a CI/document number, not money — excluded. `ClosingForm.tsx` has the same 3 fields but is dead code slated for deletion (T-15) — excluded, not worth wiring.
+
+### Phase 5 parallelism analysis (2026-09-22, before any implementation)
+
+The shared money-input component is a **dependency**: every other UI fix that touches a money field should build on it, not be redone after. Split into rounds by file ownership (no two parallel streams touch the same file) and by DB-stack exclusivity (only one stream at a time may touch `supabase start/reset/db push`/`test:integration`).
+
+**Round 1 — parallel, independent files, no DB:**
+- **R1-A: build the shared money-input component** (new file, e.g. `src/components/GuaraniesInput.tsx` + tests) — TDD on the cursor-preserving formatting logic specifically, since that's the error-prone part. No dependents yet, blocks nothing else from starting, but Round 2's money-input application waits on this being merged.
+- **R1-B: dashboard/Reports balance-boundary coherence** (SW-K1, SW-K2) — `src/app/(app)/page.tsx`, `reports/page.tsx`. Independent file set from everything else.
+
+**Round 2 — parallel, after R1-A lands, still no DB, split by file ownership so nothing collides:**
+- **R2-D: orders list/detail bundle** — `orders/page.tsx`, `OrderDetailSheet.tsx`, `orders/[id]/page.tsx`, `OrderCard.tsx`. Covers SW-O1 (UI side — route through a safe RPC or add proper error handling/guard), SW-O2 (delivery-inclusive total everywhere), SW-O6, SW-O7, SW-O8, SW-O9, SW-O10, plus applying the money-input component to `OrderCard`'s fee field.
+- **R2-E: MovementForm bundle** — `MovementForm.tsx` only. Covers SW-M2 (double-submit guard), SW-M3, SW-M4, SW-M7, SW-M8, plus applying the money-input component to its amount fields.
+- **R2-F: OrderPaymentSheet bundle** — `OrderPaymentSheet.tsx` only. Covers SW-O5 (raw error → `ERROR_COPY`), plus applying the money-input component to `ops-monto`.
+- **R2-G: ClosingWizard bundle** — `ClosingWizard.tsx` only. Covers SW-C1 (surplus/shortage color fix), SW-C3, SW-C4, plus applying the money-input component to its 3 counted fields.
+
+**Sequential, DB-exclusive (done directly, like O-4/storage before it) — can interleave with Round 1/2 since it touches no shared files with them:**
+- **R-DB: SW-M1** (stop coercing POS to efectivo — extend `orders`/`movements` `payment_method` check constraints and the RPCs to accept a real `pos` value end-to-end) **+ SW-C2** (prevent overlapping `cash_closings` for the same branch+period — a DB constraint or advisory lock). Bundled into one migration/local-stack session to minimize stack contention, real RED-then-GREEN, then deployed and re-verified against production like every prior DB fix this session.
+
+Not yet scoped for this pass (left for a later, smaller round): SW-M5's remaining structural duplication beyond the shared input (still two separate component trees), SW-M6/SW-C6 (`parseGuaranies` comma/negative edge cases), SW-K3/K4/K5 (color coding, commission labeling, stale-data indicator) — all LOW severity, none block the swiss-watch pass's core money correctness.
+
 ### Proposed Phase 5 execution order (NOT approved, for later)
 
 Roughly by severity, but SW-O1/SW-M1 should go first since they're actively-wrong money outcomes reachable today through the most common cashier actions:
