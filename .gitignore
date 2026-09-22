@@ -57,3 +57,6 @@ test-results/
 next-env.d.ts
 
 .vercel
+
+# nested git repo (blocks the native review stop-hook otherwise)
+/stone brger/
