@@ -43,9 +43,19 @@ function createQueryMock(resultPromise: Promise<unknown>) {
 
 let queryResult: Promise<unknown>;
 
+// confirm_order_delivery_fee RPC result (2026-09-22 fix: confirming a
+// delivery order with a fee must go through this RPC, not a raw
+// .update({status, delivery_fee}) on the orders table).
+let mockRpcResult: { data: unknown; error: unknown } = { data: {}, error: null };
+const rpcCalls: Array<[string, unknown]> = [];
+
 vi.mock('@/lib/supabase/client', () => ({
   createClient: () => ({
     from: () => createQueryMock(queryResult),
+    rpc: (fn: string, params: unknown) => {
+      rpcCalls.push([fn, params]);
+      return Promise.resolve(mockRpcResult);
+    },
   }),
 }));
 
@@ -64,8 +74,10 @@ const ORDER_BASE = {
 describe('OrdersPage (REQ: incoming orders panel)', () => {
   beforeEach(() => {
     eqCalls.length = 0;
+    rpcCalls.length = 0;
     mockShowToast.mockReset();
     mockUpdateResult = { data: { id: 'o1' }, error: null };
+    mockRpcResult = { data: {}, error: null };
     mockUseBranch.mockReturnValue({
       currentBranch: { id: 'branch-1', name: 'Centro', user_role: 'admin' },
       initialized: true,
@@ -170,6 +182,35 @@ describe('OrdersPage (REQ: incoming orders panel)', () => {
 
     await waitFor(() => expect(screen.queryByRole('button', { name: /aceptar pedido/i })).toBeNull());
     expect(mockShowToast).not.toHaveBeenCalled();
+  });
+
+  // Regression (2026-09-22): confirming a delivery order with a fee must go
+  // through confirm_order_delivery_fee (RPC), never a raw
+  // updateOrderStatus(...).eq('id', ...) — that direct-table path is
+  // blocked in production by the financial-fields guard trigger (item 6),
+  // and was 400ing on every real "aceptar pedido con delivery" until this
+  // fix.
+  it('aceptar un pedido de delivery con costo de envío llama a confirm_order_delivery_fee, no a un update directo', async () => {
+    queryResult = Promise.resolve({
+      data: [{ ...ORDER_BASE, delivery_type: 'delivery' }],
+      error: null,
+    });
+    render(<OrdersPage />);
+    await waitFor(() => expect(screen.getByText('#A1B2C3')).toBeTruthy());
+
+    fireEvent.click(screen.getByRole('button', { name: /aceptar pedido/i }));
+    const feeInput = await screen.findByLabelText(/costo de delivery/i);
+    fireEvent.change(feeInput, { target: { value: '15000' } });
+    fireEvent.click(screen.getByRole('button', { name: /confirmar/i }));
+
+    await waitFor(() => expect(rpcCalls.length).toBeGreaterThan(0));
+    expect(rpcCalls).toContainEqual([
+      'confirm_order_delivery_fee',
+      { p_order_id: 'o1', p_delivery_fee: 15000 },
+    ]);
+    // No direct .update().eq('id', 'o1') for this order — the guard trigger
+    // would 400 that path in real Postgres.
+    expect(eqCalls).not.toContainEqual(['id', 'o1']);
   });
 
   it('handleStatusChange: en error de RLS muestra toast y NO cambia el estado local', async () => {

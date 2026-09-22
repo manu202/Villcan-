@@ -66,6 +66,24 @@ export async function getOrderAndItems(orderId: string) {
   return { orderResult, itemsResult };
 }
 
+/**
+ * Confirms a pending delivery order and sets its delivery fee in one call.
+ * Dedicated RPC (2026-09-22 fix) — a plain `updateOrderStatus(orderId,
+ * { status: 'confirmed', delivery_fee })` goes straight to the `orders`
+ * table and is blocked by the financial-fields guard trigger (it has no
+ * legitimate reason to see this as anything but tampering); this is the
+ * one legitimate caller that needs to set delivery_fee outside
+ * update_order/create_manual_order, so it gets its own narrow RPC instead
+ * of loosening that guard. See migration confirm_order_delivery_fee.
+ */
+export async function confirmOrderDeliveryFee(orderId: string, deliveryFee: number) {
+  const supabase = createClient();
+  return supabase.rpc('confirm_order_delivery_fee', {
+    p_order_id: orderId,
+    p_delivery_fee: deliveryFee,
+  });
+}
+
 export async function updateOrder(params: UpdateOrderInput) {
   const supabase = createClient();
   return supabase.rpc('update_order', params);

@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useRef, useCallback } from 'react';
 import Link from 'next/link';
-import { listOrdersForBranch, updateOrderStatus } from '@/lib/data/orders';
+import { confirmOrderDeliveryFee, listOrdersForBranch, updateOrderStatus } from '@/lib/data/orders';
 import { useBranch } from '@/contexts/BranchContext';
 import { useSettings } from '@/contexts/SettingsContext';
 import { useToast } from '@/contexts/ToastContext';
@@ -87,16 +87,28 @@ export default function OrdersPage() {
     }
 
     setSubmittingOrderId(orderId);
-    const update: { status: OrderStatus; delivery_fee?: number } = { status };
-    if (deliveryFee !== undefined) update.delivery_fee = deliveryFee;
-    // SW-O6: check the write result before mutating local state — a plain
-    // .update().eq() returns error:null even when RLS/a trigger blocks the
-    // write (0 rows affected), so .select('id').single() is needed to
-    // detect that case.
-    const { data, error } = await updateOrderStatus(orderId, update);
+
+    // Confirming a delivery order with its fee goes through a dedicated RPC
+    // (2026-09-22 fix): a direct .update({status, delivery_fee}) on the
+    // orders table is blocked by the financial-fields guard trigger, which
+    // has no bypass for this path (only update_order/create_manual_order
+    // set delivery_fee legitimately outside it). Every other status change
+    // (no fee involved) keeps using the plain updateOrderStatus write.
+    let failed: boolean;
+    if (deliveryFee !== undefined) {
+      const { error } = await confirmOrderDeliveryFee(orderId, deliveryFee);
+      failed = !!error;
+    } else {
+      // SW-O6: check the write result before mutating local state — a plain
+      // .update().eq() returns error:null even when RLS/a trigger blocks
+      // the write (0 rows affected), so .select('id').single() is needed
+      // to detect that case.
+      const { data, error } = await updateOrderStatus(orderId, { status });
+      failed = !!error || !data;
+    }
     setSubmittingOrderId(null);
 
-    if (error || !data) {
+    if (failed) {
       showToast('Error al cambiar el estado del pedido', 'error');
       return;
     }

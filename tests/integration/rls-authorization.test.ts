@@ -359,6 +359,142 @@ describe('RLS/RPC authorization (real Postgres, local stack)', () => {
       const { data: row } = await admin.from('orders').select('total').eq('id', orderId).single();
       expect(row?.total).toBe(originalTotal);
     });
+
+    it('regression: a direct update cannot set delivery_fee either, even alongside a legitimate status change (2026-09-22 prod bug)', async () => {
+      // This is the exact flow OrderCard.tsx's fee form used to drive before
+      // the fix below: a pending delivery order confirmed with a delivery
+      // fee via a direct `.from('orders').update({ status, delivery_fee })`
+      // (updateOrderStatus in src/lib/data/orders.ts) — no RPC, no
+      // `app.bypass_order_guard`. The item-6 guard (rightly) blocks this,
+      // which is why every real "aceptar pedido con delivery" in production
+      // failed with a 400/VC409 since that migration shipped — the direct
+      // path was never a legitimate one for this, `confirm_order_delivery_fee`
+      // (item 8 below) is the fix, not loosening this guard.
+      const service = await seedService(branchX, 'Servicio delivery-fee-regression');
+      const { data: created } = await userC.client.rpc('create_manual_order', {
+        p_branch_id: branchX,
+        p_customer_name: 'Cliente Delivery',
+        p_customer_phone: '+595981000099',
+        p_items: [{ service_id: service.id, qty: 1 }],
+        p_delivery_type: 'delivery',
+        p_delivery_address: 'Calle Falsa 123',
+      });
+      const orderId = created?.order_id;
+
+      const { error } = await userC.client
+        .from('orders')
+        .update({ status: 'confirmed', delivery_fee: 15000 })
+        .eq('id', orderId);
+      expect(error).not.toBeNull();
+
+      const { data: row } = await admin
+        .from('orders')
+        .select('status, delivery_fee')
+        .eq('id', orderId)
+        .single();
+      expect(row?.status).toBe('pending');
+      expect(row?.delivery_fee).toBeNull();
+    });
+  });
+
+  // ===========================================================================
+  // Item 8 — confirm_order_delivery_fee RPC (fixes the item-6 fallout above)
+  // ===========================================================================
+  describe('item 8: confirm_order_delivery_fee sets the delivery fee and confirms in one call', () => {
+    it('positive: a branch member can confirm a pending delivery order with a fee', async () => {
+      const service = await seedService(branchX, 'Servicio 8a');
+      const { data: created } = await userC.client.rpc('create_manual_order', {
+        p_branch_id: branchX,
+        p_customer_name: 'Cliente Item8a',
+        p_customer_phone: '+595981000010',
+        p_items: [{ service_id: service.id, qty: 1 }],
+        p_delivery_type: 'delivery',
+        p_delivery_address: 'Calle Falsa 123',
+      });
+      const orderId = created?.order_id;
+
+      const { error } = await userC.client.rpc('confirm_order_delivery_fee', {
+        p_order_id: orderId,
+        p_delivery_fee: 15000,
+      });
+      expect(error).toBeNull();
+
+      const { data: row } = await admin
+        .from('orders')
+        .select('status, delivery_fee')
+        .eq('id', orderId)
+        .single();
+      expect(row?.status).toBe('confirmed');
+      expect(row?.delivery_fee).toBe(15000);
+    });
+
+    it('negative: a user with no branch access cannot call it', async () => {
+      const service = await seedService(branchX, 'Servicio 8b');
+      const { data: created } = await userC.client.rpc('create_manual_order', {
+        p_branch_id: branchX,
+        p_customer_name: 'Cliente Item8b',
+        p_customer_phone: '+595981000011',
+        p_items: [{ service_id: service.id, qty: 1 }],
+        p_delivery_type: 'delivery',
+        p_delivery_address: 'Calle Falsa 123',
+      });
+      const orderId = created?.order_id;
+
+      const { error } = await userB.client.rpc('confirm_order_delivery_fee', {
+        p_order_id: orderId,
+        p_delivery_fee: 15000,
+      });
+      expect(error).not.toBeNull();
+      expect(error?.message).toMatch(/VC403|autorizado/i);
+    });
+
+    it('negative: a pickup order (no delivery fee to set) is rejected', async () => {
+      const service = await seedService(branchX, 'Servicio 8c');
+      const { data: created } = await userC.client.rpc('create_manual_order', {
+        p_branch_id: branchX,
+        p_customer_name: 'Cliente Item8c',
+        p_customer_phone: '+595981000012',
+        p_items: [{ service_id: service.id, qty: 1 }],
+        p_delivery_type: 'pickup',
+      });
+      const orderId = created?.order_id;
+
+      const { error } = await userC.client.rpc('confirm_order_delivery_fee', {
+        p_order_id: orderId,
+        p_delivery_fee: 15000,
+      });
+      expect(error).not.toBeNull();
+      expect(error?.message).toMatch(/VC400|delivery/i);
+    });
+
+    it('negative: an already-confirmed order cannot be re-confirmed through this RPC', async () => {
+      const service = await seedService(branchX, 'Servicio 8d');
+      const { data: created } = await userC.client.rpc('create_manual_order', {
+        p_branch_id: branchX,
+        p_customer_name: 'Cliente Item8d',
+        p_customer_phone: '+595981000013',
+        p_items: [{ service_id: service.id, qty: 1 }],
+        p_delivery_type: 'delivery',
+        p_delivery_address: 'Calle Falsa 123',
+      });
+      const orderId = created?.order_id;
+
+      const first = await userC.client.rpc('confirm_order_delivery_fee', {
+        p_order_id: orderId,
+        p_delivery_fee: 10000,
+      });
+      expect(first.error).toBeNull();
+
+      const second = await userC.client.rpc('confirm_order_delivery_fee', {
+        p_order_id: orderId,
+        p_delivery_fee: 20000,
+      });
+      expect(second.error).not.toBeNull();
+      expect(second.error?.message).toMatch(/VC409|pendiente/i);
+
+      const { data: row } = await admin.from('orders').select('delivery_fee').eq('id', orderId).single();
+      expect(row?.delivery_fee).toBe(10000);
+    });
   });
 
   // ===========================================================================

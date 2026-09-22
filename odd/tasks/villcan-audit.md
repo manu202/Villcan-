@@ -28,7 +28,7 @@ Understand what the Villcan codebase really is, find what is technically wrong (
 
 ## Open questions for the owner
 
-- [ ] Is "Allow new users to sign up" enabled in the production Supabase dashboard (Authentication, Sign In / Providers)? Determines whether finding A-2 is live.
+- [x] Is "Allow new users to sign up" enabled in the production Supabase dashboard (Authentication, Sign In / Providers)? **RESOLVED 2026-09-22: confirmed ON, so A-2 was live** — the app has no signup page/code anywhere (verified: no `signUp`/`signup` reference in `src`), so nothing in Villcan itself relied on it, but the Auth REST endpoint is reachable directly with the public anon key regardless of the app UI. Matches the already-recommended invite-only model. **Owner disabled it directly in the dashboard 2026-09-22.** A-2 closed.
 - [ ] Confirm the core focus (order loop) and the invite-only user model.
 - [ ] Which migrations are actually applied in production? Some headers say "NOT APPLIED YET" / "NO fue aplicada".
 
@@ -487,4 +487,25 @@ Three cascading errors found and fixed, one clean-build cycle at a time:
 
 **Verification:** `rm -f tsconfig.tsbuildinfo && rm -rf .next && npm run build` → clean, all 31 routes generated. `npm run test` → 505/505 passed (73 files). No RED/GREEN cycle for this one (pure type-error fixes + one defensive runtime guard added to already-covered code, not new behavior) — same honesty standard as prior pure-refactor fixes this session.
 
-**Not yet done:** commit, push, re-verify Vercel deployment reaches `READY`.
+**Done:** commit `d680a04` pushed, Vercel deployment `dpl_8QZ8BDdab3EUJPLrk5V1TWRBKGV9` confirmed `READY`.
+
+## 2026-09-22: production bug — confirming a delivery order 400'd (real user report)
+
+**Owner reported (in-app, real usage):** loading the delivery amount when confirming an order threw `orders?id=eq...&select=id → 400` and a console error. Investigated and root-caused before touching anything.
+
+**Root cause:** OrderCard.tsx's fee form ("aceptar pedido" for a delivery order) calls `updateOrderStatus(orderId, { status: 'confirmed', delivery_fee })` — a direct `.from('orders').update(...)`, not an RPC. `_guard_order_financial_fields` (added in `20260922010000_freeze_completed_orders_and_grant_cleanup.sql`, closing O-2 — direct-table tampering with `total`/`delivery_fee`) blocks any direct `delivery_fee` change and has no bypass for it. That migration's own comment assumed no legitimate caller needed to set `delivery_fee` outside `update_order`/`create_manual_order` — wrong: this confirm-with-fee flow is exactly such a caller, and it broke silently for every real delivery order confirmed since that migration shipped (never caught earlier because the affected UI path was never manually tested against the guard).
+
+**Fix (TDD, RED→GREEN against local Postgres, not mocks — this is a trigger-level bug a mocked-client unit test can't catch):**
+1. Integration test (`tests/integration/rls-authorization.test.ts`, "item 8") added first — confirmed RED (`confirm_order_delivery_fee` didn't exist, `PGRST202`). Also added a regression test documenting item 6's guard still correctly blocks the *old* direct-update path.
+2. New migration `20260922060000_confirm_order_delivery_fee.sql` — a small `SECURITY DEFINER` RPC, same auth-check + `app.bypass_order_guard` pattern as `update_order`/`create_manual_order`, scoped narrowly to exactly this one transition (pending delivery order → confirmed, fee set once). The item-6 guard itself is untouched — direct client updates to `delivery_fee` stay blocked everywhere else, which is the point; this is a new legitimate bypass caller, not a loosened guard.
+3. `supabase db reset` locally → GREEN (29/29 integration tests).
+4. `src/lib/data/orders.ts` — added `confirmOrderDeliveryFee(orderId, deliveryFee)`.
+5. `src/app/(app)/orders/page.tsx` — `handleStatusChange` now calls the new RPC when a `deliveryFee` is provided, keeps the plain `updateOrderStatus` write for every other status change. Unit test added first (RED — asserted the RPC call, failed because the old code never called `rpc()`), then GREEN.
+6. `npm run test` → 506/506. Clean `rm -f tsconfig.tsbuildinfo && rm -rf .next && npm run build` → clean.
+7. Migration pushed to production (`supabase db push --include-all`), verified live via `select proname, prosecdef from pg_proc where proname = 'confirm_order_delivery_fee'` → present, `security definer`.
+
+**Not yet done:** commit, push code, re-verify Vercel deployment reaches `READY`.
+
+## Deferred: extend the data access layer beyond orders/movements
+
+Owner confirmed 2026-09-22 this is deferred by priority, not dispensable — RLS is the actual security boundary regardless of which layer calls Supabase, so leaving these on direct `createClient()` calls is a maintainability debt, not a security gap. Scope: ~36 files still calling `createClient()` directly outside `src/lib/data/{orders,movements}.ts` and `contacts.ts`'s one function — contacts (remaining calls), closings, services/catalog management, settings, storefront, auth. Pick this up in a future round the same way orders/movements were done: extract into typed `src/lib/data/*.ts` functions, one domain at a time, same TDD discipline.
