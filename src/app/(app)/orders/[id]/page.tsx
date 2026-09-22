@@ -12,7 +12,6 @@ import { OrderPaymentSheet } from '@/components/OrderPaymentSheet';
 import { OrderViewPanel } from './OrderViewPanel';
 import { OrderEditForm, type EditState } from './OrderEditForm';
 import {
-  type Contact,
   type Order,
   type OrderItem,
   type OrderStatus,
@@ -39,7 +38,6 @@ export default function OrderDetailPage() {
 
   const [order, setOrder] = useState<Order | null>(null);
   const [items, setItems] = useState<OrderItem[]>([]);
-  const [contact, setContact] = useState<Contact | null>(null);
   const [services, setServices] = useState<Service[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -73,15 +71,6 @@ export default function OrderDetailPage() {
       const loadedOrder = orderResult.data as Order;
       setOrder(loadedOrder);
       setItems((itemsResult.data as OrderItem[]) || []);
-
-      if (loadedOrder.contact_id) {
-        const { data: contactData } = await supabase
-          .from('contacts')
-          .select('id, full_name, ci, phone, comment, created_at')
-          .eq('id', loadedOrder.contact_id)
-          .single();
-        setContact((contactData as Contact) || null);
-      }
 
       const { data: servicesData } = await supabase
         .from('services')
@@ -297,7 +286,6 @@ export default function OrderDetailPage() {
         <OrderViewPanel
           order={order}
           items={items}
-          contact={contact}
           contactSheetOpen={contactSheetOpen}
           onContactSheetOpenChange={setContactSheetOpen}
           statusSubmitting={statusSubmitting}

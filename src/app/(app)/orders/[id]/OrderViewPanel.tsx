@@ -16,7 +16,6 @@ import { formatGuaranies } from '@/lib/utils';
 import { ContactDetailSheet } from '@/components/ContactDetailSheet';
 import {
   ORDER_STATUS_LABELS,
-  type Contact,
   type Order,
   type OrderItem,
   type OrderStatus,
@@ -27,7 +26,6 @@ const STATUS_OPTIONS: OrderStatus[] = ['pending', 'confirmed', 'completed', 'can
 interface OrderViewPanelProps {
   order: Order;
   items: OrderItem[];
-  contact: Contact | null;
   contactSheetOpen: boolean;
   onContactSheetOpenChange: (open: boolean) => void;
   statusSubmitting: boolean;
