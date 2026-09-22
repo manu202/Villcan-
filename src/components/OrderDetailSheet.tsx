@@ -93,12 +93,20 @@ export function OrderDetailSheet({ orderId, onClose }: OrderDetailSheetProps) {
     setPaymentSheetOpen(false);
     if (!orderId) return;
     const supabase = createClient();
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('orders')
       .select('*, order_items(*)')
       .eq('id', orderId)
       .single();
-    if (data) setOrder(data as OrderWithItems);
+    // complete_order_payment already succeeded server-side by the time this
+    // runs (OrderPaymentSheet only calls onCompleted on success) — a failure
+    // here is just this refetch, not the payment, but the sheet must not
+    // silently keep showing the stale pre-completion status.
+    if (data) {
+      setOrder(data as OrderWithItems);
+    } else if (error) {
+      showToast('El pago se registró, pero no se pudo actualizar la vista. Recargá la página.', 'error');
+    }
   };
 
   const handleNotify = () => {

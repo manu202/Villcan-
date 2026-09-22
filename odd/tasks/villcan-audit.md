@@ -318,6 +318,14 @@ All of Round 1, Round 2, and R-DB completed, real RED-then-GREEN throughout, dep
 **Phase 5 residuals:**
 - ✅ **DONE** (caught while writing this section, fixed immediately): MovementForm's client-side POS→efectivo coercion — the R-DB fix only unblocked the database; the UI still forced the old default. Fixed with a real RED-then-GREEN test (`git stash` of just the source change proved RED, restored for GREEN). Full suite: 511/511.
 - Still open: the 3 RDD advisory findings above (none blocking, all logged for later).
+
+### RDD advisory findings — all 3 closed, 2026-09-22
+
+- ✅ **R3-guaranies-caret-coverage**: added `@testing-library/user-event` (jsdom's `fireEvent` doesn't propagate real `selectionStart` through change events, which is why the original test couldn't prove anything). Two new tests drive real keystrokes/selection: typing a digit in the middle of a formatted amount, and backspacing next to a separator — both assert the actual restored `input.selectionStart`, not just the display value. `GuaraniesInput.test.tsx`: 9/9 pass, including both real caret assertions.
+- ✅ **R3-orderdetail-payment-refetch-error**: `OrderDetailSheet.tsx`'s `handlePaymentCompleted` now checks the refetch's `error` and shows a toast ("El pago se registró, pero no se pudo actualizar la vista...") instead of silently leaving the stale pre-completion status on screen. Real RED-then-GREEN (`git stash` of just the source fix proved RED — the test timed out waiting for a toast that never fired — then GREEN restored). `OrderDetailSheet.test.tsx`: 9/9 pass.
+- ✅ **R3-migration-function-redefinition-risk**: manually diffed the full bodies of `update_order` and `create_manual_order` between `20260922000000` (prior) and `20260922050000` (new) — confirmed the only differences are exactly the two intended ones (the `'pos'`-inclusive validation line in both, and the WhatsApp message's payment-method case expression in `create_manual_order`), plus cosmetic step-numbering comments stripped. No unintended divergence in guards, pricing, totals, or delivery-fee arithmetic. This was a manual one-time verification, not an automated check — future edits to these functions won't get this same diff for free.
+
+Full suite after closing all 3: `npm run test` → **512/512 pass**.
 - SW-O4 (delivery fee has no edit path after initial entry), SW-K1–K5 (Reports, deprioritized), SW-M5/M6/C4/C6 and the rest of the LOW-severity items logged earlier, never in scope for this round.
 
 ### Proposed Phase 5 execution order (NOT approved, for later)

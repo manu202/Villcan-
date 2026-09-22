@@ -43,6 +43,12 @@ const ORDER_BASE = {
 };
 
 let currentOrder: typeof ORDER_BASE = ORDER_BASE;
+// The first .from('orders').select().eq().single() call is the initial
+// load; handlePaymentCompleted's refetch is every call after that — kept
+// separate so a test can make the refetch fail without affecting the
+// initial render.
+let singleCallCount = 0;
+let mockRefetchResult: { data: unknown; error: unknown } = { data: null, error: null };
 
 function tableMock() {
   const mock: Record<string, unknown> = {};
@@ -57,7 +63,11 @@ function tableMock() {
       }),
     }),
   });
-  mock.single = async () => ({ data: currentOrder, error: null });
+  mock.single = async () => {
+    singleCallCount++;
+    if (singleCallCount === 1) return { data: currentOrder, error: null };
+    return mockRefetchResult;
+  };
   return mock;
 }
 
@@ -74,6 +84,8 @@ describe('OrderDetailSheet (REQ: quick order detail panel)', () => {
     mockShowToast.mockReset();
     mockUpdateResult = { data: { id: 'order-1' }, error: null };
     currentOrder = ORDER_BASE;
+    singleCallCount = 0;
+    mockRefetchResult = { data: { ...ORDER_BASE, status: 'completed' }, error: null };
   });
 
   it('shows customer, items, and total', async () => {
@@ -158,6 +170,31 @@ describe('OrderDetailSheet (REQ: quick order detail panel)', () => {
 
     await waitFor(() => expect(statusSelect).toHaveProperty('value', 'cancelled'));
     confirmSpy.mockRestore();
+  });
+
+  // Reviewer finding R3-orderdetail-payment-refetch-error (RDD, 2026-09-22):
+  // handlePaymentCompleted discarded a refetch error silently, leaving the
+  // sheet showing the stale pre-completion status with no feedback even
+  // though the payment itself already succeeded.
+  it('si el refetch post-pago falla, avisa por toast en vez de quedarse en silencio', async () => {
+    mockRpc.mockResolvedValue({ data: { order_id: 'order-1' }, error: null });
+    mockRefetchResult = { data: null, error: { message: 'network error' } };
+
+    render(<OrderDetailSheet orderId="order-1" onClose={vi.fn()} />);
+    await waitFor(() => expect(screen.getByText('Juan Pérez')).toBeTruthy());
+
+    fireEvent.change(screen.getByLabelText('Estado del pedido'), { target: { value: 'completed' } });
+    await waitFor(() => expect(screen.getByText('Confirmar pago')).toBeTruthy());
+
+    fireEvent.change(screen.getByPlaceholderText('Monto recibido'), { target: { value: '40000' } });
+    fireEvent.click(screen.getByRole('button', { name: /confirmar/i }));
+
+    await waitFor(() =>
+      expect(mockShowToast).toHaveBeenCalledWith(
+        'El pago se registró, pero no se pudo actualizar la vista. Recargá la página.',
+        'error'
+      )
+    );
   });
 
   it('"Notificar cliente" abre un link de wa.me', async () => {
