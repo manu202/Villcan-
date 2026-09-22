@@ -201,8 +201,18 @@ export default function OrderDetailPage() {
     setPaymentSheetOpen(false);
     if (!order) return;
     const { orderResult, itemsResult } = await getOrderAndItems(order.id);
-    if (orderResult.data) setOrder(orderResult.data as Order);
-    setItems((itemsResult.data as OrderItem[]) || []);
+    // complete_order_payment already succeeded server-side by the time this
+    // runs (OrderPaymentSheet only calls onCompleted on success) — a failure
+    // here is just this refetch, not the payment, but the page must not
+    // silently keep showing the stale pre-completion status. Covers both an
+    // explicit error and the case where .single() resolves with neither
+    // data nor error (e.g. zero matching rows with no driver error).
+    if (orderResult.data) {
+      setOrder(orderResult.data as Order);
+      setItems((itemsResult.data as OrderItem[]) || []);
+    } else {
+      showToast('El pago se registró, pero no se pudo actualizar la vista. Recargá la página.', 'error');
+    }
   };
 
   const handleNotify = () => {

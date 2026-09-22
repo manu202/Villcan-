@@ -48,6 +48,12 @@ const orderItems = [
 ];
 
 let orderOverride: typeof order = order;
+// After the first 'orders'.single() call (the initial load), every
+// subsequent call (refetch after save / after status change / after
+// payment) returns this instead, when set — lets a test simulate the
+// refetch itself failing after a write already succeeded.
+let ordersSingleCallCount = 0;
+let refetchOverride: { data: unknown; error: unknown } | null = null;
 
 const contact = { id: 'contact-1', full_name: 'Juan Pérez', ci: null, phone: '+595981123456', comment: null, created_at: '2026-01-01' };
 
@@ -72,7 +78,11 @@ function tableMock(table: string) {
     }),
   });
   mock.single = async () => {
-    if (table === 'orders') return { data: orderOverride, error: null };
+    if (table === 'orders') {
+      ordersSingleCallCount++;
+      if (ordersSingleCallCount > 1 && refetchOverride) return refetchOverride;
+      return { data: orderOverride, error: null };
+    }
     if (table === 'contacts') return { data: contact, error: null };
     return { data: null, error: null };
   };
@@ -97,6 +107,8 @@ describe('OrderDetailPage (REQ: order detail + full edit)', () => {
     mockShowToast.mockReset();
     mockUpdateResult = { data: { id: 'order-1' }, error: null };
     orderOverride = order;
+    ordersSingleCallCount = 0;
+    refetchOverride = null;
   });
 
   it('shows customer data, items, total, payment/delivery, and a link to the linked contact', async () => {
@@ -215,5 +227,32 @@ describe('OrderDetailPage (REQ: order detail + full edit)', () => {
     );
 
     openSpy.mockRestore();
+  });
+
+  // Same bug class the RDD review found and fixed in OrderDetailSheet.tsx
+  // (R3-orderdetail-payment-refetch-error) — this full detail page has its
+  // own separate handlePaymentCompleted with the identical silent-failure
+  // gap, never caught because that review only covered the sibling
+  // component. Confirmed pre-existing (present before today's data-layer
+  // extraction too, via `git show`), not introduced by this session.
+  it('si el refetch post-pago falla, avisa por toast en vez de quedarse en silencio', async () => {
+    mockRpc.mockResolvedValue({ data: { order_id: 'order-1' }, error: null });
+
+    render(<OrderDetailPage />);
+    await waitFor(() => expect(screen.getByText('Juan Pérez')).toBeTruthy());
+
+    fireEvent.change(screen.getByLabelText('Estado del pedido'), { target: { value: 'completed' } });
+    await waitFor(() => expect(screen.getByText('Confirmar pago')).toBeTruthy());
+
+    refetchOverride = { data: null, error: { message: 'network error' } };
+    fireEvent.change(screen.getByPlaceholderText('Monto recibido'), { target: { value: '40000' } });
+    fireEvent.click(screen.getByRole('button', { name: /confirmar/i }));
+
+    await waitFor(() =>
+      expect(mockShowToast).toHaveBeenCalledWith(
+        'El pago se registró, pero no se pudo actualizar la vista. Recargá la página.',
+        'error'
+      )
+    );
   });
 });
