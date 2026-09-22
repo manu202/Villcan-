@@ -24,12 +24,13 @@ vi.mock('@/contexts/SettingsContext', () => ({
   useSettings: () => mockUseSettings(),
 }));
 
-const { insertMock, updateMock, eqMock, selectMock, fromMock } = vi.hoisted(() => ({
+const { insertMock, updateMock, eqMock, selectMock, fromMock, rpcMock } = vi.hoisted(() => ({
   insertMock: vi.fn().mockResolvedValue({ error: null }),
   updateMock: vi.fn().mockReturnValue({ eq: vi.fn().mockResolvedValue({ error: null }) }),
   eqMock: vi.fn().mockResolvedValue({ error: null }),
   selectMock: vi.fn(),
   fromMock: vi.fn(),
+  rpcMock: vi.fn().mockResolvedValue({ error: null }),
 }));
 
 const STOREFRONT_ROWS = [
@@ -40,6 +41,7 @@ const STOREFRONT_ROWS = [
 vi.mock('@/lib/supabase/client', () => ({
   createClient: () => ({
     from: (...args: unknown[]) => fromMock(...args),
+    rpc: (...args: unknown[]) => rpcMock(...args),
     auth: { getUser: vi.fn().mockResolvedValue({ data: { user: { id: 'u1' } } }) },
   }),
 }));
@@ -52,6 +54,8 @@ describe('BranchesPage /settings/branches (REQ-SETTINGSREORG-3, REQ-SETTINGSREOR
     mockUseSettings.mockReset();
     mockUseSettings.mockReturnValue({ settings: { staff_label: 'Barbero' } });
     insertMock.mockClear();
+    rpcMock.mockClear();
+    rpcMock.mockResolvedValue({ error: null });
     updateMock.mockClear();
     updateMock.mockReturnValue({ eq: eqMock });
     eqMock.mockClear();
@@ -203,13 +207,14 @@ describe('BranchesPage /settings/branches (REQ-SETTINGSREORG-3, REQ-SETTINGSREOR
     fireEvent.change(screen.getByLabelText(/whatsapp/i), { target: { value: '595981111111' } });
     fireEvent.click(screen.getByText('Guardar'));
 
-    await waitFor(() => expect(insertMock).toHaveBeenCalled());
-    expect(insertMock).toHaveBeenCalledWith(
+    await waitFor(() => expect(rpcMock).toHaveBeenCalled());
+    expect(rpcMock).toHaveBeenCalledWith(
+      'create_branch_with_admin',
       expect.objectContaining({
-        name: 'Nueva sucursal',
-        address: 'Av. Siempre Viva 123',
-        vertical: 'gastronomy',
-        whatsapp_number: '595981111111',
+        p_name: 'Nueva sucursal',
+        p_address: 'Av. Siempre Viva 123',
+        p_vertical: 'gastronomy',
+        p_whatsapp: '595981111111',
       })
     );
   });
