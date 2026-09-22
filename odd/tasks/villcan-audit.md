@@ -180,7 +180,7 @@ Done in parallel via 3 independent agents (no file overlap — verified by desig
 
 **Full-suite check after all 4 items merged together (2026-09-22):** `npm run test` → 467/468 pass. The 1 failure (`GastronomyTemplate.test.tsx`, a 5000ms timeout on an unrelated interaction test) is a pre-existing flake, independently confirmed unrelated by two different agents' runs — not touched by any of these changes.
 
-**Committed 2026-09-22:** same branch, commit `8d1aeff` ("fix(reliability): close Phase 2 audit gaps (M-3, O-4, C-1, A-5, A-8)"). Not pushed, not merged.
+**Committed 2026-09-22:** same branch, commit `871134d` ("fix(reliability): close Phase 2 audit gaps (M-3, O-4, C-1, A-5, A-8)"). Pushed to GitHub 2026-09-22 (see below).
 
 **Parallelization note (for future reference):** 3 independent writers ran concurrently (M-3, C-1, A-5/A-8) with zero file overlap by design, each forbidden from touching `supabase start/reset/db push` or `npm run test:integration`. O-4 (the only item needing a new migration + real-DB test) was done directly, sequentially, after the local Docker instability from Phase 1 was already resolved. One parallel agent appeared to hang waiting on its own backgrounded `npm run test` the same way the earlier Phase 1 agent did; a replacement was spawned, but the original actually finished correctly moments later (confirmed by "task not running: completed" when stopping it) — no work was lost, but the pattern of subagents mis-handling their own backgrounded long commands recurred and should be watched for.
 
@@ -251,7 +251,7 @@ The local Docker/Supabase stack proved unreliable (the `analytics`/`vector` cont
 
 **Minor follow-up noted, not blocking:** both `update_order` and the new `create_branch_with_admin` carry a leftover `GRANT ... TO anon` (likely from a schema-level default privilege, not something either migration granted explicitly) — not exploitable, since both functions check `auth.uid() IS NULL` first and reject anon internally, but worth revoking explicitly in a future cleanup pass for defense-in-depth.
 
-**Committed 2026-09-22:** branch `fix/confirmed-rls-and-order-security-gaps`, commit `3485c0b` ("fix(security): close confirmed-live RLS and order-authorization gaps"). Not pushed, not merged — that's the owner's call under ordinary repository policy.
+**Committed 2026-09-22:** branch `fix/confirmed-rls-and-order-security-gaps`, commit `a0f9404` ("fix(security): close confirmed-live RLS and order-authorization gaps"). **History rewritten same day** (`git reset --soft` + recommit) to remove a hardcoded local Supabase dev secret key that GitHub's push protection correctly caught (`tests/integration/rls-authorization.test.ts` originally hardcoded `SERVICE_ROLE_KEY` — moved to a gitignored `.env.test.local`, read via `process.env`). Original SHAs `3485c0b`/`4e34b2c`/`8d1aeff` no longer exist; current SHAs are `a0f9404`/`881733c`/`871134d`. Pushed to GitHub 2026-09-22 — merge/PR remains the owner's call.
 
 **RESOLVED 2026-09-22 (second pass):** the integration-test suite now runs GREEN for real (13/13, see above) — local Docker was stabilized by disabling the `analytics` service in `supabase/config.toml`, not by the earlier exclusion flags alone. The `anon` grant cleanup is done and verified live in production. Second commit made: same branch, message covering the M-2 fix, the new test case, and the config fix.
 
