@@ -54,6 +54,10 @@ let orderOverride: typeof order = order;
 // refetch itself failing after a write already succeeded.
 let ordersSingleCallCount = 0;
 let refetchOverride: { data: unknown; error: unknown } | null = null;
+// Same idea for order_items: only the refetch calls (2nd+) can be made to
+// fail, never the initial page load.
+let itemsCallCount = 0;
+let itemsRefetchOverride: { data: unknown; error: unknown } | null = null;
 
 const contact = { id: 'contact-1', full_name: 'Juan Pérez', ci: null, phone: '+595981123456', comment: null, created_at: '2026-01-01' };
 
@@ -87,7 +91,13 @@ function tableMock(table: string) {
     return { data: null, error: null };
   };
   mock.then = (onFulfilled: (v: unknown) => unknown) => {
-    if (table === 'order_items') return Promise.resolve({ data: orderItems, error: null }).then(onFulfilled);
+    if (table === 'order_items') {
+      itemsCallCount++;
+      if (itemsCallCount > 1 && itemsRefetchOverride) {
+        return Promise.resolve(itemsRefetchOverride).then(onFulfilled);
+      }
+      return Promise.resolve({ data: orderItems, error: null }).then(onFulfilled);
+    }
     if (table === 'services') return Promise.resolve({ data: services, error: null }).then(onFulfilled);
     return Promise.resolve({ data: null, error: null }).then(onFulfilled);
   };
@@ -109,6 +119,8 @@ describe('OrderDetailPage (REQ: order detail + full edit)', () => {
     orderOverride = order;
     ordersSingleCallCount = 0;
     refetchOverride = null;
+    itemsCallCount = 0;
+    itemsRefetchOverride = null;
   });
 
   it('shows customer data, items, total, payment/delivery, and a link to the linked contact', async () => {
@@ -251,6 +263,54 @@ describe('OrderDetailPage (REQ: order detail + full edit)', () => {
     await waitFor(() =>
       expect(mockShowToast).toHaveBeenCalledWith(
         'El pago se registró, pero no se pudo actualizar la vista. Recargá la página.',
+        'error'
+      )
+    );
+  });
+
+  // Follow-up RDD finding (R3-orderpage-save-refetch-silent, 2026-09-22):
+  // handleSave had the identical silent-failure gap as handlePaymentCompleted,
+  // pre-existing, never caught until the second review pass on this file.
+  it('si el refetch post-guardado falla, avisa por toast', async () => {
+    mockRpc.mockResolvedValue({ error: null });
+
+    render(<OrderDetailPage />);
+    await waitFor(() => expect(screen.getByText('Juan Pérez')).toBeTruthy());
+
+    fireEvent.click(screen.getByRole('button', { name: /^editar$/i }));
+    await waitFor(() => expect(screen.getByRole('button', { name: /guardar cambios/i })).toBeTruthy());
+
+    refetchOverride = { data: null, error: { message: 'network error' } };
+    fireEvent.click(screen.getByRole('button', { name: /guardar cambios/i }));
+
+    await waitFor(() =>
+      expect(mockShowToast).toHaveBeenCalledWith(
+        'Los cambios se guardaron, pero no se pudo actualizar la vista. Recargá la página.',
+        'error'
+      )
+    );
+  });
+
+  // Follow-up RDD finding (R3-orderpage-payment-items-error-ignored,
+  // 2026-09-22): even the just-fixed handlePaymentCompleted only checked
+  // the order refetch, silently emptying the item list if only the items
+  // query failed.
+  it('si el pedido se actualiza pero los ítems fallan, avisa y no vacía la lista en silencio', async () => {
+    mockRpc.mockResolvedValue({ data: { order_id: 'order-1' }, error: null });
+
+    render(<OrderDetailPage />);
+    await waitFor(() => expect(screen.getByText('Juan Pérez')).toBeTruthy());
+
+    fireEvent.change(screen.getByLabelText('Estado del pedido'), { target: { value: 'completed' } });
+    await waitFor(() => expect(screen.getByText('Confirmar pago')).toBeTruthy());
+
+    itemsRefetchOverride = { data: null, error: { message: 'network error' } };
+    fireEvent.change(screen.getByPlaceholderText('Monto recibido'), { target: { value: '40000' } });
+    fireEvent.click(screen.getByRole('button', { name: /confirmar/i }));
+
+    await waitFor(() =>
+      expect(mockShowToast).toHaveBeenCalledWith(
+        'El pedido se actualizó, pero no se pudieron cargar sus ítems. Recargá la página.',
         'error'
       )
     );

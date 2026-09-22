@@ -140,6 +140,33 @@ export default function OrderDetailPage() {
     });
   };
 
+  // Shared refetch used after any write whose RPC/update already succeeded
+  // server-side (updateOrder, complete_order_payment) — the write is done
+  // regardless of what happens here, so every outcome below only concerns
+  // whether the page manages to REFLECT it. Covers three cases, all of
+  // which used to fail silently in one or both call sites before the RDD
+  // review found the first instance (R3-orderdetail-payment-refetch-error)
+  // and a follow-up pass found the other two (R3-orderpage-save-refetch-
+  // silent, R3-orderpage-payment-items-error-ignored):
+  //   1. order refetch fails outright (error, or neither data nor error) —
+  //      the page must not silently keep showing the stale pre-write order.
+  //   2. order refetch succeeds but items refetch fails — must not silently
+  //      wipe the visible item list to empty with no explanation.
+  //   3. both succeed — update normally, no toast needed.
+  const refetchOrderAfterWrite = async (orderId: string, failureMessage: string) => {
+    const { orderResult, itemsResult } = await getOrderAndItems(orderId);
+    if (!orderResult.data) {
+      showToast(failureMessage, 'error');
+      return;
+    }
+    setOrder(orderResult.data as Order);
+    if (itemsResult.error) {
+      showToast('El pedido se actualizó, pero no se pudieron cargar sus ítems. Recargá la página.', 'error');
+      return;
+    }
+    setItems((itemsResult.data as OrderItem[]) || []);
+  };
+
   const handleSave = async () => {
     if (!edit || !order) return;
     setSaving(true);
@@ -165,9 +192,7 @@ export default function OrderDetailPage() {
       return;
     }
 
-    const { orderResult, itemsResult } = await getOrderAndItems(order.id);
-    if (orderResult.data) setOrder(orderResult.data as Order);
-    setItems((itemsResult.data as OrderItem[]) || []);
+    await refetchOrderAfterWrite(order.id, 'Los cambios se guardaron, pero no se pudo actualizar la vista. Recargá la página.');
     setIsEditing(false);
     setEdit(null);
   };
@@ -200,19 +225,10 @@ export default function OrderDetailPage() {
   const handlePaymentCompleted = async () => {
     setPaymentSheetOpen(false);
     if (!order) return;
-    const { orderResult, itemsResult } = await getOrderAndItems(order.id);
     // complete_order_payment already succeeded server-side by the time this
-    // runs (OrderPaymentSheet only calls onCompleted on success) — a failure
-    // here is just this refetch, not the payment, but the page must not
-    // silently keep showing the stale pre-completion status. Covers both an
-    // explicit error and the case where .single() resolves with neither
-    // data nor error (e.g. zero matching rows with no driver error).
-    if (orderResult.data) {
-      setOrder(orderResult.data as Order);
-      setItems((itemsResult.data as OrderItem[]) || []);
-    } else {
-      showToast('El pago se registró, pero no se pudo actualizar la vista. Recargá la página.', 'error');
-    }
+    // runs (OrderPaymentSheet only calls onCompleted on success) — see
+    // refetchOrderAfterWrite above for what every refetch outcome does.
+    await refetchOrderAfterWrite(order.id, 'El pago se registró, pero no se pudo actualizar la vista. Recargá la página.');
   };
 
   const handleNotify = () => {

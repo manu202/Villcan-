@@ -363,6 +363,13 @@ Actual current scope: **44 files** call `createClient()` directly (grown from th
 
 **Remaining, not started**: the other ~36 files (contacts, closings, services/catalog management, settings, storefront, auth) — left for a future round, same file-by-file approach.
 
+**Fourth RDD review this session** (the data-layer slice, `4cedc6b`+`0339121`): approved, 4 findings.
+- ✅ **Fixed for real, two genuine pre-existing bugs the reviewer traced correctly**: `handleSave`'s refetch had the identical silent-failure gap as the payment one (never caught, `git show`-confirmed pre-existing); and even the just-fixed `handlePaymentCompleted` only checked the order refetch, silently emptying the item list if only `order_items` failed. Unified both into one shared `refetchOrderAfterWrite` helper covering all three outcomes (order fails / items fail / both succeed) instead of duplicating three-way checks in two places. Real RED-then-GREEN, 2 new tests.
+- ✅ **Fixed the SUGGESTION too**: `MovementForm.tsx` derived `branchId` via `currentBranch?.id` BEFORE the `if (!currentBranch)` guard, so TypeScript couldn't narrow it and two `as string` casts were needed downstream — reordered so the guard narrows `currentBranch` first, `branchId` is then genuinely `string`, casts removed.
+- **Logged, not actioned**: the test-coverage SUGGESTION (the original refetch-error test didn't also assert the pre-failure order/items stay visible) — reasonable but lower priority, deferred.
+
+Full suite after closing all 4: **505/505**, tsc clean.
+
 **Third RDD review this session** (the two file splits, `6ad5dd2`): approved, 2 non-blocking findings.
 - ✅ **Fixed for real**: `OrderViewPanel` declared `contact: Contact | null` in its props but never read it — the reviewer traced it and was right. Investigated: it was already dead in the ORIGINAL pre-split `page.tsx` too (a full `contacts` row fetch, including `comment`, on every page load, whose result was never rendered anywhere — `ContactDetailSheet` already self-fetches by `contact_id` when opened). Not a regression introduced by the split; removed the prop, the state, and the now-pointless fetch entirely (one less unnecessary Supabase round trip per page load). tsc clean, 8/8 tests, full suite 502/502.
 - **Methodological, not a bug** (same pattern as the second review): the reviewer correctly noted it can't verify the "23/23"/"8/8 before-after" test-parity claims from odd/tasks/villcan-audit.md since no test files were in this candidate's changed-path manifest (the splits didn't need test changes, so none were staged). True and expected for a pure refactor with zero test-visible behavior change — logged, not a real gap.

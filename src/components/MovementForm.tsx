@@ -214,12 +214,16 @@ export function MovementForm({ initialType, showToast }: MovementFormProps) {
       return;
     }
 
-    const branchId = currentBranch?.id;
     if (!currentBranch) {
       alert('Debes seleccionar una sucursal');
       finish();
       return;
     }
+    // currentBranch is narrowed non-null past the guard above, so branchId
+    // is genuinely guaranteed a string here — no `as string` cast needed
+    // downstream (a prior version derived branchId before the guard, which
+    // defeated the type-level narrowing the guard was meant to provide).
+    const branchId = currentBranch.id;
 
     // Ventas → pending order (appears in KDS); movement created by trigger on completion
     if (type === 'servicio') {
@@ -230,7 +234,7 @@ export function MovementForm({ initialType, showToast }: MovementFormProps) {
       const rpcPaymentMethod: PaymentMethod = paymentMethod || 'efectivo';
 
       const { error: orderError } = await createManualOrder({
-        p_branch_id: branchId as string,
+        p_branch_id: branchId,
         p_customer_name: selectedContact?.full_name || 'Mostrador',
         p_customer_phone: selectedContact?.phone || '0000000',
         p_note: comment.trim() || null,
@@ -275,7 +279,7 @@ export function MovementForm({ initialType, showToast }: MovementFormProps) {
       expense: finalExpense,
       comment: finalComment,
       user_id: userId,
-      branch_id: branchId as string,
+      branch_id: branchId,
       created_at: new Date().toISOString(),
     });
 
