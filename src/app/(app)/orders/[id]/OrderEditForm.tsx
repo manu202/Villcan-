@@ -6,8 +6,8 @@ import { formatGuaranies } from '@/lib/utils';
 import {
   ORDER_STATUS_LABELS,
   type OrderDeliveryType,
-  type OrderPaymentMethod,
   type OrderStatus,
+  type PaymentMethod,
   type Service,
 } from '@/types';
 
@@ -18,7 +18,10 @@ export interface EditState {
   customerPhone: string;
   customerEmail: string;
   note: string;
-  paymentMethod: OrderPaymentMethod;
+  // SW-M1: staff can set 'pos' too (this is the staff-facing edit form —
+  // the customer-facing storefront checkout stays on the narrower
+  // OrderPaymentMethod, which never offers it).
+  paymentMethod: PaymentMethod;
   deliveryType: OrderDeliveryType;
   deliveryAddress: string;
   status: OrderStatus;
@@ -81,10 +84,11 @@ export function OrderEditForm({
         Método de pago
         <select
           value={edit.paymentMethod}
-          onChange={(e) => onEditChange({ ...edit, paymentMethod: e.target.value as OrderPaymentMethod })}
+          onChange={(e) => onEditChange({ ...edit, paymentMethod: e.target.value as PaymentMethod })}
         >
           <option value="efectivo">Efectivo</option>
           <option value="transferencia">Transferencia</option>
+          <option value="pos">POS</option>
         </select>
       </label>
       <label>

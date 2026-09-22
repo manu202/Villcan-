@@ -225,6 +225,16 @@ export function MovementForm({ initialType, showToast }: MovementFormProps) {
     // defeated the type-level narrowing the guard was meant to provide).
     const branchId = currentBranch.id;
 
+    // isValid() already guarantees `type` is set at runtime (checked at the
+    // top of this handler), but that's not a type guard TypeScript can see
+    // through — this narrows `MovementType | ''` to `MovementType` for the
+    // rest of the handler instead of an `as MovementType` cast at the
+    // createMovement call site.
+    if (!type) {
+      finish();
+      return;
+    }
+
     // Ventas → pending order (appears in KDS); movement created by trigger on completion
     if (type === 'servicio') {
       // SW-M1: 'pos' is now a valid orders.payment_method value end to end

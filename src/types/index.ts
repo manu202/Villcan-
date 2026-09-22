@@ -73,6 +73,14 @@ export const ORDER_STATUS_LABELS: Record<OrderStatus, string> = {
   cancelled: 'Cancelado',
 };
 
+// Customer-facing storefront checkout only — 'pos' is a staff-side card
+// machine at the counter, never something an online customer selects
+// (confirmed against CheckoutStep.tsx: only Efectivo/Transferencia are
+// offered there, and create_storefront_order's own SQL validation still
+// only accepts these two — see SW-M1 in odd/tasks/villcan-audit.md).
+// Everywhere else an order's payment method is used (the stored Order
+// itself, and the staff-facing create_manual_order/update_order RPCs)
+// uses the wider `PaymentMethod` (includes 'pos'), not this type.
 export type OrderPaymentMethod = 'efectivo' | 'transferencia';
 
 export type OrderDeliveryType = 'pickup' | 'delivery';
@@ -89,7 +97,7 @@ export interface Order {
   status: OrderStatus;
   total: number;
   whatsapp_message: string;
-  payment_method: OrderPaymentMethod;
+  payment_method: PaymentMethod;
   delivery_type: OrderDeliveryType;
   delivery_address: string | null;
   delivery_fee: number | null;
@@ -140,7 +148,7 @@ export interface CreateManualOrderInput {
   p_customer_email?: string | null;
   p_note?: string | null;
   p_items: StorefrontOrderItemInput[];
-  p_payment_method: OrderPaymentMethod;
+  p_payment_method: PaymentMethod;
   p_delivery_type: OrderDeliveryType;
   p_delivery_address?: string | null;
 }
@@ -151,7 +159,7 @@ export interface UpdateOrderInput {
   p_customer_phone: string;
   p_customer_email: string | null;
   p_note: string | null;
-  p_payment_method: OrderPaymentMethod;
+  p_payment_method: PaymentMethod;
   p_delivery_type: OrderDeliveryType;
   p_delivery_address: string | null;
   p_status: OrderStatus;
