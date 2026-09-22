@@ -128,7 +128,7 @@ describe('ModulesPage /settings/modules (REQ-SETTINGSREORG-4)', () => {
     render(<ModulesPage />);
 
     expect(screen.getByText(/comisión en cada servicio/i)).toBeTruthy();
-    expect(screen.getByText(/cerrar caja \(arqueo\)/i)).toBeTruthy();
+    expect(screen.getByText(/montos contados a mano al cerrar caja/i)).toBeTruthy();
   });
 
   it('toggling a switch flips its aria-checked state', () => {

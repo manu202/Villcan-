@@ -131,7 +131,7 @@ function ModulesForm({
             label="Arqueo obligatorio"
           />
         </div>
-        <p className="field-hint">Exige cerrar caja (arqueo) antes de poder abrir una nueva.</p>
+        <p className="field-hint">Exige ingresar los montos contados a mano al cerrar caja, en vez de aceptar el cálculo automático.</p>
 
         <div className="actions">
           <button type="submit" className="submit-btn" disabled={submitting}>
