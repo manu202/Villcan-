@@ -16,6 +16,7 @@ import type { MovementType, PaymentMethod, Service, Contact } from '@/types';
 import { formatGuaranies, parseGuaranies, escapeSearchQuery } from '@/lib/utils';
 import { ContactForm } from './ContactForm';
 import { ConfirmModal } from './ConfirmModal';
+import { GuaraniesInput } from './GuaraniesInput';
 import { ServiceCard } from './storefront/ServiceCard';
 import { CartSheet, type CartLine } from './storefront/CartSheet';
 import { createClient } from '@/lib/supabase/client';
@@ -58,6 +59,25 @@ const paymentMethods: { value: PaymentMethod; label: string; icon: LucideIcon }[
 
 const fuentes = ['Caja', 'Cta Bancaria'] as const;
 
+// Spanish copy for known error codes MovementForm's inserts/RPC calls can
+// return, mirroring the ERROR_COPY/copyForError convention used in
+// src/app/(app)/orders/[id]/page.tsx. Never shows a raw Postgres/Supabase
+// message to the cashier.
+const ERROR_COPY: Record<string, string> = {
+  VC400: 'Revisá los datos ingresados.',
+  VC403: 'No tenés permisos para registrar este movimiento.',
+  VC404: 'Sucursal o servicio no encontrado.',
+  VC409: 'Uno de los servicios ya no está disponible.',
+  VC429: 'Demasiados pedidos, esperá un minuto.',
+  '42501': 'No tenés permisos para registrar este movimiento.',
+  PGRST301: 'No tenés permisos para registrar este movimiento.',
+};
+
+function copyForError(error: { code?: string; message?: string } | null): string {
+  if (!error) return 'Ocurrió un error. Intentá de nuevo.';
+  return ERROR_COPY[error.code ?? ''] ?? 'Ocurrió un error. Intentá de nuevo.';
+}
+
 /**
  * Builds the final `comment` value persisted on a movement.
  * For `gasto` movements with a selected `fuente`, the fuente is appended
@@ -85,6 +105,12 @@ export function MovementForm({ initialType, showToast }: MovementFormProps) {
     initialType ? (initialType === 'servicio' ? 'catalog' : 'details') : 'type'
   );
   const [isSubmitting, setIsSubmitting] = useState(false);
+  // Synchronous double-submission guard (SW-M2): a ref updates immediately,
+  // unlike `isSubmitting` state which only takes effect on the next render —
+  // that gap is exactly what lets a fast double-tap fire handleSubmit twice
+  // before the `disabled` prop re-renders. Checked/set at the very start of
+  // handleSubmit, in addition to (not instead of) `isSubmitting`.
+  const isSubmittingRef = useRef(false);
   const [showNewContact, setShowNewContact] = useState(false);
   const [showDiscardConfirm, setShowDiscardConfirm] = useState(false);
   const [attempted, setAttempted] = useState(false);
@@ -202,10 +228,6 @@ export function MovementForm({ initialType, showToast }: MovementFormProps) {
 
   const handlePaymentMethodSelect = (method: PaymentMethod) => {
     setPaymentMethod(method);
-    // Auto-fill income for non-cash methods in non-servicio types
-    if ((method === 'transferencia' || method === 'pos') && income) {
-      setIncome(income);
-    }
   };
 
   const handleContactCreated = (contact: { id: string; full_name: string }) => {
@@ -221,19 +243,29 @@ export function MovementForm({ initialType, showToast }: MovementFormProps) {
       setAttempted(true);
       return;
     }
+    // Synchronous lock (SW-M2): checked/set immediately, before the async
+    // gap that `isSubmitting` state alone can't close (state only takes
+    // effect on the next render, which a fast double-tap can beat).
+    if (isSubmittingRef.current) return;
+    isSubmittingRef.current = true;
     setIsSubmitting(true);
+
+    const finish = () => {
+      isSubmittingRef.current = false;
+      setIsSubmitting(false);
+    };
 
     const userId = await getCurrentUserId();
     if (!userId) {
       alert('Debes estar logueado para registrar movimientos');
-      setIsSubmitting(false);
+      finish();
       return;
     }
 
     const branchId = currentBranch?.id;
     if (!currentBranch) {
       alert('Debes seleccionar una sucursal');
-      setIsSubmitting(false);
+      finish();
       return;
     }
 
@@ -255,12 +287,12 @@ export function MovementForm({ initialType, showToast }: MovementFormProps) {
       });
 
       if (orderError) {
-        showToast?.(orderError.message, 'error');
-        setIsSubmitting(false);
+        showToast?.(copyForError(orderError), 'error');
+        finish();
         return;
       }
 
-      setIsSubmitting(false);
+      finish();
       showToast?.('Pedido creado', 'success');
       setTimeout(() => router.push('/orders'), 500);
       return;
@@ -299,12 +331,12 @@ export function MovementForm({ initialType, showToast }: MovementFormProps) {
       .single();
 
     if (error) {
-      showToast?.(error.message, 'error');
-      setIsSubmitting(false);
+      showToast?.(copyForError(error), 'error');
+      finish();
       return;
     }
 
-    setIsSubmitting(false);
+    finish();
     showToast?.('Movimiento registrado', 'success');
     setTimeout(() => router.push('/movements'), 500);
   };
@@ -728,12 +760,9 @@ export function MovementForm({ initialType, showToast }: MovementFormProps) {
               {attempted && parseGuaranies(income) <= 0 && (
                 <p className="field-error">Ingresá el monto</p>
               )}
-              <input
-                type="text"
-                inputMode="numeric"
-                placeholder="0"
+              <GuaraniesInput
                 value={income}
-                onChange={(e) => setIncome(e.target.value)}
+                onChange={setIncome}
                 className="input input-lg"
               />
             </section>
@@ -766,12 +795,9 @@ export function MovementForm({ initialType, showToast }: MovementFormProps) {
             {attempted && parseGuaranies(income) <= 0 && (
               <p className="field-error">Ingresá el monto</p>
             )}
-            <input
-              type="text"
-              inputMode="numeric"
-              placeholder="0"
+            <GuaraniesInput
               value={income}
-              onChange={(e) => setIncome(e.target.value)}
+              onChange={setIncome}
               className="input input-lg"
             />
             <p className="input-hint">
@@ -995,28 +1021,6 @@ export function MovementForm({ initialType, showToast }: MovementFormProps) {
 
         .method-icon {
           color: inherit;
-        }
-
-        .change-box {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          padding: 20px;
-          background: var(--surface-elevated);
-          border: 1px solid var(--border);
-          border-radius: 12px;
-        }
-
-        .change-label {
-          font-size: 14px;
-          font-weight: 500;
-          color: var(--text-secondary);
-        }
-
-        .change-value {
-          font-size: 20px;
-          font-weight: 700;
-          color: var(--text-primary);
         }
 
         .btn-primary:disabled {

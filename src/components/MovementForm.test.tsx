@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
 import { MovementForm, buildFinalComment } from './MovementForm';
 
 function createDeferred<T>() {
@@ -47,6 +47,14 @@ let servicesData: unknown[] = [];
 let lastMovementInsert: Record<string, unknown> | null = null;
 let lastMovementItemsInsert: unknown = null;
 let lastRpcCall: Record<string, unknown> | null = null;
+let rpcCallCount = 0;
+// Overridable per-test: the rpc()/movements-insert result. Defaults match
+// the previous hardcoded success behavior.
+let rpcResult: { error: { code?: string; message?: string } | null } = { error: null };
+let movementInsertError: { code?: string; message?: string } | null = null;
+// When set, rpc() returns a deferred promise instead of resolving immediately —
+// used to simulate a slow request for the double-submit guard test.
+let rpcDeferred: ReturnType<typeof createDeferred<{ error: unknown }>> | null = null;
 
 vi.mock('@/lib/supabase/client', () => ({
   createClient: () => ({
@@ -55,7 +63,9 @@ vi.mock('@/lib/supabase/client', () => ({
     },
     rpc: (_name: string, args: Record<string, unknown>) => {
       lastRpcCall = args;
-      return Promise.resolve({ error: null });
+      rpcCallCount++;
+      if (rpcDeferred) return rpcDeferred.promise;
+      return Promise.resolve(rpcResult);
     },
     from: (table: string) => {
       if (table === 'contacts') {
@@ -73,13 +83,15 @@ vi.mock('@/lib/supabase/client', () => ({
             // Support both:
             //   await insert()              → { error: null }
             //   await insert().select('id').single() → { data: { id: 'mvt-1' }, error: null }
-            const resolved = { data: { id: 'mvt-1' }, error: null };
+            const resolved = movementInsertError
+              ? { data: null, error: movementInsertError }
+              : { data: { id: 'mvt-1' }, error: null };
             return {
               select: (_cols: string) => ({
                 single: () => Promise.resolve(resolved),
               }),
               then: (fn: (v: unknown) => unknown) =>
-                Promise.resolve({ error: null }).then(fn),
+                Promise.resolve(resolved).then(fn),
             };
           },
         };
@@ -402,5 +414,173 @@ describe('MovementForm — multi-servicio inserta movement_items (REQ-FIN-3)', (
     expect(lastRpcCall?.p_items).toHaveLength(2);
     expect(lastRpcCall?.p_items).toContainEqual({ service_id: 'svc-1', qty: 1 });
     expect(lastRpcCall?.p_items).toContainEqual({ service_id: 'svc-2', qty: 1 });
+  });
+});
+
+// ─── SW-M2: hard submission lock (double-tap guard) ────────────────────────
+
+describe('MovementForm submission lock (SW-M2)', () => {
+  beforeEach(() => {
+    contactFromCalls = 0;
+    contactDeferreds = [createDeferred(), createDeferred()];
+    servicesData = [{ id: 'svc-1', name: 'Corte', price: 100000 }];
+    lastRpcCall = null;
+    rpcCallCount = 0;
+    rpcResult = { error: null };
+    rpcDeferred = createDeferred<{ error: unknown }>();
+    mockUseBranch.mockReturnValue({
+      currentBranch: { id: 'branch-1', name: 'Centro' },
+      isLoading: false,
+    });
+    mockUseSettings.mockReturnValue({
+      settings: { commissions_enabled: false, default_commission_pct: 0 },
+    });
+  });
+
+  it('a fast double-tap on submit fires the RPC only once (ref lock, not just disabled state)', async () => {
+    render(<MovementForm initialType="servicio" />);
+    await navigateToCatalogPaymentStep();
+    fireEvent.click(screen.getByText('Transferencia'));
+
+    const submitBtn = screen.getByText('Crear pedido');
+    // Two rapid clicks BEFORE the async rpc() resolves and BEFORE React
+    // has a chance to re-render `disabled` from the `isSubmitting` state —
+    // this is exactly the gap a state-only guard cannot close. Wrapping
+    // both fireEvent.click calls in one `act()` keeps React from flushing
+    // the `setIsSubmitting(true)` update (and thus the `disabled` prop)
+    // between the two clicks, reproducing a real fast double-tap.
+    act(() => {
+      fireEvent.click(submitBtn);
+      fireEvent.click(submitBtn);
+    });
+
+    await waitFor(() => expect(rpcCallCount).toBeGreaterThanOrEqual(1));
+    // Give any second in-flight call a chance to register before asserting.
+    await new Promise((r) => setTimeout(r, 10));
+
+    expect(rpcCallCount).toBe(1);
+
+    // Resolve so the test doesn't leave a dangling unhandled promise.
+    rpcDeferred!.resolve({ error: null });
+  });
+});
+
+// ─── SW-M4: raw DB errors mapped to Spanish copy ───────────────────────────
+
+describe('MovementForm error copy (SW-M4)', () => {
+  beforeEach(() => {
+    contactFromCalls = 0;
+    contactDeferreds = [createDeferred(), createDeferred()];
+    servicesData = [{ id: 'svc-1', name: 'Corte', price: 100000 }];
+    lastRpcCall = null;
+    rpcDeferred = null;
+    mockUseBranch.mockReturnValue({
+      currentBranch: { id: 'branch-1', name: 'Centro' },
+      isLoading: false,
+    });
+    mockUseSettings.mockReturnValue({
+      settings: { commissions_enabled: false, default_commission_pct: 0 },
+    });
+  });
+
+  it('maps a VC400 RPC error to Spanish copy, not the raw Postgres message', async () => {
+    rpcResult = { error: { code: 'VC400', message: 'raw pg validation blah' } };
+    const showToast = vi.fn();
+
+    render(<MovementForm initialType="servicio" showToast={showToast} />);
+    await navigateToCatalogPaymentStep();
+    fireEvent.click(screen.getByText('Transferencia'));
+    fireEvent.click(screen.getByText('Crear pedido'));
+
+    await waitFor(() => expect(showToast).toHaveBeenCalled());
+    expect(showToast).toHaveBeenCalledWith('Revisá los datos ingresados.', 'error');
+    expect(showToast).not.toHaveBeenCalledWith('raw pg validation blah', 'error');
+  });
+
+  it('maps a VC403 RPC error to Spanish copy', async () => {
+    rpcResult = { error: { code: 'VC403', message: 'permission denied for relation orders' } };
+    const showToast = vi.fn();
+
+    render(<MovementForm initialType="servicio" showToast={showToast} />);
+    await navigateToCatalogPaymentStep();
+    fireEvent.click(screen.getByText('Transferencia'));
+    fireEvent.click(screen.getByText('Crear pedido'));
+
+    await waitFor(() => expect(showToast).toHaveBeenCalled());
+    expect(showToast).toHaveBeenCalledWith('No tenés permisos para registrar este movimiento.', 'error');
+  });
+
+  it('falls back to a generic Spanish message for an unmapped error code', async () => {
+    rpcResult = { error: { code: 'XX999', message: 'some obscure internal pg error' } };
+    const showToast = vi.fn();
+
+    render(<MovementForm initialType="servicio" showToast={showToast} />);
+    await navigateToCatalogPaymentStep();
+    fireEvent.click(screen.getByText('Transferencia'));
+    fireEvent.click(screen.getByText('Crear pedido'));
+
+    await waitFor(() => expect(showToast).toHaveBeenCalled());
+    expect(showToast).toHaveBeenCalledWith('Ocurrió un error. Intentá de nuevo.', 'error');
+    expect(showToast).not.toHaveBeenCalledWith('some obscure internal pg error', 'error');
+  });
+
+  it('maps a raw-insert (gasto) VC400/RLS error to Spanish copy, not the raw message', async () => {
+    movementInsertError = { code: '42501', message: 'new row violates row-level security policy' };
+    const showToast = vi.fn();
+
+    render(<MovementForm initialType="gasto" showToast={showToast} />);
+    await waitFor(() => screen.getByText('Nuevo Gasto'));
+
+    fireEvent.change(screen.getByPlaceholderText('Descripción del gasto'), {
+      target: { value: 'Alquiler' },
+    });
+    fireEvent.change(screen.getByPlaceholderText('0'), { target: { value: '50000' } });
+    fireEvent.click(screen.getByText('Caja'));
+    fireEvent.click(screen.getByText('Registrar gasto'));
+
+    await waitFor(() => expect(showToast).toHaveBeenCalled());
+    expect(showToast).toHaveBeenCalledWith(
+      'No tenés permisos para registrar este movimiento.',
+      'error'
+    );
+    expect(showToast).not.toHaveBeenCalledWith(
+      'new row violates row-level security policy',
+      'error'
+    );
+
+    movementInsertError = null;
+  });
+});
+
+// ─── SW-O3: GuaraniesInput rollout — live thousands-separator formatting ───
+
+describe('MovementForm amount fields use GuaraniesInput (SW-O3 rollout)', () => {
+  beforeEach(() => {
+    contactFromCalls = 0;
+    contactDeferreds = [createDeferred(), createDeferred()];
+    mockUseBranch.mockReturnValue({
+      currentBranch: { id: 'branch-1', name: 'Centro' },
+      isLoading: false,
+    });
+  });
+
+  it('gasto amount field live-formats typed digits with thousands separators', async () => {
+    render(<MovementForm initialType="gasto" />);
+    await waitFor(() => screen.getByText('Nuevo Gasto'));
+
+    const amountInput = screen.getByPlaceholderText('0') as HTMLInputElement;
+    fireEvent.change(amountInput, { target: { value: '50000' } });
+
+    expect(amountInput.value).toBe('50.000');
+  });
+
+  it('apertura amount field live-formats typed digits with thousands separators', async () => {
+    render(<MovementForm initialType="apertura" />);
+    await waitFor(() => screen.getByText('Apertura de Caja'));
+
+    const amountInput = screen.getByPlaceholderText('0') as HTMLInputElement;
+    fireEvent.change(amountInput, { target: { value: '1200000' } });
+
+    expect(amountInput.value).toBe('1.200.000');
   });
 });
