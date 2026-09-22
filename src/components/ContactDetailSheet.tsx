@@ -15,9 +15,13 @@ interface ContactDetailSheetProps {
 }
 
 export function ContactDetailSheet({ contactId, open, onOpenChange, onEdit }: ContactDetailSheetProps) {
-  const [contact, setContact]     = useState<Contact | null>(null);
-  const [movements, setMovements] = useState<MovementWithDetails[]>([]);
-  const [loading, setLoading]     = useState(true);
+  const [contact, setContact]           = useState<Contact | null>(null);
+  const [movements, setMovements]       = useState<MovementWithDetails[]>([]);
+  // Full (uncapped) set of the contact's movements, used only to compute the
+  // "Visitas" / "Total" stats — the recent-movements LIST above stays capped
+  // at 5 for the panel's UX, but the stats must reflect every movement (C-1).
+  const [allMovements, setAllMovements] = useState<{ amount_charged: number | null }[]>([]);
+  const [loading, setLoading]           = useState(true);
 
   useEffect(() => {
     if (!open) return;
@@ -31,14 +35,19 @@ export function ContactDetailSheet({ contactId, open, onOpenChange, onEdit }: Co
         .eq('contact_id', contactId)
         .order('created_at', { ascending: false })
         .limit(5),
-    ]).then(([contactRes, movRes]) => {
+      supabase.from('movements')
+        .select('amount_charged')
+        .eq('contact_id', contactId),
+    ]).then(([contactRes, movRes, allMovRes]) => {
       setContact(contactRes.data ?? null);
       setMovements((movRes.data ?? []) as unknown as MovementWithDetails[]);
+      setAllMovements((allMovRes.data ?? []) as { amount_charged: number | null }[]);
       setLoading(false);
     });
   }, [open, contactId]);
 
-  const totalSpent = movements.reduce((sum, m) => sum + (m.amount_charged ?? 0), 0);
+  const totalSpent = allMovements.reduce((sum, m) => sum + (m.amount_charged ?? 0), 0);
+  const visitCount = allMovements.length;
   const { lastVisit } = getContactVisitAggregate(movements);
 
   return (
@@ -74,7 +83,7 @@ export function ContactDetailSheet({ contactId, open, onOpenChange, onEdit }: Co
           {/* Stats */}
           <section className="cds-section cds-stats">
             <div className="cds-stat">
-              <span className="cds-stat-value">{movements.length}</span>
+              <span className="cds-stat-value">{visitCount}</span>
               <span className="cds-stat-label">Visitas</span>
             </div>
             <div className="cds-stat">

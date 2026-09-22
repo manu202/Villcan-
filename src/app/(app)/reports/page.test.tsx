@@ -12,52 +12,58 @@ vi.mock('@/contexts/SettingsContext', () => ({
   useSettings: () => mockUseSettings(),
 }));
 
-// serviceData total income (serviciosAmount) = 100000
-// gastoData total expense (gastosTotal) = 30000
-// Expected: balanceNeto = serviciosAmount - gastosTotal = 70000
-function createQueryMockForData(data: unknown[]) {
-  const mock: Record<string, unknown> = {};
-  const chainable = () => mock;
-  mock.select = chainable;
-  mock.eq = chainable;
-  mock.gte = chainable;
-  mock.lt = chainable;
-  mock.then = (onFulfilled: (v: unknown) => unknown) =>
-    Promise.resolve({ data, error: null }).then(onFulfilled);
-  return mock;
-}
-
-let movementsFromCalls = 0;
+// Movement rows per type, settable per test. `servicio` covers BOTH the
+// main period query and the prevPeriod comparison query — the component
+// issues the main `servicio` query first, then (later) the prevPeriod one,
+// so the Nth call of a given type gets the Nth entry of that type's array
+// here (falls back to an empty result once exhausted).
+type MovementsByType = Record<string, unknown[][]>;
+let movementsByType: MovementsByType = {};
+let callCountByType: Record<string, number> = {};
 
 vi.mock('@/lib/supabase/client', () => ({
   createClient: () => ({
     from: () => {
-      // Reports page issues 2 main queries: serviceQuery (index 0), gastoQuery
-      // (index 1). methodData reuses serviceData — no separate query. A 3rd call
-      // (index 2+) is the prevPeriod comparison query — return empty data for it.
-      const callIndex = movementsFromCalls;
-      movementsFromCalls++;
-      if (callIndex === 0) {
-        // serviceQuery -> serviciosAmount = 100000
-        return createQueryMockForData([
-          { amount_charged: 100000, income: 100000, expense: 0, payment_method: 'efectivo', created_at: new Date().toISOString(), branch_id: 'branch-1', service: { name: 'Corte' } },
-        ]);
-      }
-      if (callIndex === 1) {
-        // gastoQuery -> gastosTotal = 30000 => balanceNeto = 100000 - 30000 = 70000
-        return createQueryMockForData([
-          { expense: 30000, income: 0, comment: 'Alquiler' },
-        ]);
-      }
-      // prevPeriod comparison query (always fires for 'today'/'week'/'month' views)
-      return createQueryMockForData([]);
+      // `type` is set via the first `.eq('type', X)` call the component
+      // makes on this builder — every query on this page filters by type
+      // before anything else, so we can build the mock lazily per builder.
+      const builder: Record<string, unknown> = {};
+      let resolvedType: string | null = null;
+      const chainable = () => builder;
+      builder.select = chainable;
+      builder.eq = (field: string, value: unknown) => {
+        if (field === 'type') resolvedType = value as string;
+        return builder;
+      };
+      builder.gte = chainable;
+      builder.lt = chainable;
+      builder.then = (onFulfilled: (v: unknown) => unknown) => {
+        const type = resolvedType || 'servicio';
+        const callsSoFar = callCountByType[type] || 0;
+        const dataForType = movementsByType[type] || [];
+        const data = dataForType[callsSoFar] ?? [];
+        callCountByType[type] = callsSoFar + 1;
+        return Promise.resolve({ data, error: null }).then(onFulfilled);
+      };
+      return builder;
     },
   }),
 }));
 
-describe('ReportsPage balanceNeto computation (locks existing correct behavior)', () => {
+describe('ReportsPage balanceNeto computation (uses the shared computeCashBalance, M-3)', () => {
   beforeEach(() => {
-    movementsFromCalls = 0;
+    callCountByType = {};
+    movementsByType = {
+      // main servicio query (1st call) = 100000 efectivo; prevPeriod query
+      // (2nd call of type servicio) = empty
+      servicio: [
+        [{ amount_charged: 100000, income: 100000, expense: 0, payment_method: 'efectivo', created_at: new Date().toISOString(), branch_id: 'branch-1', service: { name: 'Corte' } }],
+        [],
+      ],
+      gasto: [[{ expense: 30000, income: 0, comment: 'Alquiler' }]],
+      apertura: [[]],
+      cierre: [[]],
+    };
     mockUseBranch.mockReturnValue({
       currentBranch: { id: 'branch-1', name: 'Centro', vertical: 'barbershop' },
       branches: [],
@@ -66,18 +72,57 @@ describe('ReportsPage balanceNeto computation (locks existing correct behavior)'
     mockUseSettings.mockReturnValue({ settings: { staff_label: 'Barbero', services_label: 'Servicios' } });
   });
 
-  it('computes balanceNeto = serviciosAmount - gastosTotal (100000 - 30000 = 70000)', async () => {
+  it('computes balanceNeto = global cash balance (100000 - 30000 = 70000) when there is no apertura/cierre/bank-split', async () => {
     render(<ReportsPage />);
 
     await waitFor(() => screen.getByText('₲ 70.000'));
 
     expect(screen.getByText('₲ 70.000')).toBeTruthy();
   });
+
+  it('M-3 regression: apertura, cierre and a bank-tagged gasto change the correct answer away from the old serviciosAmount - gastosTotal formula', async () => {
+    // Old (wrong) formula would have shown: serviciosAmount(100000) -
+    // gastosTotal(30000 + 20000 bank-tagged) = 50000 — ignoring apertura and
+    // cierre entirely. The correct answer, per computeCashBalance:
+    //   efectivo = apertura(200000) + servicioEfectivo(100000)
+    //              - cashGasto(30000) - cierre(50000) = 220000
+    //   global   = efectivo(220000) + transferencia(0) + pos(0)
+    //              - bankGasto(20000) = 200000
+    movementsByType = {
+      servicio: [
+        [{ amount_charged: 100000, income: 100000, expense: 0, payment_method: 'efectivo', created_at: new Date().toISOString(), branch_id: 'branch-1', service: { name: 'Corte' } }],
+        [],
+      ],
+      gasto: [[
+        { expense: 30000, income: 0, comment: 'Insumos' },
+        { expense: 20000, income: 0, comment: 'Alquiler [Cta Bancaria]' },
+      ]],
+      apertura: [[{ income: 200000 }]],
+      cierre: [[{ expense: 50000 }]],
+    };
+
+    render(<ReportsPage />);
+
+    await waitFor(() => screen.getByText('₲ 200.000'));
+
+    expect(screen.getByText('₲ 200.000')).toBeTruthy();
+    // the old, wrong 50000 must NOT be what's displayed
+    expect(screen.queryByText('₲ 50.000')).toBeNull();
+  });
 });
 
 describe('ReportsPage liquidación link uses configurable staff_label (generalize-verticals)', () => {
   beforeEach(() => {
-    movementsFromCalls = 0;
+    callCountByType = {};
+    movementsByType = {
+      servicio: [
+        [{ amount_charged: 100000, income: 100000, expense: 0, payment_method: 'efectivo', created_at: new Date().toISOString(), branch_id: 'branch-1', service: { name: 'Corte' } }],
+        [],
+      ],
+      gasto: [[{ expense: 30000, income: 0, comment: 'Alquiler' }]],
+      apertura: [[]],
+      cierre: [[]],
+    };
     mockUseBranch.mockReturnValue({
       currentBranch: { id: 'branch-1', name: 'Centro', vertical: 'barbershop' },
       branches: [],
@@ -108,7 +153,16 @@ describe('ReportsPage liquidación link uses configurable staff_label (generaliz
 
 describe('ReportsPage KPI/card labels use configurable services_label instead of hardcoded "Servicios"', () => {
   beforeEach(() => {
-    movementsFromCalls = 0;
+    callCountByType = {};
+    movementsByType = {
+      servicio: [
+        [{ amount_charged: 100000, income: 100000, expense: 0, payment_method: 'efectivo', created_at: new Date().toISOString(), branch_id: 'branch-1', service: { name: 'Corte' } }],
+        [],
+      ],
+      gasto: [[{ expense: 30000, income: 0, comment: 'Alquiler' }]],
+      apertura: [[]],
+      cierre: [[]],
+    };
     mockUseBranch.mockReturnValue({
       currentBranch: { id: 'branch-1', name: 'Centro', vertical: 'barbershop' },
       branches: [],

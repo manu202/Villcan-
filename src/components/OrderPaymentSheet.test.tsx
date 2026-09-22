@@ -21,34 +21,19 @@ vi.mock('@/lib/utils', () => ({
   formatGuaranies: (n: number) => `₲${n}`,
 }));
 
-let lastMovementInsert: Record<string, unknown> | null = null;
-let lastOrderUpdate: Record<string, unknown> | null = null;
+let lastRpcName: string | null = null;
+let lastRpcArgs: Record<string, unknown> | null = null;
+let rpcError: { message: string } | null = null;
 
 vi.mock('@/lib/supabase/client', () => ({
   createClient: () => ({
     auth: {
       getUser: () => Promise.resolve({ data: { user: { id: 'user-1' } } }),
     },
-    from: (table: string) => {
-      if (table === 'movements') {
-        return {
-          insert: (payload: Record<string, unknown>) => {
-            lastMovementInsert = payload;
-            return Promise.resolve({ error: null });
-          },
-        };
-      }
-      if (table === 'orders') {
-        return {
-          update: (payload: Record<string, unknown>) => ({
-            eq: (_col: string, _val: string) => {
-              lastOrderUpdate = payload;
-              return Promise.resolve({ error: null });
-            },
-          }),
-        };
-      }
-      return {};
+    rpc: (name: string, args: Record<string, unknown>) => {
+      lastRpcName = name;
+      lastRpcArgs = args;
+      return Promise.resolve({ error: rpcError, data: rpcError ? null : { order_id: 'order-1' } });
     },
   }),
 }));
@@ -81,8 +66,9 @@ const BASE_ITEMS: OrderItem[] = [
 
 describe('OrderPaymentSheet — efectivo (REQ-PAY-1)', () => {
   beforeEach(() => {
-    lastMovementInsert = null;
-    lastOrderUpdate = null;
+    lastRpcName = null;
+    lastRpcArgs = null;
+    rpcError = null;
   });
 
   it('renders total del pedido', () => {
@@ -155,7 +141,7 @@ describe('OrderPaymentSheet — efectivo (REQ-PAY-1)', () => {
     await waitFor(() => expect(screen.getByTestId('ops-vuelto').textContent).toBe('₲10000'));
   });
 
-  it('inserta movimiento con income/expense correctos y marca el pedido completed', async () => {
+  it('llama al RPC atómico complete_order_payment con el monto recibido', async () => {
     const onCompleted = vi.fn();
     render(
       <OrderPaymentSheet
@@ -168,20 +154,32 @@ describe('OrderPaymentSheet — efectivo (REQ-PAY-1)', () => {
     );
     fireEvent.change(screen.getByPlaceholderText('Monto recibido'), { target: { value: '60000' } });
     fireEvent.click(screen.getByRole('button', { name: /confirmar/i }));
-    await waitFor(() => expect(lastMovementInsert).not.toBeNull());
-    expect(lastMovementInsert).toMatchObject({
-      type: 'servicio',
-      amount_charged: 50000,
-      income: 50000,
-      expense: 10000,
-      payment_method: 'efectivo',
-      order_id: 'order-1',
-      contact_id: 'contact-1',
-      branch_id: 'branch-1',
-      user_id: 'user-1',
+    await waitFor(() => expect(lastRpcName).toBe('complete_order_payment'));
+    expect(lastRpcArgs).toMatchObject({
+      p_order_id: 'order-1',
+      p_amount_received: 60000,
     });
-    expect(lastOrderUpdate).toMatchObject({ status: 'completed' });
     await waitFor(() => expect(onCompleted).toHaveBeenCalled());
+  });
+
+  it('muestra un error y no llama onCompleted si el RPC falla (p.ej. pedido ya completado)', async () => {
+    rpcError = { message: 'El pedido ya esta completado o cancelado' };
+    const onCompleted = vi.fn();
+    render(
+      <OrderPaymentSheet
+        order={BASE_ORDER}
+        items={BASE_ITEMS}
+        open={true}
+        onOpenChange={vi.fn()}
+        onCompleted={onCompleted}
+      />
+    );
+    fireEvent.change(screen.getByPlaceholderText('Monto recibido'), { target: { value: '60000' } });
+    fireEvent.click(screen.getByRole('button', { name: /confirmar/i }));
+    await waitFor(() =>
+      expect(screen.getByTestId('ops-error').textContent).toBe('El pedido ya esta completado o cancelado')
+    );
+    expect(onCompleted).not.toHaveBeenCalled();
   });
 });
 
@@ -191,8 +189,9 @@ describe('OrderPaymentSheet — transferencia (REQ-PAY-2)', () => {
   const ORDER_TRANSFERENCIA: Order = { ...BASE_ORDER, payment_method: 'transferencia' };
 
   beforeEach(() => {
-    lastMovementInsert = null;
-    lastOrderUpdate = null;
+    lastRpcName = null;
+    lastRpcArgs = null;
+    rpcError = null;
   });
 
   it('NO muestra input de monto recibido', () => {
@@ -221,7 +220,7 @@ describe('OrderPaymentSheet — transferencia (REQ-PAY-2)', () => {
     expect((screen.getByRole('button', { name: /confirmar/i }) as HTMLButtonElement).disabled).toBe(false);
   });
 
-  it('inserta movimiento con income=total, expense=0 y llama onCompleted', async () => {
+  it('llama al RPC atómico con p_amount_received=null (no efectivo) y llama onCompleted', async () => {
     const onCompleted = vi.fn();
     render(
       <OrderPaymentSheet
@@ -233,16 +232,11 @@ describe('OrderPaymentSheet — transferencia (REQ-PAY-2)', () => {
       />
     );
     fireEvent.click(screen.getByRole('button', { name: /confirmar/i }));
-    await waitFor(() => expect(lastMovementInsert).not.toBeNull());
-    expect(lastMovementInsert).toMatchObject({
-      type: 'servicio',
-      amount_charged: 50000,
-      income: 50000,
-      expense: 0,
-      payment_method: 'transferencia',
-      order_id: 'order-1',
+    await waitFor(() => expect(lastRpcName).toBe('complete_order_payment'));
+    expect(lastRpcArgs).toMatchObject({
+      p_order_id: 'order-1',
+      p_amount_received: null,
     });
-    expect(lastOrderUpdate).toMatchObject({ status: 'completed' });
     await waitFor(() => expect(onCompleted).toHaveBeenCalled());
   });
 });

@@ -109,27 +109,18 @@ export default function BranchesPage() {
         loadStorefrontData();
       }
     } else {
-      // Client-generated id to avoid RLS read-back issue on insert
-      const newBranchId = crypto.randomUUID();
-      const { error } = await supabase
-        .from('branches')
-        .insert({
-          id: newBranchId,
-          name: formData.name,
-          address: formData.address,
-          vertical: formData.vertical,
-          whatsapp_number: normalizeWhatsAppNumber(formData.whatsapp),
-        });
+      // Atomic bootstrap: creates the branch and the first admin
+      // user_branch_access row server-side (SECURITY DEFINER RPC), so the
+      // client never needs (and no longer has) a direct branch INSERT policy.
+      const { error } = await supabase.rpc('create_branch_with_admin', {
+        p_name: formData.name,
+        p_address: formData.address,
+        p_vertical: formData.vertical,
+        p_whatsapp: normalizeWhatsAppNumber(formData.whatsapp),
+      });
 
       if (error) showToast(error.message, 'error');
       else {
-        const { data: userData } = await supabase.auth.getUser();
-        if (userData.user) {
-          const { error: accessError } = await supabase
-            .from('user_branch_access')
-            .insert({ user_id: userData.user.id, branch_id: newBranchId, role: 'admin' });
-          if (accessError) showToast(accessError.message, 'error');
-        }
         showToast('Sucursal creada', 'success');
         setShowForm(false);
         setFormData({ name: '', address: '', vertical: 'generic', whatsapp: '' });

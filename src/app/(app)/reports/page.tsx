@@ -7,6 +7,7 @@ import { createClient } from '@/lib/supabase/client';
 import { useBranch } from '@/contexts/BranchContext';
 import { useSettings } from '@/contexts/SettingsContext';
 import { getDateRange, type ViewType } from '@/lib/dateRange';
+import { computeCashBalance, type CashBalanceMovement } from '@/lib/cashBalance';
 
 interface ServiceSummary {
   name: string;
@@ -151,6 +152,38 @@ export default function ReportsPage() {
 
       if (cancelled) return;
 
+      // apertura/cierre are needed for balanceNeto (via computeCashBalance)
+      // even though no other card on this page displays them directly.
+      let aperturaQuery = supabase
+        .from('movements')
+        .select('income')
+        .eq('type', 'apertura')
+        .gte('created_at', start)
+        .lt('created_at', end);
+
+      if (branchFilter) {
+        aperturaQuery = aperturaQuery.eq('branch_id', branchFilter);
+      }
+
+      const { data: aperturaData } = await aperturaQuery;
+
+      if (cancelled) return;
+
+      let cierreQuery = supabase
+        .from('movements')
+        .select('expense')
+        .eq('type', 'cierre')
+        .gte('created_at', start)
+        .lt('created_at', end);
+
+      if (branchFilter) {
+        cierreQuery = cierreQuery.eq('branch_id', branchFilter);
+      }
+
+      const { data: cierreData } = await cierreQuery;
+
+      if (cancelled) return;
+
       const serviceAgg: Record<string, { count: number; total: number }> = {};
       let serviciosCount = 0;
       let serviciosAmount = 0;
@@ -222,7 +255,43 @@ export default function ReportsPage() {
 
       if (cancelled) return;
 
-      const balanceNeto = serviciosAmount - gastosTotal;
+      // Balance Neto = money in any form, net of ALL expenses (see
+      // computeCashBalance's `global`, src/lib/cashBalance.ts) — apertura,
+      // the cash-vs-bank split on gastos, and cierre withdrawals all matter
+      // here; the old `serviciosAmount - gastosTotal` formula ignored all
+      // three, which is why this page could disagree with the dashboard
+      // and the arqueo/ClosingForm balance for the same period (M-3).
+      const cashMovements: CashBalanceMovement[] = [
+        ...(serviceData || []).map((m): CashBalanceMovement => ({
+          type: 'servicio',
+          income: m.income || 0,
+          expense: 0,
+          payment_method: m.payment_method,
+          comment: null,
+        })),
+        ...(gastoData || []).map((m): CashBalanceMovement => ({
+          type: 'gasto',
+          income: 0,
+          expense: m.expense || 0,
+          payment_method: null,
+          comment: m.comment,
+        })),
+        ...(aperturaData || []).map((m): CashBalanceMovement => ({
+          type: 'apertura',
+          income: m.income || 0,
+          expense: 0,
+          payment_method: null,
+          comment: null,
+        })),
+        ...(cierreData || []).map((m): CashBalanceMovement => ({
+          type: 'cierre',
+          income: 0,
+          expense: m.expense || 0,
+          payment_method: null,
+          comment: null,
+        })),
+      ];
+      const balanceNeto = computeCashBalance(cashMovements).global;
 
       // Fetch previous period for comparison (skip for custom/all views)
       const prevRange = getPrevDateRange(viewRef.current);
