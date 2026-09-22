@@ -56,7 +56,7 @@ describe('ModulesPage /settings/modules (REQ-SETTINGSREORG-4)', () => {
 
     render(<ModulesPage />);
 
-    expect(screen.queryByRole('switch', { name: /pago dividido/i })).toBeNull();
+    expect(screen.queryByRole('switch', { name: /arqueo obligatorio/i })).toBeNull();
     expect(screen.getByText(/acceso restringido/i)).toBeTruthy();
   });
 
@@ -93,7 +93,7 @@ describe('ModulesPage /settings/modules (REQ-SETTINGSREORG-4)', () => {
     expect(screen.getByRole('switch', { name: /comisiones/i })).toBeTruthy();
   });
 
-  it('renders the four toggles as accessible switches reflecting their checked state', () => {
+  it('renders the two toggles as accessible switches reflecting their checked state', () => {
     mockUseBranch.mockReturnValue({
       branches: [{ id: 'b1', user_role: 'admin' }],
       currentBranch: { id: 'b1', user_role: 'admin', vertical: 'barbershop' },
@@ -102,9 +102,7 @@ describe('ModulesPage /settings/modules (REQ-SETTINGSREORG-4)', () => {
       settings: {
         ...DEFAULT_BUSINESS_SETTINGS,
         commissions_enabled: true,
-        split_payment_enabled: false,
         mandatory_arqueo_enabled: true,
-        inventory_enabled: false,
       },
       isLoading: false,
       initialized: true,
@@ -117,14 +115,8 @@ describe('ModulesPage /settings/modules (REQ-SETTINGSREORG-4)', () => {
       'true'
     );
     expect(
-      screen.getByRole('switch', { name: /pago dividido/i }).getAttribute('aria-checked')
-    ).toBe('false');
-    expect(
       screen.getByRole('switch', { name: /arqueo obligatorio/i }).getAttribute('aria-checked')
     ).toBe('true');
-    expect(screen.getByRole('switch', { name: /inventario/i }).getAttribute('aria-checked')).toBe(
-      'false'
-    );
   });
 
   it('renders a one-line explanatory hint under each toggle', () => {
@@ -136,9 +128,7 @@ describe('ModulesPage /settings/modules (REQ-SETTINGSREORG-4)', () => {
     render(<ModulesPage />);
 
     expect(screen.getByText(/comisión en cada servicio/i)).toBeTruthy();
-    expect(screen.getByText(/combinando más de un método de pago/i)).toBeTruthy();
     expect(screen.getByText(/cerrar caja \(arqueo\)/i)).toBeTruthy();
-    expect(screen.getByText(/control de stock/i)).toBeTruthy();
   });
 
   it('toggling a switch flips its aria-checked state', () => {
@@ -157,7 +147,7 @@ describe('ModulesPage /settings/modules (REQ-SETTINGSREORG-4)', () => {
     expect(commissionsSwitch.getAttribute('aria-checked')).toBe('true');
   });
 
-  it('saving calls business_settings.update(...).eq(id, 1) with the four toggle fields, then refreshSettings()', async () => {
+  it('saving calls business_settings.update(...).eq(id, 1) with the toggle fields, then refreshSettings()', async () => {
     mockUseBranch.mockReturnValue({
       branches: [{ id: 'b1', user_role: 'admin' }],
       currentBranch: { id: 'b1', user_role: 'admin', vertical: 'barbershop' },
@@ -172,9 +162,7 @@ describe('ModulesPage /settings/modules (REQ-SETTINGSREORG-4)', () => {
     expect(mockUpdate).toHaveBeenCalledWith(
       expect.objectContaining({
         commissions_enabled: DEFAULT_BUSINESS_SETTINGS.commissions_enabled,
-        split_payment_enabled: DEFAULT_BUSINESS_SETTINGS.split_payment_enabled,
         mandatory_arqueo_enabled: DEFAULT_BUSINESS_SETTINGS.mandatory_arqueo_enabled,
-        inventory_enabled: DEFAULT_BUSINESS_SETTINGS.inventory_enabled,
       })
     );
     const savedPayload = mockUpdate.mock.calls[0][0];

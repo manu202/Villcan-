@@ -55,11 +55,9 @@ function ModulesForm({
   const [defaultCommissionPct, setDefaultCommissionPct] = useState(
     String(settings.default_commission_pct)
   );
-  const [splitPaymentEnabled, setSplitPaymentEnabled] = useState(settings.split_payment_enabled);
   const [mandatoryArqueoEnabled, setMandatoryArqueoEnabled] = useState(
     settings.mandatory_arqueo_enabled
   );
-  const [inventoryEnabled, setInventoryEnabled] = useState(settings.inventory_enabled);
 
   const [submitting, setSubmitting] = useState(false);
   const { showToast } = useToast();
@@ -74,9 +72,7 @@ function ModulesForm({
       .update({
         commissions_enabled: commissionsEnabled,
         default_commission_pct: parseFloat(defaultCommissionPct) || 0,
-        split_payment_enabled: splitPaymentEnabled,
         mandatory_arqueo_enabled: mandatoryArqueoEnabled,
-        inventory_enabled: inventoryEnabled,
       })
       .eq('id', 1);
 
@@ -128,16 +124,6 @@ function ModulesForm({
         )}
 
         <div className="field field-toggle">
-          <span id="split_payment_enabled-label">Pago dividido</span>
-          <Toggle
-            checked={splitPaymentEnabled}
-            onChange={setSplitPaymentEnabled}
-            label="Pago dividido"
-          />
-        </div>
-        <p className="field-hint">Permite cobrar un movimiento combinando más de un método de pago.</p>
-
-        <div className="field field-toggle">
           <span id="mandatory_arqueo_enabled-label">Arqueo obligatorio</span>
           <Toggle
             checked={mandatoryArqueoEnabled}
@@ -146,16 +132,6 @@ function ModulesForm({
           />
         </div>
         <p className="field-hint">Exige cerrar caja (arqueo) antes de poder abrir una nueva.</p>
-
-        <div className="field field-toggle">
-          <span id="inventory_enabled-label">Inventario</span>
-          <Toggle
-            checked={inventoryEnabled}
-            onChange={setInventoryEnabled}
-            label="Inventario"
-          />
-        </div>
-        <p className="field-hint">Habilita el control de stock de productos y servicios.</p>
 
         <div className="actions">
           <button type="submit" className="submit-btn" disabled={submitting}>

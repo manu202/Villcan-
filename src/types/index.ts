@@ -260,9 +260,7 @@ export interface BusinessSettings {
   id: number;
   commissions_enabled: boolean;
   default_commission_pct: number;
-  split_payment_enabled: boolean;
   mandatory_arqueo_enabled: boolean;
-  inventory_enabled: boolean;
   services_label: string;
   staff_label: string;
   brand_color: string;
