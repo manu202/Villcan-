@@ -626,6 +626,124 @@ describe('RLS/RPC authorization (real Postgres, local stack)', () => {
     });
   });
 
+  // ===========================================================================
+  // SW-M1 — 'pos' is a valid orders.payment_method end to end (staff-facing
+  // paths only: create_manual_order, update_order, the orders table check
+  // constraint). Fixed in
+  // 20260922050000_pos_payment_method_and_closing_overlap_guard.sql.
+  // ===========================================================================
+  describe("SW-M1: 'pos' payment method is accepted for staff-created orders", () => {
+    it("positive: create_manual_order accepts payment_method='pos' and labels it correctly in the WhatsApp message", async () => {
+      const service = await seedService(branchX, 'Servicio POS');
+      const { data, error } = await userC.client.rpc('create_manual_order', {
+        p_branch_id: branchX,
+        p_customer_name: 'Cliente POS',
+        p_customer_phone: '+595981000008',
+        p_items: [{ service_id: service.id, qty: 1 }],
+        p_payment_method: 'pos',
+      });
+      expect(error).toBeNull();
+      expect(data?.whatsapp_message).toMatch(/\*Pago:\* POS/);
+
+      const { data: row } = await admin.from('orders').select('payment_method').eq('id', data.order_id).single();
+      expect(row?.payment_method).toBe('pos');
+    });
+
+    it('positive: update_order accepts payment_method=\'pos\'', async () => {
+      const service = await seedService(branchX, 'Servicio POS Edit');
+      const { data: created } = await userC.client.rpc('create_manual_order', {
+        p_branch_id: branchX,
+        p_customer_name: 'Cliente POS Edit',
+        p_customer_phone: '+595981000009',
+        p_items: [{ service_id: service.id, qty: 1 }],
+      });
+
+      const { error } = await userC.client.rpc('update_order', {
+        p_order_id: created?.order_id,
+        p_customer_name: 'Cliente POS Edit',
+        p_customer_phone: '+595981000009',
+        p_customer_email: null,
+        p_note: null,
+        p_payment_method: 'pos',
+        p_delivery_type: 'pickup',
+        p_delivery_address: null,
+        p_status: 'confirmed',
+        p_items: [{ service_id: service.id, qty: 1 }],
+      });
+      expect(error).toBeNull();
+
+      const { data: row } = await admin.from('orders').select('payment_method').eq('id', created?.order_id).single();
+      expect(row?.payment_method).toBe('pos');
+    });
+  });
+
+  // ===========================================================================
+  // SW-C2 — overlapping cash_closings for the same branch are rejected.
+  // ===========================================================================
+  describe('SW-C2: overlapping closings for the same branch are rejected', () => {
+    it('positive: a closing whose period starts after the branch\'s latest closing succeeds', async () => {
+      const first = await admin
+        .from('cash_closings')
+        .insert({
+          branch_id: branchY,
+          closed_by: userB.id,
+          period_start: new Date(Date.now() - 120_000).toISOString(),
+          closed_at: new Date(Date.now() - 60_000).toISOString(),
+          arqueo_enabled: false,
+        })
+        .select('id')
+        .single();
+      expect(first.error).toBeNull();
+
+      const { error } = await admin.from('cash_closings').insert({
+        branch_id: branchY,
+        closed_by: userB.id,
+        period_start: new Date(Date.now() - 30_000).toISOString(),
+        closed_at: new Date().toISOString(),
+        arqueo_enabled: false,
+      });
+      expect(error).toBeNull();
+    });
+
+    it('negative: a closing whose period starts before the branch\'s latest closing is rejected', async () => {
+      // Dedicated branch, not branchX/branchY — both already accumulate
+      // closings from earlier describe blocks in this suite (e.g. item 7's
+      // movements guard fixture), which would make "the branch's latest
+      // closing" unpredictable here.
+      const { data: branchZ, error: branchErr } = await admin
+        .from('branches')
+        .insert({ name: `RLS Test Branch Z ${RUN_ID}` })
+        .select('id')
+        .single();
+      expect(branchErr).toBeNull();
+      createdBranchIds.push(branchZ!.id);
+
+      const anchor = await admin
+        .from('cash_closings')
+        .insert({
+          branch_id: branchZ!.id,
+          closed_by: userA.id,
+          period_start: new Date(Date.now() - 60_000).toISOString(),
+          closed_at: new Date().toISOString(),
+          arqueo_enabled: false,
+        })
+        .select('id')
+        .single();
+      expect(anchor.error).toBeNull();
+
+      const { error } = await admin.from('cash_closings').insert({
+        branch_id: branchZ!.id,
+        closed_by: userA.id,
+        // Starts BEFORE the anchor closing already closed — overlap.
+        period_start: new Date(Date.now() - 90_000).toISOString(),
+        closed_at: new Date(Date.now() + 60_000).toISOString(),
+        arqueo_enabled: false,
+      });
+      expect(error).not.toBeNull();
+      expect(error?.message).toMatch(/superpone|VC409/i);
+    });
+  });
+
   async function seedService(branchId: string, name: string) {
     const { data, error } = await admin
       .from('services')
