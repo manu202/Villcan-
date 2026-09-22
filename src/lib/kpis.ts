@@ -1,4 +1,5 @@
 import type { MovementType, PaymentMethod } from '@/types';
+import { computeCashBalance } from '@/lib/cashBalance';
 
 /**
  * Minimal movement shape both KPI calculators need. Pure, no Supabase IO —
@@ -60,25 +61,15 @@ export function calcCashBoxKPIs(movements: KpiMovement[]): PeriodActivity {
  * Always-current running balance (not period-scoped by the Hoy/Semana/Mes
  * toggle — callers pass movements since the last cash_closing, or all-time).
  *
- * balanceEfectivo = apertura.income + servicio.income[efectivo]
- *                   - gasto.expense[comment NOT LIKE '%Cta Bancaria%'] - cierre.expense
- * balanceGlobal   = apertura.income + servicio.income[all methods]
- *                   - gasto.expense[ALL] - cierre.expense
+ * Delegates all math to the shared computeCashBalance (src/lib/cashBalance.ts,
+ * see its doc comment for the full invariant/reasoning) — this function only
+ * adapts its result shape to RunningBalance for existing callers.
  */
 export function calcRunningBalance(movements: KpiMovement[]): RunningBalance {
-  const aperturaIncome = sumIncome(movements.filter((m) => m.type === 'apertura'));
-  const servicios = movements.filter((m) => m.type === 'servicio');
-  const gastos = movements.filter((m) => m.type === 'gasto');
-  const cierreExpense = sumExpense(movements.filter((m) => m.type === 'cierre'));
-
-  const efectivoIncome = byMethod(servicios, 'efectivo');
-  const allServicioIncome = sumIncome(servicios);
-
-  const gastosNonBank = sumExpense(gastos.filter((m) => !m.comment?.includes('Cta Bancaria')));
-  const gastosAll = sumExpense(gastos);
+  const { efectivo, global } = computeCashBalance(movements);
 
   return {
-    balanceEfectivo: aperturaIncome + efectivoIncome - gastosNonBank - cierreExpense,
-    balanceGlobal: aperturaIncome + allServicioIncome - gastosAll - cierreExpense,
+    balanceEfectivo: efectivo,
+    balanceGlobal: global,
   };
 }

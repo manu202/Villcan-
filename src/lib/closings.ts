@@ -1,22 +1,17 @@
 import { createClient } from '@/lib/supabase/client';
-import type { ArqueoAmounts, CashClosing } from '@/types';
+import type { ArqueoAmounts, CashClosing, PaymentMethod } from '@/types';
 import { calcRunningBalance, type KpiMovement, type RunningBalance } from '@/lib/kpis';
+import { computeCashBalance, type CashBalanceMovement } from '@/lib/cashBalance';
 
 /**
  * Calculates the system's expected cash-box balance per payment method,
  * for a branch, since `periodStart` up to now.
  *
- * Mirrors src/app/page.tsx's balanceEfectivo/balanceGlobal logic (see
- * REQ-CAJA-9), but scoped to an arbitrary period instead of "today", and
- * documents a decision NOT present in page.tsx: `apertura` movements have
- * no payment_method but are physically cash, so they are added into the
- * efectivo total here.
- *
- * calculated_efectivo = sum(servicio.income where payment_method=efectivo)
- *                      + sum(apertura.income)
- *                      - sum(gasto.expense where comment NOT tagged [Cta Bancaria])
- *                      - sum(cierre.expense)
- * calculated_transferencia/pos = sum(servicio.income) for that method.
+ * Used by the arqueo/ClosingForm flow, scoped to an arbitrary period instead
+ * of "today". Fetches each movement type with its own narrow `select(...)`
+ * (unchanged below), then tags/adapts the rows into CashBalanceMovement[]
+ * and delegates the actual math to the shared computeCashBalance
+ * (src/lib/cashBalance.ts, see its doc comment for the full invariant).
  */
 export async function getCalculatedBalanceSince(
   branchId: string,
@@ -52,28 +47,43 @@ export async function getCalculatedBalanceSince(
     .eq('branch_id', branchId)
     .gte('created_at', periodStart);
 
-  const services = (serviceMovements || []) as { income: number; payment_method: string | null }[];
+  const services = (serviceMovements || []) as { income: number; payment_method: PaymentMethod | null }[];
   const aperturas = (aperturaMovements || []) as { income: number }[];
   const gastos = (expenseMovements || []) as { expense: number; comment: string | null }[];
   const cierres = (cierreMovements || []) as { expense: number }[];
 
-  const servicioEfectivo = services
-    .filter((m) => m.payment_method === 'efectivo')
-    .reduce((sum, m) => sum + (m.income || 0), 0);
-  const transferencia = services
-    .filter((m) => m.payment_method === 'transferencia')
-    .reduce((sum, m) => sum + (m.income || 0), 0);
-  const pos = services
-    .filter((m) => m.payment_method === 'pos')
-    .reduce((sum, m) => sum + (m.income || 0), 0);
+  const movements: CashBalanceMovement[] = [
+    ...aperturas.map((m) => ({
+      type: 'apertura' as const,
+      income: m.income || 0,
+      expense: 0,
+      payment_method: null,
+      comment: null,
+    })),
+    ...services.map((m) => ({
+      type: 'servicio' as const,
+      income: m.income || 0,
+      expense: 0,
+      payment_method: m.payment_method,
+      comment: null,
+    })),
+    ...gastos.map((m) => ({
+      type: 'gasto' as const,
+      income: 0,
+      expense: m.expense || 0,
+      payment_method: null,
+      comment: m.comment,
+    })),
+    ...cierres.map((m) => ({
+      type: 'cierre' as const,
+      income: 0,
+      expense: m.expense || 0,
+      payment_method: null,
+      comment: null,
+    })),
+  ];
 
-  const aperturaTotal = aperturas.reduce((sum, m) => sum + (m.income || 0), 0);
-  const gastosFromCaja = gastos
-    .filter((m) => !m.comment?.includes('Cta Bancaria'))
-    .reduce((sum, m) => sum + (m.expense || 0), 0);
-  const cierreTotal = cierres.reduce((sum, m) => sum + (m.expense || 0), 0);
-
-  const efectivo = servicioEfectivo + aperturaTotal - gastosFromCaja - cierreTotal;
+  const { efectivo, transferencia, pos } = computeCashBalance(movements);
 
   return { efectivo, transferencia, pos };
 }
@@ -102,10 +112,11 @@ export async function getLastClosing(branchId: string): Promise<CashClosing | nu
  * Balance Global), NOT scoped by any UI period toggle. Aggregates since the
  * last cash_closing's closed_at, or all-time if the branch has never closed.
  *
- * Unlike getCalculatedBalanceSince (used by arqueo/ClosingForm, which
- * intentionally excludes `cierre`), this DOES include `cierre` — it is the
- * dashboard's "how much is actually in the register right now" figure, and
- * a cierre (retiro) physically removes cash from the register.
+ * Same formula as getCalculatedBalanceSince (both delegate to
+ * computeCashBalance, src/lib/cashBalance.ts) — this only differs in WHICH
+ * boundary it uses: since the last cash_closing instead of an arbitrary
+ * `periodStart`. `cierre` movements always reduce the balance in both, since
+ * they are real physical cash withdrawals from the register.
  *
  * Delegates all math to calcRunningBalance (src/lib/kpis.ts) — this function
  * only fetches rows and picks the lower boundary.

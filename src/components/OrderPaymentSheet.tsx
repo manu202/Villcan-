@@ -17,6 +17,7 @@ interface OrderPaymentSheetProps {
 export function OrderPaymentSheet({ order, items, open, onOpenChange, onCompleted }: OrderPaymentSheetProps) {
   const [montoRecibido, setMontoRecibido] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   const isDelivery = order.delivery_type === 'delivery';
   const isEfectivo = order.payment_method === 'efectivo';
@@ -29,26 +30,23 @@ export function OrderPaymentSheet({ order, items, open, onOpenChange, onComplete
   const handleConfirm = async () => {
     if (!canConfirm || submitting) return;
     setSubmitting(true);
+    setErrorMsg(null);
 
     const supabase = createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-
-    await supabase.from('movements').insert({
-      type: 'servicio',
-      amount_charged: finalTotal,
-      income: finalTotal,
-      expense: isEfectivo ? monto - finalTotal : 0,
-      payment_method: order.payment_method,
-      contact_id: order.contact_id,
-      user_id: user?.id,
-      branch_id: order.branch_id,
-      comment: `Pedido ${order.order_code}`,
-      order_id: order.id,
+    // Atomic RPC (movement insert + order completion in one transaction,
+    // idempotent against double-completion) instead of two separate writes.
+    const { error } = await supabase.rpc('complete_order_payment', {
+      p_order_id: order.id,
+      p_amount_received: isEfectivo ? monto : null,
     });
 
-    await supabase.from('orders').update({ status: 'completed' }).eq('id', order.id);
-
     setSubmitting(false);
+
+    if (error) {
+      setErrorMsg(error.message);
+      return;
+    }
+
     onCompleted();
   };
 
@@ -122,6 +120,12 @@ export function OrderPaymentSheet({ order, items, open, onOpenChange, onComplete
             <p className="ops-transfer-text">
               Confirmá que el pago por {order.payment_method === 'transferencia' ? 'transferencia' : 'POS'} fue recibido.
             </p>
+          </div>
+        )}
+
+        {errorMsg && (
+          <div className="ops-error" data-testid="ops-error">
+            {errorMsg}
           </div>
         )}
       </div>
@@ -235,6 +239,15 @@ export function OrderPaymentSheet({ order, items, open, onOpenChange, onComplete
           font-size: 14px;
           color: var(--text-secondary);
           line-height: 1.5;
+        }
+
+        .ops-error {
+          padding: 12px 14px;
+          background: var(--surface-elevated);
+          border: 1px solid var(--danger, #dc2626);
+          border-radius: 10px;
+          color: var(--danger, #dc2626);
+          font-size: 13px;
         }
 
         .ops-confirm-btn {

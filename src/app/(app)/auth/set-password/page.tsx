@@ -13,8 +13,28 @@ export default function SetPasswordPage() {
   const [confirm, setConfirm] = useState('');
   const [fieldError, setFieldError] = useState('');
   const [serverError, setServerError] = useState('');
+  // Both invite and password-recovery links land here with an access_token in
+  // the hash; the hash's `type` param ("invite" vs "recovery") tells us which
+  // one it was, so we can show slightly different copy without branching any
+  // actual auth logic.
+  const [linkType, setLinkType] = useState<'invite' | 'recovery'>('invite');
 
   useEffect(() => {
+    // An expired or already-used invite/recovery link redirects back here with
+    // an error encoded in the URL hash (e.g. #error=access_denied&error_code=
+    // otp_expired&error_description=...) instead of an access_token. In that
+    // case createBrowserClient never fires SIGNED_IN, so we must detect it
+    // ourselves — otherwise the UI is stuck on "Verificando invitación..."
+    // forever (A-5).
+    const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ''));
+    if (hashParams.get('error') || hashParams.get('error_code')) {
+      setUiState('error');
+      return;
+    }
+    if (hashParams.get('type') === 'recovery') {
+      setLinkType('recovery');
+    }
+
     const supabase = createClient();
 
     // createBrowserClient automatically detects the #access_token in the hash
@@ -71,7 +91,11 @@ export default function SetPasswordPage() {
         <header className="sp-header">
           <h1 className="sp-title">VILLCAN</h1>
           <p className="sp-subtitle">
-            {uiState === 'loading' ? 'Verificando invitación...' : 'Creá tu contraseña'}
+            {uiState === 'loading'
+              ? 'Verificando invitación...'
+              : linkType === 'recovery'
+                ? 'Restablecé tu contraseña'
+                : 'Creá tu contraseña'}
           </p>
         </header>
 
@@ -119,7 +143,11 @@ export default function SetPasswordPage() {
               disabled={uiState === 'saving'}
               className="btn-primary btn-full"
             >
-              {uiState === 'saving' ? 'Guardando...' : 'Activar cuenta'}
+              {uiState === 'saving'
+                ? 'Guardando...'
+                : linkType === 'recovery'
+                  ? 'Guardar contraseña'
+                  : 'Activar cuenta'}
             </button>
           </form>
         )}

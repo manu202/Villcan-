@@ -12,8 +12,9 @@ vi.mock('@/lib/contactAggregates', () => ({
   getContactVisitAggregate: () => ({ lastVisit: '2026-09-06T10:00:00Z', isFrequent: false }),
 }));
 
-const mockContactSingle   = vi.fn();
-const mockMovementsResult = vi.fn();
+const mockContactSingle      = vi.fn();
+const mockMovementsResult    = vi.fn();
+const mockAllMovementsResult = vi.fn();
 
 vi.mock('@/lib/supabase/client', () => ({
   createClient: () => ({
@@ -23,13 +24,20 @@ vi.mock('@/lib/supabase/client', () => ({
       }
       if (table === 'movements') {
         return {
-          select: () => ({
-            eq: () => ({
-              order: () => ({
-                limit: mockMovementsResult,
-              }),
-            }),
-          }),
+          // Capped "recent movements" list query: select(...).eq().order().limit()
+          // Full-aggregate query (no join, no limit): select('amount_charged').eq()
+          select: (cols: string) => {
+            if (typeof cols === 'string' && cols.includes('service')) {
+              return {
+                eq: () => ({
+                  order: () => ({
+                    limit: mockMovementsResult,
+                  }),
+                }),
+              };
+            }
+            return { eq: mockAllMovementsResult };
+          },
         };
       }
       return {};
@@ -55,6 +63,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   mockContactSingle.mockResolvedValue({ data: BASE_CONTACT, error: null });
   mockMovementsResult.mockResolvedValue({ data: MOVEMENTS, error: null });
+  mockAllMovementsResult.mockResolvedValue({ data: MOVEMENTS, error: null });
 });
 
 describe('ContactDetailSheet — carga', () => {
@@ -103,6 +112,35 @@ describe('ContactDetailSheet — stats', () => {
       <ContactDetailSheet contactId="c1" open={true} onOpenChange={vi.fn()} onEdit={vi.fn()} />
     );
     await waitFor(() => expect(screen.getByText('₲ 80000')).toBeTruthy());
+  });
+
+  it('calcula visitas y total gastado sobre TODOS los movimientos, no solo los últimos 5 mostrados (C-1)', async () => {
+    // Recent-movements list stays capped at 5 (legit UX choice for the panel)...
+    const CAPPED_LIST = [
+      { id: 'm1', type: 'servicio', amount_charged: 50000, income: 50000, expense: 0, created_at: '2026-09-07T10:00:00Z', service: { name: 'Corte' } },
+      { id: 'm2', type: 'servicio', amount_charged: 30000, income: 30000, expense: 0, created_at: '2026-09-06T10:00:00Z', service: { name: 'Barba' } },
+      { id: 'm3', type: 'servicio', amount_charged: 20000, income: 20000, expense: 0, created_at: '2026-09-05T10:00:00Z', service: { name: 'Corte' } },
+      { id: 'm4', type: 'servicio', amount_charged: 20000, income: 20000, expense: 0, created_at: '2026-09-04T10:00:00Z', service: { name: 'Corte' } },
+      { id: 'm5', type: 'servicio', amount_charged: 20000, income: 20000, expense: 0, created_at: '2026-09-03T10:00:00Z', service: { name: 'Corte' } },
+    ];
+    // ...but the contact actually has 7 movements in total (2 older than the capped list).
+    const FULL_SET = [
+      ...CAPPED_LIST,
+      { id: 'm6', type: 'servicio', amount_charged: 20000, income: 20000, expense: 0, created_at: '2026-09-02T10:00:00Z' },
+      { id: 'm7', type: 'servicio', amount_charged: 20000, income: 20000, expense: 0, created_at: '2026-09-01T10:00:00Z' },
+    ];
+
+    mockMovementsResult.mockResolvedValue({ data: CAPPED_LIST, error: null });
+    mockAllMovementsResult.mockResolvedValue({ data: FULL_SET, error: null });
+
+    render(
+      <ContactDetailSheet contactId="c1" open={true} onOpenChange={vi.fn()} onEdit={vi.fn()} />
+    );
+
+    // Full total: 50000 + 30000 + 20000*5 = 180000 (NOT 140000, the capped-list total).
+    await waitFor(() => expect(screen.getByText('₲ 180000')).toBeTruthy());
+    // Full visit count: 7 (NOT 5, the capped-list length).
+    await waitFor(() => expect(screen.getByText('7')).toBeTruthy());
   });
 });
 

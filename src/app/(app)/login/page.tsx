@@ -77,6 +77,7 @@ export default function LoginPage() {
         </form>
 
         <div className="login-footer">
+          <Link href="/auth/forgot-password" className="back-link">¿Olvidaste tu contraseña?</Link>
           <Link href="/" className="back-link">← Volver al inicio</Link>
         </div>
       </div>
@@ -152,7 +153,10 @@ export default function LoginPage() {
 
         .login-footer {
           margin-top: 24px;
-          text-align: center;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 12px;
         }
 
         .back-link {
