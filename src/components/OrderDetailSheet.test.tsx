@@ -197,6 +197,30 @@ describe('OrderDetailSheet (REQ: quick order detail panel)', () => {
     );
   });
 
+  // RDD follow-up (R3-orderdetail-refetch-nullnull-gap, 2026-09-22): the
+  // fix above only checked `error`, leaving data:null/error:null (e.g. zero
+  // matching rows with no driver error) silently unhandled too.
+  it('si el refetch post-pago no devuelve fila ni error, también avisa por toast', async () => {
+    mockRpc.mockResolvedValue({ data: { order_id: 'order-1' }, error: null });
+    mockRefetchResult = { data: null, error: null };
+
+    render(<OrderDetailSheet orderId="order-1" onClose={vi.fn()} />);
+    await waitFor(() => expect(screen.getByText('Juan Pérez')).toBeTruthy());
+
+    fireEvent.change(screen.getByLabelText('Estado del pedido'), { target: { value: 'completed' } });
+    await waitFor(() => expect(screen.getByText('Confirmar pago')).toBeTruthy());
+
+    fireEvent.change(screen.getByPlaceholderText('Monto recibido'), { target: { value: '40000' } });
+    fireEvent.click(screen.getByRole('button', { name: /confirmar/i }));
+
+    await waitFor(() =>
+      expect(mockShowToast).toHaveBeenCalledWith(
+        'El pago se registró, pero no se pudo actualizar la vista. Recargá la página.',
+        'error'
+      )
+    );
+  });
+
   it('"Notificar cliente" abre un link de wa.me', async () => {
     render(<OrderDetailSheet orderId="order-1" onClose={vi.fn()} />);
     await waitFor(() => expect(screen.getByText('Juan Pérez')).toBeTruthy());

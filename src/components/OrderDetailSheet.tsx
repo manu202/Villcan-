@@ -93,7 +93,7 @@ export function OrderDetailSheet({ orderId, onClose }: OrderDetailSheetProps) {
     setPaymentSheetOpen(false);
     if (!orderId) return;
     const supabase = createClient();
-    const { data, error } = await supabase
+    const { data } = await supabase
       .from('orders')
       .select('*, order_items(*)')
       .eq('id', orderId)
@@ -104,7 +104,11 @@ export function OrderDetailSheet({ orderId, onClose }: OrderDetailSheetProps) {
     // silently keep showing the stale pre-completion status.
     if (data) {
       setOrder(data as OrderWithItems);
-    } else if (error) {
+    } else {
+      // Covers both an explicit error AND the case where .single() resolves
+      // with neither data nor error (e.g. zero matching rows with no
+      // driver-level error) — either way, the sheet must not silently keep
+      // showing the stale pre-completion status.
       showToast('El pago se registró, pero no se pudo actualizar la vista. Recargá la página.', 'error');
     }
   };
