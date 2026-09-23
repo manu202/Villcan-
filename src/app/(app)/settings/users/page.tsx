@@ -2,12 +2,16 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import Link from 'next/link';
-import { createClient } from '@/lib/supabase/client';
 import { useBranch } from '@/contexts/BranchContext';
 import { useSettings } from '@/contexts/SettingsContext';
 import { useToast } from '@/contexts/ToastContext';
 import { ConfirmModal } from '@/components/ConfirmModal';
 import { isLastAdmin } from '@/lib/access';
+import {
+  listBranchAccessWithProfiles,
+  updateBranchAccessRole,
+  deleteBranchAccess,
+} from '@/lib/data/settings-users';
 import type { UserBranchAccess } from '@/types';
 
 type AccessRole = UserBranchAccess['role'];
@@ -59,11 +63,7 @@ export default function UsersPage() {
       return;
     }
     setLoading(true);
-    const supabase = createClient();
-    const { data, error: loadError } = await supabase
-      .from('user_branch_access')
-      .select('user_id, role, profiles(email, full_name)')
-      .eq('branch_id', currentBranch.id);
+    const { data, error: loadError } = await listBranchAccessWithProfiles(currentBranch.id);
 
     if (loadError) {
       showToast(loadError.message, 'error');
@@ -128,12 +128,11 @@ export default function UsersPage() {
 
   const handleRoleChange = async (row: AccessRow, role: AccessRole) => {
     if (!currentBranch) return;
-    const supabase = createClient();
-    const { error: updateError } = await supabase
-      .from('user_branch_access')
-      .update({ role })
-      .eq('user_id', row.user_id)
-      .eq('branch_id', currentBranch.id);
+    const { error: updateError } = await updateBranchAccessRole(
+      row.user_id,
+      currentBranch.id,
+      role
+    );
 
     if (updateError) showToast(updateError.message, 'error');
     else await loadAccess();
@@ -144,12 +143,7 @@ export default function UsersPage() {
     const target = rowPendingDelete;
     setRowPendingDelete(null);
 
-    const supabase = createClient();
-    const { error: deleteError } = await supabase
-      .from('user_branch_access')
-      .delete()
-      .eq('user_id', target.user_id)
-      .eq('branch_id', currentBranch.id);
+    const { error: deleteError } = await deleteBranchAccess(target.user_id, currentBranch.id);
 
     if (deleteError) showToast(deleteError.message, 'error');
     else {
