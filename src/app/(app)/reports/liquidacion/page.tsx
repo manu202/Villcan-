@@ -3,11 +3,11 @@
 import { useEffect, useState, useRef } from 'react';
 import Link from 'next/link';
 import { formatGuaranies } from '@/lib/utils';
-import { createClient } from '@/lib/supabase/client';
 import { useBranch } from '@/contexts/BranchContext';
 import { useSettings } from '@/contexts/SettingsContext';
 import { computeLiquidacionByStaff, type LiquidacionRow } from '@/lib/liquidacion';
 import { getDateRange, type ViewType } from '@/lib/dateRange';
+import { listServicioMovementsForLiquidacion } from '@/lib/data/reports';
 
 interface MovementRow {
   amount_charged: number | null;
@@ -45,26 +45,11 @@ export default function LiquidacionPage() {
 
     const load = async () => {
       setLoading(true);
-      const supabase = createClient();
       const { start, end } = getDateRange(viewRef.current, customRangeRef.current);
       if (!start || !end) { setLoading(false); return; }
       const branchFilter = selectedBranchRef.current === 'all' ? undefined : selectedBranchRef.current;
 
-      let query = supabase
-        .from('movements')
-        .select(`
-          amount_charged, commission_pct, user_id,
-          user:profiles(full_name)
-        `)
-        .eq('type', 'servicio')
-        .gte('created_at', start)
-        .lt('created_at', end);
-
-      if (branchFilter) {
-        query = query.eq('branch_id', branchFilter);
-      }
-
-      const { data } = await query;
+      const { data } = await listServicioMovementsForLiquidacion(start, end, branchFilter);
 
       if (cancelled) return;
 

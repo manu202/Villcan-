@@ -3,11 +3,18 @@
 import { useEffect, useState, useRef } from 'react';
 import Link from 'next/link';
 import { formatGuaranies } from '@/lib/utils';
-import { createClient } from '@/lib/supabase/client';
 import { useBranch } from '@/contexts/BranchContext';
 import { useSettings } from '@/contexts/SettingsContext';
 import { getDateRange, type ViewType } from '@/lib/dateRange';
 import { computeCashBalance, type CashBalanceMovement } from '@/lib/cashBalance';
+import {
+  listServicioMovementsForReports,
+  listOrderItemsForOrders,
+  listGastoMovementsForReports,
+  listAperturaMovementsForReports,
+  listCierreMovementsForReports,
+  listServicioIncomeForPrevPeriod,
+} from '@/lib/data/reports';
 
 interface ServiceSummary {
   name: string;
@@ -103,7 +110,6 @@ export default function ReportsPage() {
 
     const load = async () => {
       setLoading(true);
-      const supabase = createClient();
       const { start, end } = getDateRange(viewRef.current, customRangeRef.current);
 
       // Custom range with incomplete dates — show empty without querying
@@ -116,21 +122,7 @@ export default function ReportsPage() {
         ? undefined
         : selectedBranchRef.current;
 
-      let serviceQuery = supabase
-        .from('movements')
-        .select(`
-          amount_charged, income, expense, payment_method, created_at, branch_id, order_id,
-          service:services(name)
-        `)
-        .eq('type', 'servicio')
-        .gte('created_at', start)
-        .lt('created_at', end);
-
-      if (branchFilter) {
-        serviceQuery = serviceQuery.eq('branch_id', branchFilter);
-      }
-
-      const { data: serviceData } = await serviceQuery;
+      const { data: serviceData } = await listServicioMovementsForReports(start, end, branchFilter);
 
       if (cancelled) return;
 
@@ -155,59 +147,23 @@ export default function ReportsPage() {
 
       let itemsData: { name_snapshot: string; line_total: number; qty: number }[] = [];
       if (orderIds.length > 0) {
-        const { data } = await supabase
-          .from('order_items')
-          .select('name_snapshot, line_total, qty')
-          .in('order_id', orderIds);
+        const { data } = await listOrderItemsForOrders(orderIds);
         itemsData = data || [];
       }
 
       if (cancelled) return;
 
-      let gastoQuery = supabase
-        .from('movements')
-        .select('expense, income, comment')
-        .eq('type', 'gasto')
-        .gte('created_at', start)
-        .lt('created_at', end);
-
-      if (branchFilter) {
-        gastoQuery = gastoQuery.eq('branch_id', branchFilter);
-      }
-
-      const { data: gastoData } = await gastoQuery;
+      const { data: gastoData } = await listGastoMovementsForReports(start, end, branchFilter);
 
       if (cancelled) return;
 
       // apertura/cierre are needed for balanceNeto (via computeCashBalance)
       // even though no other card on this page displays them directly.
-      let aperturaQuery = supabase
-        .from('movements')
-        .select('income')
-        .eq('type', 'apertura')
-        .gte('created_at', start)
-        .lt('created_at', end);
-
-      if (branchFilter) {
-        aperturaQuery = aperturaQuery.eq('branch_id', branchFilter);
-      }
-
-      const { data: aperturaData } = await aperturaQuery;
+      const { data: aperturaData } = await listAperturaMovementsForReports(start, end, branchFilter);
 
       if (cancelled) return;
 
-      let cierreQuery = supabase
-        .from('movements')
-        .select('expense')
-        .eq('type', 'cierre')
-        .gte('created_at', start)
-        .lt('created_at', end);
-
-      if (branchFilter) {
-        cierreQuery = cierreQuery.eq('branch_id', branchFilter);
-      }
-
-      const { data: cierreData } = await cierreQuery;
+      const { data: cierreData } = await listCierreMovementsForReports(start, end, branchFilter);
 
       if (cancelled) return;
 
@@ -330,14 +286,11 @@ export default function ReportsPage() {
       const prevRange = getPrevDateRange(viewRef.current);
       let prevAmount = 0;
       if (prevRange) {
-        let prevQ = supabase
-          .from('movements')
-          .select('income')
-          .eq('type', 'servicio')
-          .gte('created_at', prevRange.start)
-          .lt('created_at', prevRange.end);
-        if (branchFilter) prevQ = prevQ.eq('branch_id', branchFilter);
-        const { data: prevData } = await prevQ;
+        const { data: prevData } = await listServicioIncomeForPrevPeriod(
+          prevRange.start,
+          prevRange.end,
+          branchFilter
+        );
         if (!cancelled && prevData) {
           prevAmount = prevData.reduce((s: number, m: { income: number | null }) => s + (m.income || 0), 0);
         }
