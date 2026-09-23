@@ -109,8 +109,8 @@ export function AppSheet({ open, onOpenChange, title, children, footer }: AppShe
               display: flex;
               align-items: center;
               justify-content: center;
-              width: 32px;
-              height: 32px;
+              width: 44px;
+              height: 44px;
               border-radius: 50%;
               background: var(--surface);
               border: 1px solid var(--border);

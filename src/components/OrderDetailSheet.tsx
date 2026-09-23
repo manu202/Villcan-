@@ -198,7 +198,7 @@ export function OrderDetailSheet({ orderId, onClose }: OrderDetailSheetProps) {
         .ods-total { display: flex; justify-content: space-between; padding: 4px 0; font-size: 15px; color: var(--text-primary); border-top: 2px solid var(--border); padding-top: 12px; }
         .ods-note { font-size: 13px; color: var(--text-secondary); background: var(--accent-subtle); padding: 10px 12px; border-radius: 8px; margin: 0; }
         .ods-actions { display: flex; gap: 8px; }
-        .ods-status-select { flex: 1; padding: 10px 12px; border: 1px solid var(--border); border-radius: 8px; font-size: 14px; background: var(--surface); color: var(--text-primary); font-weight: 600; }
+        .ods-status-select { flex: 1; padding: 10px 12px; min-height: 44px; border: 1px solid var(--border); border-radius: 8px; font-size: 14px; background: var(--surface); color: var(--text-primary); font-weight: 600; }
         .ods-status-select:disabled { opacity: 0.6; cursor: not-allowed; }
         /* SW-O9: same status→color tokens as orders/[id]/page.tsx's status pill. */
         .ods-status-select.status-pending  { background: rgba(217,119,6,.14); color: #92400e; border-color: rgba(217,119,6,.28); }
@@ -209,8 +209,8 @@ export function OrderDetailSheet({ orderId, onClose }: OrderDetailSheetProps) {
         [data-theme='dark'] .ods-status-select.status-confirmed { background: rgba(96,165,250,.12); color: #60a5fa; border-color: rgba(96,165,250,.25); }
         [data-theme='dark'] .ods-status-select.status-completed { background: rgba(74,222,128,.12); color: #4ade80; border-color: rgba(74,222,128,.25); }
         [data-theme='dark'] .ods-status-select.status-cancelled { background: rgba(156,163,175,.1); color: #9ca3af; border-color: rgba(156,163,175,.2); }
-        .ods-btn-notify { display: flex; align-items: center; gap: 6px; padding: 10px 14px; background: #25D366; color: #fff; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; border: none; }
-        .ods-link-full { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--text-secondary); text-decoration: none; border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; justify-content: center; }
+        .ods-btn-notify { display: flex; align-items: center; justify-content: center; gap: 6px; padding: 10px 14px; min-height: 44px; background: #25D366; color: #fff; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; border: none; }
+        .ods-link-full { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--text-secondary); text-decoration: none; border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; min-height: 44px; justify-content: center; }
         .ods-link-full:active { background: var(--accent-subtle); }
       `}</style>
     </div>

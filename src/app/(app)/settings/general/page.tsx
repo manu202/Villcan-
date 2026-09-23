@@ -259,10 +259,10 @@ function SettingsForm({
         }
 
         .swatch {
-          width: 36px;
-          height: 36px;
-          min-width: 36px;
-          min-height: 36px;
+          width: 44px;
+          height: 44px;
+          min-width: 44px;
+          min-height: 44px;
           border-radius: 50%;
           border: 2px solid var(--border);
           background: var(--accent);

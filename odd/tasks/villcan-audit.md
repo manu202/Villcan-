@@ -591,11 +591,19 @@ Continued the "Group A" unscanned-screens sweep from the earlier QA backlog.
   - `src/components/ServiceEditSheet.tsx` — the modal opened by clicking a row in `/services` (the list, the real day-to-day path). Fields: Nombre, Precio, Costo, Categoría, Descripción, one generic "Disponible en el catálogo" toggle. **Missing: Imagen (upload or URL) and "Global" (todas las sucursales)** — once a service is created, there's no way to change its image or its global/branch-scoped flag through this path.
   - `src/app/(app)/services/[id]/edit/page.tsx` — a full page reachable only via `/services/[id]` (detail)'s own "Editar" button, itself apparently not linked from the list (clicking a list row opens the sheet directly, never navigates to the detail page first). Has the complete field set: Imagen (file upload + URL fallback), Categoría, "Disponible en la tienda pública", and "Global (todas las sucursales)" as a separate toggle.
   - Verified live: created a real test service (`QA Catalogo Test`, ₲20.000) via `/services/new` (which itself has the full field set, matching the edit page, not the sheet) — saved correctly, appeared in the list. Clicking it opened `ServiceEditSheet`, confirming that's the real path, not the full edit page.
-  - **Not fixed — a product/architecture decision, not a one-line bug**: either drop `ServiceEditSheet.tsx` and route the list to the full edit page, or bring the sheet's field set up to parity. Flagged for the owner to decide.
+  - **RESOLVED 2026-09-23** (`9add8f8`, pushed to main, build+513/513 tests clean): decided in favor of the sheet — it's the app-wide standard (Contactos/Órdenes/Movimientos are all sheet-based, not full-page). `ServiceEditSheet.tsx` already had `imageUrl`/`isGlobal` state and submitted them; only the UI inputs were missing. Added the image upload+URL-fallback field (copied verbatim from `ServiceForm.tsx`'s already-working `service-images` storage pattern) and the Global toggle. Deleted the duplicate `src/app/(app)/services/[id]/edit/` route entirely; the detail page's Editar button now opens the same sheet inline (matching how the list already does it) instead of navigating away. New tests in `ServiceEditSheet.test.tsx`.
 
 ### Not yet covered by this pass (owner asked for "todo" — still pending)
 
-Contact detail/edit/create forms, Settings/Sucursales, Services/new + edit forms — **all done 2026-09-23, see the entry above**. Still pending: a dedicated touch-target measurement pass (44×44px rule) beyond the one screenshot comparison already done, and the decision on which ServiceEditSheet-vs-full-edit-page to keep.
+Contact detail/edit/create forms, Settings/Sucursales, Services/new + edit forms — **all done 2026-09-23, see the entry above**.
+
+## 2026-09-23: Touch-target pass (44×44px rule), non-storefront screens
+
+Delegated a read-only sweep across `src/` (excluding storefront — owner hasn't decided its design direction yet). 17 real violations found (one more, `Toggle.tsx`'s 44×24 switch, is a documented intentional exception per `REQ-THEME-6`, left as-is). **All 16 fixed, build clean, 513/513 tests green:**
+
+`AppSheet.tsx` `.app-sheet-close` (32→44, shared by every bottom sheet), `HamburgerMenu.tsx` `.close-btn` (32→44, nav drawer on every screen), `orders/page.tsx` `.status-tab` (added `min-height:44px`), `movements/page.tsx` + `reports/page.tsx` `.filter-btn` (same), `orders/[id]/page.tsx` `.back-btn` (40→44) + `.edit-btn` (min-height 44), `settings/branches/page.tsx` `.back-btn` (40→44) + `.btn-action` (min-height 44), `ContactCard.tsx` `.contact-card-wa-btn` (40→44), `contacts/page.tsx` `.cp-sort-btn` (min-height 44), `OrderDetailSheet.tsx` `.ods-btn-notify`/`.ods-link-full`/`.ods-status-select` (min-height 44), `movement-form/DetailsStep.tsx` `.clear-btn` (32→44), `ClosingWizard.tsx` `.wz-btn-back` (min-height 44), `settings/general/page.tsx` `.swatch` (36→44).
+
+No RED possible (pure CSS sizing, no test asserts on px dimensions) — verified via clean `npm run build` + full suite, per this session's established practice for visual-only changes.
 
 ## Deferred: extend the data access layer beyond orders/movements
 

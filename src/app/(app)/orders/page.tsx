@@ -197,7 +197,8 @@ export default function OrdersPage() {
           padding: 7px 14px; border-radius: 20px; border: 1px solid var(--border);
           background: var(--surface); color: var(--text-secondary);
           font-size: 13px; font-weight: 600; white-space: nowrap; cursor: pointer;
-          min-height: unset; min-width: unset; flex-shrink: 0;
+          min-height: 44px; flex-shrink: 0;
+          display: inline-flex; align-items: center; justify-content: center;
         }
         .status-tab.active {
           background: var(--accent); color: var(--accent-foreground); border-color: var(--accent);

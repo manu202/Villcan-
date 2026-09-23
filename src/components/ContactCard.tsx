@@ -122,8 +122,8 @@ export function ContactCard({ contact, onClick }: ContactCardProps) {
           display: flex;
           align-items: center;
           justify-content: center;
-          width: 40px;
-          height: 40px;
+          width: 44px;
+          height: 44px;
           border-radius: 50%;
           background: #25D366;
           color: #fff;

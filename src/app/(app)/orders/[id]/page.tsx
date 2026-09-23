@@ -310,14 +310,15 @@ export default function OrderDetailPage() {
 
         .flex-header { display: flex; align-items: center; gap: 12px; }
         .back-btn {
-          width: 40px; height: 40px; min-height: unset; min-width: unset;
+          width: 44px; height: 44px;
           display: flex; align-items: center; justify-content: center;
           font-size: 22px;
           background: var(--surface-elevated); border-radius: 8px;
           color: var(--text-primary); text-decoration: none; flex-shrink: 0;
         }
         .edit-btn {
-          margin-left: auto; padding: 8px 14px; min-height: unset;
+          margin-left: auto; padding: 8px 14px; min-height: 44px;
+          display: inline-flex; align-items: center; justify-content: center;
           background: var(--surface-elevated);
           border-radius: 8px; border: 1px solid var(--border);
           color: var(--text-primary); font-size: 13px; font-weight: 600; cursor: pointer;

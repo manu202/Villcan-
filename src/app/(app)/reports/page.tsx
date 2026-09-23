@@ -588,6 +588,10 @@ export default function ReportsPage() {
         .filter-btn {
           flex: 1;
           padding: 10px 12px;
+          min-height: 44px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
           background: var(--surface);
           border: 1px solid var(--border);
           border-radius: 8px;

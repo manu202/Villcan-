@@ -377,7 +377,7 @@ function PageStyles() {
 
       .flex-header { display: flex; align-items: center; gap: 12px; }
       .back-btn {
-        width: 40px; height: 40px; min-height: unset; min-width: unset;
+        width: 44px; height: 44px;
         display: flex; align-items: center; justify-content: center;
         font-size: 22px; background: var(--surface-elevated);
         border-radius: 8px; border: none; color: var(--text-primary); cursor: pointer; flex-shrink: 0;
@@ -485,7 +485,8 @@ function PageStyles() {
       .role-label { font-size: 12px; color: var(--text-secondary); }
       .branch-actions { display: flex; gap: 8px; }
       .btn-action {
-        padding: 7px 12px; min-height: unset; min-width: unset;
+        padding: 7px 12px; min-height: 44px;
+        display: inline-flex; align-items: center; justify-content: center;
         background: var(--surface); border: 1px solid var(--border);
         border-radius: 6px; font-size: 13px; font-weight: 500;
         color: var(--text-primary); cursor: pointer;

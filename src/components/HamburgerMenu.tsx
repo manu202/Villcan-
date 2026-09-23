@@ -268,10 +268,8 @@ export function HamburgerMenu() {
         }
 
         .close-btn {
-          width: 32px;
-          height: 32px;
-          min-height: unset;
-          min-width: unset;
+          width: 44px;
+          height: 44px;
           display: flex;
           align-items: center;
           justify-content: center;

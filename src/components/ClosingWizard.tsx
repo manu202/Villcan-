@@ -372,7 +372,9 @@ export function ClosingWizard({ onClose, onSaved }: ClosingWizardProps) {
         .wz-btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
 
         .wz-btn-back {
-          padding: 8px 12px; border: 1px solid var(--border); border-radius: 8px;
+          padding: 8px 12px; min-height: 44px;
+          display: inline-flex; align-items: center; justify-content: center;
+          border: 1px solid var(--border); border-radius: 8px;
           background: transparent; color: var(--text-secondary);
           font-size: 14px; font-weight: 600; cursor: pointer;
         }

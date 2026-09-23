@@ -256,6 +256,10 @@ export default function ContactsPage() {
           font-size: 12px;
           font-weight: 600;
           padding: 4px 10px;
+          min-height: 44px;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
           border-radius: 6px;
           border: 1px solid var(--border);
           background: var(--surface);
