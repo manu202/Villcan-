@@ -1,7 +1,12 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { createClient } from '@/lib/supabase/client';
+import {
+  getServiceById,
+  updateService,
+  uploadServiceImage,
+  getServiceImagePublicUrl,
+} from '@/lib/data/services';
 import { logClientError } from '@/lib/errorLogging';
 import { Toggle } from '@/components/Toggle';
 import { useBranch } from '@/contexts/BranchContext';
@@ -36,12 +41,10 @@ export function ServiceEditSheet({ serviceId, onClose, onSaved }: ServiceEditShe
     setLoading(true);
 
     const load = async () => {
-      const supabase = createClient();
-      const { data, error } = await supabase
-        .from('services')
-        .select('id, name, price, cost, description, image_url, category, is_available, branch_id')
-        .eq('id', serviceId)
-        .single();
+      const { data, error } = await getServiceById(
+        serviceId,
+        'id, name, price, cost, description, image_url, category, is_available, branch_id'
+      );
 
       if (cancelled) return;
 
@@ -75,9 +78,8 @@ export function ServiceEditSheet({ serviceId, onClose, onSaved }: ServiceEditShe
       return;
     }
 
-    const supabase = createClient();
     const path = `${currentBranch.id}/${crypto.randomUUID()}-${file.name}`;
-    const { error: uploadErr } = await supabase.storage.from('service-images').upload(path, file);
+    const { error: uploadErr } = await uploadServiceImage(path, file);
 
     if (uploadErr) {
       setUploadingImage(false);
@@ -89,7 +91,7 @@ export function ServiceEditSheet({ serviceId, onClose, onSaved }: ServiceEditShe
       return;
     }
 
-    const { data } = supabase.storage.from('service-images').getPublicUrl(path);
+    const { data } = getServiceImagePublicUrl(path);
     setImageUrl(data.publicUrl);
     setUploadingImage(false);
   };
@@ -99,22 +101,18 @@ export function ServiceEditSheet({ serviceId, onClose, onSaved }: ServiceEditShe
     setSubmitting(true);
     setError(null);
 
-    const supabase = createClient();
     const branchId = isGlobal ? null : (currentBranch?.id ?? null);
 
-    const { error } = await supabase
-      .from('services')
-      .update({
-        name,
-        price: parseInt(price, 10),
-        cost: cost ? parseInt(cost, 10) : 0,
-        description: description.trim() || null,
-        image_url: imageUrl.trim() || null,
-        category: category.trim() || null,
-        is_available: isAvailable,
-        branch_id: branchId,
-      })
-      .eq('id', serviceId);
+    const { error } = await updateService(serviceId, {
+      name,
+      price: parseInt(price, 10),
+      cost: cost ? parseInt(cost, 10) : 0,
+      description: description.trim() || null,
+      image_url: imageUrl.trim() || null,
+      category: category.trim() || null,
+      is_available: isAvailable,
+      branch_id: branchId,
+    });
 
     if (error) {
       setError(error.message);

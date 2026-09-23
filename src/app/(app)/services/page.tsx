@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useRef, useCallback } from 'react';
 import Link from 'next/link';
-import { createClient } from '@/lib/supabase/client';
+import { listServicesForCatalog, updateServiceAvailability } from '@/lib/data/services';
 import { useBranch } from '@/contexts/BranchContext';
 import { useSettings } from '@/contexts/SettingsContext';
 import { ErrorState } from '@/components/ErrorState';
@@ -27,21 +27,8 @@ export default function ServicesPage() {
     const branch = currentBranchRef.current;
     setLoading(true);
     setError(false);
-    const supabase = createClient();
 
-    let query = supabase
-      .from('services')
-      .select('id, name, price, is_active, is_available, branch_id')
-      .eq('is_active', true)
-      .order('name');
-
-    if (branch) {
-      query = query.or(`branch_id.eq.${branch.id},branch_id.is.null`);
-    } else {
-      query = query.is('branch_id', null);
-    }
-
-    const { data, error: fetchError } = await query;
+    const { data, error: fetchError } = await listServicesForCatalog(branch?.id ?? null);
 
     if (fetchError) {
       setError(true);
@@ -60,8 +47,7 @@ export default function ServicesPage() {
     setServices((prev) =>
       prev.map((s) => (s.id === id ? { ...s, is_available: available } : s))
     );
-    const supabase = createClient();
-    await supabase.from('services').update({ is_available: available }).eq('id', id);
+    await updateServiceAvailability(id, available);
   };
 
   const handleServiceClick = (id: string) => {

@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { parseGuaranies } from '@/lib/utils';
-import { createClient } from '@/lib/supabase/client';
+import { createService, uploadServiceImage, getServiceImagePublicUrl } from '@/lib/data/services';
 import { logClientError } from '@/lib/errorLogging';
 import { useBranch } from '@/contexts/BranchContext';
 import { useToast } from '@/contexts/ToastContext';
@@ -63,11 +63,10 @@ export function ServiceForm({ onCancel, onSuccess }: ServiceFormProps) {
       return;
     }
 
-    const supabase = createClient();
     // Branch-scoped path ("<branch_id>/<file>") — storage.objects RLS checks
     // the first path segment against the uploader's branch access.
     const path = `${currentBranch.id}/${crypto.randomUUID()}-${file.name}`;
-    const { error: uploadErr } = await supabase.storage.from('service-images').upload(path, file);
+    const { error: uploadErr } = await uploadServiceImage(path, file);
 
     if (uploadErr) {
       setUploadingImage(false);
@@ -79,7 +78,7 @@ export function ServiceForm({ onCancel, onSuccess }: ServiceFormProps) {
       return;
     }
 
-    const { data } = supabase.storage.from('service-images').getPublicUrl(path);
+    const { data } = getServiceImagePublicUrl(path);
     setForm(prev => ({ ...prev, imageUrl: data.publicUrl }));
     setUploadingImage(false);
   };
@@ -108,8 +107,6 @@ export function ServiceForm({ onCancel, onSuccess }: ServiceFormProps) {
       return;
     }
 
-    const supabase = createClient();
-
     // If isGlobal is true, branch_id = null (global service)
     // Otherwise, use current branch (required - error if no branch selected)
     const branchId = form.isGlobal ? null : currentBranch?.id;
@@ -120,21 +117,17 @@ export function ServiceForm({ onCancel, onSuccess }: ServiceFormProps) {
       return;
     }
 
-    const { data, error } = await supabase
-      .from('services')
-      .insert({
-        name: form.name.trim(),
-        price: parseGuaranies(form.price),
-        cost: form.cost ? parseGuaranies(form.cost) : 0,
-        is_active: true,
-        branch_id: branchId,
-        description: form.description.trim() || null,
-        image_url: form.imageUrl.trim() || null,
-        category: form.category.trim() || null,
-        is_available: form.isAvailable,
-      })
-      .select()
-      .single();
+    const { data, error } = await createService({
+      name: form.name.trim(),
+      price: parseGuaranies(form.price),
+      cost: form.cost ? parseGuaranies(form.cost) : 0,
+      is_active: true,
+      branch_id: branchId,
+      description: form.description.trim() || null,
+      image_url: form.imageUrl.trim() || null,
+      category: form.category.trim() || null,
+      is_available: form.isAvailable,
+    });
 
     setIsSubmitting(false);
 

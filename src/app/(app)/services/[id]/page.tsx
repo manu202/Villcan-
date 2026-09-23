@@ -3,7 +3,7 @@
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { useCallback, useEffect, useState } from 'react';
-import { createClient } from '@/lib/supabase/client';
+import { getServiceById, listRecentMovementsForService } from '@/lib/data/services';
 import { formatGuaranies, formatDate } from '@/lib/utils';
 import { computeMargin } from '@/lib/margin';
 import { AppSheet } from '@/components/AppSheet';
@@ -21,24 +21,9 @@ export default function ServiceDetailPage() {
   const [editing, setEditing] = useState(false);
 
   const fetchData = useCallback(async () => {
-      const supabase = createClient();
-
       const [serviceRes, movementsRes] = await Promise.all([
-        supabase
-          .from('services')
-          .select('id, name, price, cost, is_active, created_at, branch_id')
-          .eq('id', serviceId)
-          .single(),
-        supabase
-          .from('movements')
-          .select(`
-            id, contact:contacts(full_name), payment_method, amount_charged,
-            income, expense, created_at
-          `)
-          .eq('service_id', serviceId)
-          .eq('type', 'servicio')
-          .order('created_at', { ascending: false })
-          .limit(20),
+        getServiceById(serviceId, 'id, name, price, cost, is_active, created_at, branch_id'),
+        listRecentMovementsForService(serviceId),
       ]);
 
       if (serviceRes.error) {
