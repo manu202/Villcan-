@@ -128,7 +128,11 @@ describe('CheckoutStep — submit', () => {
     expect(onSubmit).toHaveBeenCalledWith(
       expect.objectContaining({
         name: 'Ana',
-        phone: '+5950981111222',
+        // QA-2 (2026-09-22 prod bug): a leading local trunk 0 must be
+        // stripped before prepending the country code — '+5950981111222'
+        // (13 digits after +) was the actual bug this test used to encode
+        // as expected, confirmed live on the real Tatapiriri storefront.
+        phone: '+595981111222',
         deliveryType: 'delivery',
         deliveryAddress: 'Mcal. López 1234',
         paymentMethod: 'efectivo',

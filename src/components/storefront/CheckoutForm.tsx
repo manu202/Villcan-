@@ -1,14 +1,19 @@
 'use client';
 
 import { useState, type FormEvent } from 'react';
-import { PHONE_COUNTRY_OPTIONS, type OrderDeliveryType, type OrderPaymentMethod } from '@/types';
+import { PHONE_COUNTRY_OPTIONS, type OrderDeliveryType, type PaymentMethod } from '@/types';
 
 export interface CheckoutFormValues {
   name: string;
   phone: string;
   email: string;
   note: string;
-  paymentMethod: OrderPaymentMethod;
+  // Wide PaymentMethod (includes 'pos'), not the storefront's narrower
+  // OrderPaymentMethod — this form is staff-only (/orders/new). Its other
+  // consumer, StorefrontClient, is dead code (nothing imports it); the real
+  // customer-facing storefront checkout is CheckoutStep.tsx, which keeps
+  // the narrow type on purpose.
+  paymentMethod: PaymentMethod;
   deliveryType: OrderDeliveryType;
   deliveryAddress: string;
 }
@@ -28,15 +33,21 @@ export function CheckoutForm({ submitting, errorMessage, onSubmit, onBack }: Che
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
   const [note, setNote] = useState('');
-  const [paymentMethod, setPaymentMethod] = useState<OrderPaymentMethod>('efectivo');
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('efectivo');
   const [deliveryType, setDeliveryType] = useState<OrderDeliveryType>('pickup');
   const [deliveryAddress, setDeliveryAddress] = useState('');
 
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
+    // QA-2 (2026-09-22 prod bug): strip exactly one local leading trunk 0
+    // before prepending the selected country code — customers/staff
+    // naturally type Paraguayan numbers with it (e.g. "0987654321"), and a
+    // plain `${countryCode}${phone}` concatenation kept it, producing an
+    // invalid, one-digit-too-long number (+5950987654321).
+    const localDigits = phone.replace(/\D/g, '').replace(/^0/, '');
     onSubmit({
       name,
-      phone: `${countryCode}${phone}`,
+      phone: `${countryCode}${localDigits}`,
       email,
       note,
       paymentMethod,
@@ -82,10 +93,11 @@ export function CheckoutForm({ submitting, errorMessage, onSubmit, onBack }: Che
         Método de pago
         <select
           value={paymentMethod}
-          onChange={(e) => setPaymentMethod(e.target.value as OrderPaymentMethod)}
+          onChange={(e) => setPaymentMethod(e.target.value as PaymentMethod)}
         >
           <option value="efectivo">Efectivo</option>
           <option value="transferencia">Transferencia</option>
+          <option value="pos">POS</option>
         </select>
       </label>
       <label>

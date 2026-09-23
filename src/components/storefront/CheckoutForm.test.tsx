@@ -41,4 +41,39 @@ describe('CheckoutForm (REQ: country selector + payment + delivery)', () => {
       })
     );
   });
+
+  // QA-2 (2026-09-22 prod bug): a customer naturally types their local
+  // Paraguayan number with the leading trunk 0 (e.g. "0987654321" — how
+  // everyone actually writes/reads it locally), and the naive
+  // `${countryCode}${phone}` concatenation kept that 0, producing an
+  // invalid, one-digit-too-long number (+5950987654321 instead of
+  // +595987654321). Confirmed live via a real storefront order and via
+  // /orders/new (this same form, shared with the staff-facing manual-order
+  // screen) landing in production's orders.customer_phone and
+  // contacts.phone. This must strip exactly one leading local trunk 0
+  // before prepending the selected country code.
+  it('strips a local leading 0 before prepending the country code', () => {
+    const onSubmit = vi.fn();
+    render(<CheckoutForm submitting={false} errorMessage={null} onSubmit={onSubmit} onBack={vi.fn()} />);
+
+    fireEvent.change(screen.getByLabelText(/nombre/i), { target: { value: 'Cliente Paraguay' } });
+    fireEvent.change(screen.getByLabelText(/teléfono/i), { target: { value: '0987654321' } });
+    fireEvent.click(screen.getByRole('button', { name: /confirmar pedido/i }));
+
+    expect(onSubmit).toHaveBeenCalledWith(
+      expect.objectContaining({ phone: '+595987654321' })
+    );
+  });
+
+  // QA-4 (2026-09-22): this form is now staff-only (/orders/new — its other
+  // consumer, StorefrontClient, is dead code, nothing imports it), and
+  // create_manual_order accepts 'pos' fine — the form just never offered
+  // it, same gap class the OrderEditForm.tsx fix (SW-M1) already closed
+  // elsewhere.
+  it('offers POS as a payment method option (staff-only form)', () => {
+    render(<CheckoutForm submitting={false} errorMessage={null} onSubmit={vi.fn()} onBack={vi.fn()} />);
+    const select = screen.getByLabelText(/método de pago/i) as HTMLSelectElement;
+    const values = Array.from(select.options).map((o) => o.value);
+    expect(values).toContain('pos');
+  });
 });

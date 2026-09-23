@@ -78,9 +78,16 @@ export function CheckoutStep({
 
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
+    // QA-2 (2026-09-22 prod bug): strip exactly one local leading trunk 0
+    // before prepending the selected country code — customers naturally
+    // type Paraguayan numbers with it (e.g. "0987654321"), and a plain
+    // `${countryCode}${phone}` concatenation kept it, producing an invalid,
+    // one-digit-too-long number. Confirmed live on the real Tatapiriri
+    // storefront (this component, not CheckoutForm, is what templates use).
+    const localDigits = phone.replace(/\D/g, '').replace(/^0/, '');
     onSubmit({
       name,
-      phone: `${countryCode}${phone}`,
+      phone: `${countryCode}${localDigits}`,
       email,
       note,
       paymentMethod,
