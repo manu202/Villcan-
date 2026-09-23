@@ -119,7 +119,7 @@ export default function ReportsPage() {
       let serviceQuery = supabase
         .from('movements')
         .select(`
-          amount_charged, income, expense, payment_method, created_at, branch_id,
+          amount_charged, income, expense, payment_method, created_at, branch_id, order_id,
           service:services(name)
         `)
         .eq('type', 'servicio')
@@ -136,6 +136,33 @@ export default function ReportsPage() {
 
       // methodData is a subset of serviceData — reuse instead of a second fetch
       const methodData = serviceData;
+
+      // QA-3 (2026-09-22): every order-derived 'servicio' movement has
+      // service_id NULL — an order can have several services, so
+      // complete_order_payment never sets a single one on the movement row
+      // (see 20260922020000_atomic_order_payment_completion.sql). The
+      // movements.service join above (`service:services(name)`) is now
+      // always null and only kept because methodData/serviciosCount below
+      // still legitimately read other columns off the same rows. The real
+      // per-service breakdown has to come from order_items instead,
+      // fetched by the order_ids these same movements already point to —
+      // reusing them keeps the item breakdown scoped to exactly the same
+      // period/branch movements already being counted, with no separate
+      // date/branch filter to keep in sync.
+      const orderIds = (serviceData || [])
+        .map((m) => (m as { order_id?: string | null }).order_id)
+        .filter((id): id is string => !!id);
+
+      let itemsData: { name_snapshot: string; line_total: number; qty: number }[] = [];
+      if (orderIds.length > 0) {
+        const { data } = await supabase
+          .from('order_items')
+          .select('name_snapshot, line_total, qty')
+          .in('order_id', orderIds);
+        itemsData = data || [];
+      }
+
+      if (cancelled) return;
 
       let gastoQuery = supabase
         .from('movements')
@@ -184,20 +211,26 @@ export default function ReportsPage() {
 
       if (cancelled) return;
 
-      const serviceAgg: Record<string, { count: number; total: number }> = {};
+      // Per-order totals (KPI/ticket promedio) — one entry per completed
+      // order, unrelated to how many line items/services it contained.
       let serviciosCount = 0;
       let serviciosAmount = 0;
-
       if (serviceData) {
         for (const m of serviceData) {
-          const name = (m.service as { name?: string } | null)?.name || 'Sin servicio';
-          const amount = m.income || 0;
-          if (!serviceAgg[name]) serviceAgg[name] = { count: 0, total: 0 };
-          serviceAgg[name].count++;
-          serviceAgg[name].total += amount;
           serviciosCount++;
-          serviciosAmount += amount;
+          serviciosAmount += m.income || 0;
         }
+      }
+
+      // Per-service breakdown (the "Servicios" card) — from order_items,
+      // not the movement's own (always-null) service_id. `qty`/`line_total`
+      // are per line item, so a 2-service order contributes to both names.
+      const serviceAgg: Record<string, { count: number; total: number }> = {};
+      for (const item of itemsData) {
+        const name = item.name_snapshot || 'Sin servicio';
+        if (!serviceAgg[name]) serviceAgg[name] = { count: 0, total: 0 };
+        serviceAgg[name].count += item.qty;
+        serviceAgg[name].total += item.line_total;
       }
 
       const serviceSummaries: ServiceSummary[] = Object.entries(serviceAgg)

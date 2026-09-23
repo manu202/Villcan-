@@ -21,9 +21,30 @@ type MovementsByType = Record<string, unknown[][]>;
 let movementsByType: MovementsByType = {};
 let callCountByType: Record<string, number> = {};
 
+// QA-3 (2026-09-22): the Servicios breakdown used to read movements.service
+// (via movements.service_id), but every order-derived 'servicio' movement
+// has service_id NULL — an order can have several services, so the
+// order-completion trigger never sets a single one (see
+// 20260922020000_atomic_order_payment_completion.sql). The real source for
+// "what was actually sold" is order_items. This bucket lets tests supply
+// that data on the `order_items` table independently of `movements`.
+let orderItemsData: unknown[] = [];
+
 vi.mock('@/lib/supabase/client', () => ({
   createClient: () => ({
-    from: () => {
+    from: (table: string) => {
+      if (table === 'order_items') {
+        const builder: Record<string, unknown> = {};
+        const chainable = () => builder;
+        builder.select = chainable;
+        builder.eq = chainable;
+        builder.gte = chainable;
+        builder.lt = chainable;
+        builder.in = chainable;
+        builder.then = (onFulfilled: (v: unknown) => unknown) =>
+          Promise.resolve({ data: orderItemsData, error: null }).then(onFulfilled);
+        return builder;
+      }
       // `type` is set via the first `.eq('type', X)` call the component
       // makes on this builder — every query on this page filters by type
       // before anything else, so we can build the mock lazily per builder.
@@ -53,6 +74,7 @@ vi.mock('@/lib/supabase/client', () => ({
 describe('ReportsPage balanceNeto computation (uses the shared computeCashBalance, M-3)', () => {
   beforeEach(() => {
     callCountByType = {};
+    orderItemsData = [];
     movementsByType = {
       // main servicio query (1st call) = 100000 efectivo; prevPeriod query
       // (2nd call of type servicio) = empty
@@ -111,9 +133,51 @@ describe('ReportsPage balanceNeto computation (uses the shared computeCashBalanc
   });
 });
 
+describe('ReportsPage Servicios breakdown reads order_items, not movements.service_id (QA-3)', () => {
+  beforeEach(() => {
+    callCountByType = {};
+    orderItemsData = [];
+    // service_id is NULL on every order-derived movement (see comment
+    // above the mock) — no `service` field here, matching real production
+    // data, unlike the other describe blocks' legacy `service: { name }`
+    // mock shape.
+    movementsByType = {
+      servicio: [
+        [{ amount_charged: 105000, income: 105000, expense: 0, payment_method: 'efectivo', created_at: new Date().toISOString(), branch_id: 'branch-1', order_id: 'order-1', service: null }],
+        [],
+      ],
+      gasto: [[]],
+      apertura: [[]],
+      cierre: [[]],
+    };
+    mockUseBranch.mockReturnValue({
+      currentBranch: { id: 'branch-1', name: 'Centro', vertical: 'barbershop' },
+      branches: [],
+      initialized: true,
+    });
+    mockUseSettings.mockReturnValue({ settings: { staff_label: 'Barbero', services_label: 'Servicios' } });
+  });
+
+  it('groups by order_items.name_snapshot instead of falling back to "Sin servicio"', async () => {
+    orderItemsData = [
+      { name_snapshot: 'Barba', line_total: 30000, qty: 1 },
+      { name_snapshot: 'Corte clásico', line_total: 75000, qty: 2 },
+    ];
+
+    render(<ReportsPage />);
+
+    await waitFor(() => screen.getByText('Barba'));
+
+    expect(screen.getByText('Barba')).toBeTruthy();
+    expect(screen.getByText('Corte clásico')).toBeTruthy();
+    expect(screen.queryByText('Sin servicio')).toBeNull();
+  });
+});
+
 describe('ReportsPage liquidación link uses configurable staff_label (generalize-verticals)', () => {
   beforeEach(() => {
     callCountByType = {};
+    orderItemsData = [];
     movementsByType = {
       servicio: [
         [{ amount_charged: 100000, income: 100000, expense: 0, payment_method: 'efectivo', created_at: new Date().toISOString(), branch_id: 'branch-1', service: { name: 'Corte' } }],
@@ -154,6 +218,7 @@ describe('ReportsPage liquidación link uses configurable staff_label (generaliz
 describe('ReportsPage KPI/card labels use configurable services_label instead of hardcoded "Servicios"', () => {
   beforeEach(() => {
     callCountByType = {};
+    orderItemsData = [];
     movementsByType = {
       servicio: [
         [{ amount_charged: 100000, income: 100000, expense: 0, payment_method: 'efectivo', created_at: new Date().toISOString(), branch_id: 'branch-1', service: { name: 'Corte' } }],
