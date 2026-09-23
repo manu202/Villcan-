@@ -125,6 +125,31 @@ describe('GastronomyTemplate — ticket-grid catalog', () => {
     expect(screen.getAllByText('Mozzarella').length).toBeGreaterThan(0);
   });
 
+  // QA-7 (2026-09-22): live-tested opening a product's detail sheet, then
+  // opening the cart from the nav "Pedido" trigger — the product sheet
+  // stayed visible behind the cart drawer because that button's onClick
+  // was a bare goToCart with no closeSheet() first (unlike the sheet's own
+  // "Ver pedido" CTA, which already correctly does both — see the existing
+  // "adds a product..." test above, which works because of that same
+  // pattern). Screenshotted live at 1s after the click, well past any CSS
+  // transition, so this isn't a transition-timing false positive.
+  it('closes the product detail sheet when the nav cart trigger is tapped while it is open', () => {
+    render(<GastronomyTemplate branch={branch} services={services} />);
+    fireEvent.click(screen.getByRole('button', { name: /Mozzarella/i }));
+    // Captured once, while it's the only visible dialog (the cart drawer is
+    // still aria-hidden and excluded from role queries) — kept as a raw DOM
+    // reference so checking its aria-hidden afterward doesn't depend on it
+    // still being the "visible" dialog (once the fix works, the cart
+    // drawer becomes the visible one instead).
+    const sheet = screen.getByRole('dialog');
+    expect(sheet.getAttribute('aria-hidden')).toBe('false');
+
+    const nav = screen.getByRole('navigation');
+    fireEvent.click(within(nav).getByRole('button', { name: /ver pedido/i }));
+
+    expect(sheet.getAttribute('aria-hidden')).toBe('true');
+  });
+
   it('proceeds to checkout from the cart drawer', () => {
     render(<GastronomyTemplate branch={branch} services={services} />);
     fireEvent.click(screen.getByRole('button', { name: /Mozzarella/i }));

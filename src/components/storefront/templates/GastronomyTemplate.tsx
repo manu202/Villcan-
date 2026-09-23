@@ -253,7 +253,7 @@ export function GastronomyTemplate({ branch, services }: GastronomyTemplateProps
           <button
             type="button"
             className={`gt-cart-trigger${itemCount > 0 ? ' has-fab' : ''}`}
-            onClick={goToCart}
+            onClick={() => { closeSheet(); goToCart(); }}
             aria-label={`Ver pedido — ${itemCount} ítems`}
           >
             <ShoppingBag size={14} aria-hidden="true" />
@@ -368,7 +368,7 @@ export function GastronomyTemplate({ branch, services }: GastronomyTemplateProps
         <button
           type="button"
           className="gt-fab"
-          onClick={goToCart}
+          onClick={() => { closeSheet(); goToCart(); }}
           aria-label={`Ver pedido — total ${formatGuaranies(total)}`}
         >
           <ShoppingBag size={15} aria-hidden="true" />
