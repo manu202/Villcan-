@@ -15,8 +15,10 @@ Why this section exists: on 2026-09-23 I answered "what's still pending" from a 
 
 Legend: unchecked = open, not started or not finished. Each ID is searchable in `## History` for full evidence/reasoning.
 
-### In progress right now
-- [~] **Data access layer extension** — background agent extracting the remaining ~36 files' inline `createClient()` calls into `src/lib/data/*.ts`, one domain per commit (contacts, services, closings, reports, settings/branches, settings/general done as of this writing; settings/users in progress; settings/modules, and confirming storefront/auth were correctly left untouched, still to go). Not pushed yet — review before push once the agent reports done.
+### Data access layer — round 2 CLOSED 2026-09-23
+8 domains migrated: contacts (`a77d402`), services (`4397b76`), closings (`52f7a7e`), reports (`0aaf800`), settings/branches (`6ed4e69`), settings/general (`562c04e`), settings/users (`23158d9`), settings/modules (`daf6e20`). Each commit ran its own clean build + test file before landing. Independently re-verified after all 8: clean `npm run build`, full suite **562/562**. Pushed to production.
+
+- [ ] **Remaining inline `createClient()` calls found after the sweep, not part of this round's scope, don't silently expand without checking first:** `src/contexts/BranchContext.tsx`, `src/components/MovementDetailSheet.tsx`, `src/app/(app)/page.tsx` (home/dashboard), `src/app/(app)/errors/page.tsx`. Auth (`AuthGuard.tsx`, `AuthButton.tsx`, set-password/forgot-password pages) and storefront (`tienda/[slug]/page.tsx`) remain correctly untouched by design.
 
 ### Security / auth — open
 - [ ] **T-01** — no automated two-user integration test proves A-1/A-3/A-4 actually hold under real RLS today (the fixes are deployed and manually verified via a schema dump, but nothing re-checks them automatically against regressions).
