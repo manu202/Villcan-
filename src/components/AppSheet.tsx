@@ -56,6 +56,28 @@ export function AppSheet({ open, onOpenChange, title, children, footer }: AppShe
               outline: none;
             }
 
+            /* QA-8 (2026-09-22): AppSheet had zero responsive treatment —
+               on desktop it still rendered as a full-width mobile bottom
+               sheet, leaving most of the viewport empty behind it. This app
+               is web, so the standard is to be responsive: above a tablet
+               breakpoint, the sheet becomes a centered modal card instead
+               of a bottom sheet, matching ordinary desktop dialog
+               conventions while every screen that renders through
+               AppSheet keeps working unchanged (this is the single shared
+               component all of them use). */
+            @media (min-width: 768px) {
+              .app-sheet-content {
+                bottom: auto;
+                left: 50%;
+                right: auto;
+                top: 50%;
+                transform: translate(-50%, -50%);
+                width: min(560px, 90vw);
+                max-height: 85vh;
+                border-radius: 16px;
+              }
+            }
+
             .app-sheet-header {
               padding: 12px 16px 0;
               flex-shrink: 0;

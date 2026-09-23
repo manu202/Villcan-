@@ -553,7 +553,7 @@ Owner explicit instruction: build the list, do not fix anything yet — attack i
 - [ ] QA-5 Movements payment-method selector: add visible separation + a real selected-state style (finding #4).
 - [ ] QA-6 CartSheet: fix multi-item sale usability (sticky panel swallowing the viewport) — decide max-height+scroll vs. collapsed summary vs. redesign (finding #5).
 - [ ] QA-7 Storefront: fix the two-dialogs-stacked visual bug (finding #6).
-- [ ] QA-8 Backoffice desktop layout for `AppSheet` — needs an owner decision first (mobile-only by design vs. add a real desktop treatment) before any code change (finding #7 in the UX list, the "no desktop layout at all" one).
+- [x] QA-8 Backoffice desktop layout for `AppSheet` (finding #7 in the UX list). **Owner decision, 2026-09-22: intent was mobile-first, but "es standard que sea responsive" — add a real desktop treatment.** Fixed in the single shared `AppSheet.tsx`: a `@media (min-width: 768px)` block turns the bottom sheet into a centered modal card (`width: min(560px, 90vw)`, `max-height: 85vh`, all-corner border-radius) instead of a full-width bottom sheet — every screen using `AppSheet` (Movements, Closings, etc.) gets this in one place. No automated test possible (jsdom doesn't evaluate media queries/layout) — verified live instead: screenshotted `/movements/new` at 1280×900 before (full-width sheet, ~60% of the viewport empty) and after (properly centered modal with visible backdrop on both sides). Pure CSS change, 510/510 tests unaffected, clean build.
 
 ### Second wave covered (same pass, continued)
 
