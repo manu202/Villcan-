@@ -47,7 +47,12 @@ export default function ContactsPage() {
 
       if (search.length >= 2) {
         const escaped = escapeSearchQuery(search);
-        query = query.or(`full_name.ilike.%${escaped}%,ci.ilike.%${escaped}%`);
+        // Reported live 2026-09-23: searching a contact's exact phone
+        // number returned zero results even though it existed — phone is
+        // the single most common thing staff actually search by (a
+        // customer calls in, or is standing at the counter), and it was
+        // never included in the filter.
+        query = query.or(`full_name.ilike.%${escaped}%,ci.ilike.%${escaped}%,phone.ilike.%${escaped}%`);
       }
 
       query = query.order(sortBy === 'name' ? 'full_name' : 'created_at', {

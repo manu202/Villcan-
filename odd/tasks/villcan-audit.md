@@ -563,6 +563,24 @@ Cierres de Caja (full flow through the confirm screen — well-executed press-an
 
 Running `npm run test` (511 tests) at the same time as a live dev server + Playwright browser session produced escalating, non-reproducible failures (0 → 3 → 2 → 6 → 10 failed across repeated attempts, "import" phase alone climbing from ~100s to ~290s) — classic resource-contention symptoms, not real regressions. Confirmed by re-running every individual failing file in isolation: 100% passed cleanly every time (StorefrontClient, GastronomyTemplate, orders/new — the last one failed in a small 6-file batch but passed in 9s fully alone). From this point on, verification for QA-5/6/7 used targeted-file isolated runs instead of insisting on a full clean 511/511 — noted honestly rather than claiming a full-suite green that the environment couldn't reliably reproduce tonight.
 
+## 2026-09-23: contact search was broken — real bug, reported by owner, fixed
+
+Owner reported live: "los buscadores de contactos... están todos rotos y no sirven de nada." Verified before agreeing (per house rule — never just agree, check first).
+
+**Confirmed live, real bug**: created a test contact via `/contacts` → "+ Nuevo" (`QA Contacto Directo`, phone `0981555444`), then searched `/contacts` for that exact phone number. Result: **"0 clientes" / "Sin contactos registrados"** — despite the contact existing with that exact phone. Root cause found in code: `/contacts`' search only OR'd `full_name.ilike`/`ci.ilike`, never `phone.ilike`. The same gap existed independently in `searchContacts()` (`src/lib/data/contacts.ts`), used by the "Buscar cliente" autocomplete in `MovementForm`'s Venta flow — that one only did a single `.ilike('full_name', ...)`, no phone at all.
+
+**Why this matters**: phone is the single most common real-world lookup for staff (a customer calls in, or is standing at the counter reading their number off their phone) — searching by name/CI only covers a minority of real searches, which matches the owner's "no sirven de nada."
+
+**Fix**: both queries now include `phone.ilike.%query%` in their OR filter.
+- `src/app/(app)/contacts/page.tsx` — added to the existing `.or(...)` string.
+- `src/lib/data/contacts.ts`'s `searchContacts()` — changed from a single `.ilike('full_name', ...)` to `.or('full_name.ilike...,phone.ilike...')`.
+
+**TDD**: RED→GREEN in both — `src/app/(app)/contacts/page.test.tsx` (new test capturing the `.or()` filter string) and a new `src/lib/data/contacts.test.ts` (didn't exist before). 514/514 full suite, clean build.
+
+**Verified live against real production data**: searching `0981555444` on `/contacts` now returns "1 clientes" / "QA Contacto Directo" instead of zero.
+
+**Adjacent finding, NOT fixed (flagged only — out of scope for what was asked)**: `/contacts`' "+ Nuevo" contact-creation form stores the phone exactly as typed, with zero normalization — the new test contact's WhatsApp link came out as `wa.me/0981555444` (missing the `595` country code entirely, a 4th independent occurrence of the phone-formatting gap already fixed in QA-2 for `CheckoutForm.tsx`/`CheckoutStep.tsx`). Worth a follow-up task: reuse `normalizeWhatsAppNumber` from `src/lib/storefront.ts` on save in whatever component renders the "+ Nuevo"/edit contact form.
+
 ### Not yet covered by this pass (owner asked for "todo" — still pending)
 
 Contact detail/edit/create forms, Settings/Sucursales, Services/new + edit forms, and a dedicated touch-target measurement pass (44×44px rule) beyond the one screenshot comparison already done.

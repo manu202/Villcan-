@@ -50,12 +50,13 @@ let contactsResult: Promise<unknown>;
 let movementsResult: Promise<unknown>;
 let movementsQueryCallCount = 0;
 let lastInContactIds: string[] = [];
+let lastOrFilter: string | null = null;
 
 function createContactsQueryMock(resultPromise: Promise<unknown>) {
   const mock: Record<string, unknown> = {};
   const chainable = () => mock;
   mock.select = chainable;
-  mock.or     = chainable;
+  mock.or     = (filter: string) => { lastOrFilter = filter; return mock; };
   mock.order  = chainable;
   mock.range  = () => resultPromise;
   return mock;
@@ -86,6 +87,7 @@ vi.mock('@/lib/supabase/client', () => ({
 beforeEach(() => {
   movementsQueryCallCount = 0;
   lastInContactIds = [];
+  lastOrFilter = null;
 
   contactsResult = Promise.resolve({
     data: [
@@ -156,5 +158,24 @@ describe('ContactsPage — sheets (REQ-CRM-SHEET)', () => {
     const formSheet = screen.getByTestId('contact-form-sheet');
     expect(formSheet).toBeTruthy();
     expect(formSheet.getAttribute('data-contact-id')).toBe('c1');
+  });
+
+  // Reported live 2026-09-23: searching a contact's exact phone number
+  // ("0981555444") returned "0 clientes / Sin contactos registrados" even
+  // though the contact exists with that exact phone — confirmed against
+  // real production data. Root cause: the search only ORs full_name and ci,
+  // never phone, so the only two things staff actually search by day to day
+  // (a customer calls in, or is standing at the counter) are name and CI —
+  // phone, the single most common lookup, was never included.
+  it('busca también por teléfono, no solo por nombre/CI', async () => {
+    render(<ContactsPage />);
+    await waitFor(() => screen.getByText('Ana Gomez'));
+
+    fireEvent.change(screen.getByPlaceholderText('Buscar contacto...'), {
+      target: { value: '0981555444' },
+    });
+
+    await waitFor(() => expect(lastOrFilter).toContain('phone.ilike'));
+    expect(lastOrFilter).toContain('0981555444');
   });
 });
