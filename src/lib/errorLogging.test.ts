@@ -96,4 +96,45 @@ describe('setupGlobalErrorLogging', () => {
     expect(removeSpy).toHaveBeenCalledWith('error', onError);
     expect(removeSpy).toHaveBeenCalledWith('unhandledrejection', expect.any(Function));
   });
+
+  // QA-1 (2026-09-22): production client_errors was flooded with dozens of
+  // "Cannot read properties of undefined (reading 'M_ID')" rows recurring
+  // every 30-60s. Root cause: the stack trace points at
+  // chrome-extension://<id>/executors/200.js — a third-party browser
+  // extension's own script throwing inside itself, nothing to do with
+  // Villcan's code. window.onerror still fires for it (browsers dispatch
+  // 'error' globally for extension-injected scripts too), and the handler
+  // logged it unfiltered, burying real app errors under third-party noise
+  // and wasting real triage time (this exact error was originally mistaken
+  // for an app bug).
+  it('skips logging an error whose stack originates from a browser extension', () => {
+    const getContext = () => ({ userId: null, branchId: null });
+    setupGlobalErrorLogging(getContext);
+    const onError = getRegisteredHandler(addSpy, 'error');
+
+    onError({
+      message: "Cannot read properties of undefined (reading 'M_ID')",
+      error: Object.assign(new Error("Cannot read properties of undefined (reading 'M_ID')"), {
+        stack:
+          "TypeError: Cannot read properties of undefined (reading 'M_ID')\n    at Y (chrome-extension://eppiocemhmnlbhjplcgkofciiegomcon/executors/200.js:1:761)",
+      }),
+    });
+
+    expect(mockInsert).not.toHaveBeenCalled();
+  });
+
+  it('still logs a real app error whose stack points at our own origin', () => {
+    const getContext = () => ({ userId: null, branchId: null });
+    setupGlobalErrorLogging(getContext);
+    const onError = getRegisteredHandler(addSpy, 'error');
+
+    onError({
+      message: 'Boom',
+      error: Object.assign(new Error('Boom'), {
+        stack: 'Error: Boom\n    at handleClick (http://localhost:3000/_next/static/chunks/app.js:1:1)',
+      }),
+    });
+
+    expect(mockInsert).toHaveBeenCalled();
+  });
 });

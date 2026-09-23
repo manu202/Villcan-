@@ -31,6 +31,20 @@ export async function logClientError(input: LogClientErrorInput): Promise<void> 
   }
 }
 
+// Schemes a script can be loaded from when it's a third-party browser
+// extension, never Villcan's own bundle. `window.onerror`/'error' fires
+// globally for these too (QA-1, 2026-09-22: production client_errors was
+// flooded with dozens of recurring "Cannot read properties of undefined
+// (reading 'M_ID')" rows — stack traced to
+// chrome-extension://<id>/executors/200.js, a third-party extension
+// throwing inside itself). Filtering these out here, at the source, keeps
+// the table meaningful instead of drowning real app errors in noise.
+const EXTENSION_STACK_PATTERN = /\b(?:chrome|moz|safari|edge)-extension:\/\//;
+
+function isFromBrowserExtension(stack: string | null | undefined): boolean {
+  return !!stack && EXTENSION_STACK_PATTERN.test(stack);
+}
+
 interface ErrorLoggingContext {
   userId: string | null;
   branchId: string | null;
@@ -44,21 +58,25 @@ export function setupGlobalErrorLogging(getContext: () => ErrorLoggingContext): 
   if (typeof window === 'undefined') return () => {};
 
   const onError = (event: ErrorEvent) => {
+    const stack = event.error instanceof Error ? event.error.stack ?? null : null;
+    if (isFromBrowserExtension(stack)) return;
     const ctx = getContext();
     void logClientError({
       message: event.error instanceof Error ? event.error.message : event.message,
-      stack: event.error instanceof Error ? event.error.stack ?? null : null,
+      stack,
       userId: ctx.userId,
       branchId: ctx.branchId,
     });
   };
 
   const onRejection = (event: PromiseRejectionEvent) => {
-    const ctx = getContext();
     const reason = event.reason;
+    const stack = reason instanceof Error ? reason.stack ?? null : null;
+    if (isFromBrowserExtension(stack)) return;
+    const ctx = getContext();
     void logClientError({
       message: reason instanceof Error ? reason.message : String(reason),
-      stack: reason instanceof Error ? reason.stack ?? null : null,
+      stack,
       userId: ctx.userId,
       branchId: ctx.branchId,
     });
