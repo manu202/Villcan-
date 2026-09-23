@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { logClientError } from '@/lib/errorLogging';
+import { normalizeWhatsAppNumber } from '@/lib/storefront';
 import { useToast } from '@/contexts/ToastContext';
 import { useBranch } from '@/contexts/BranchContext';
 
@@ -57,7 +58,12 @@ export function ContactForm({ initialData, contactId, hideHeader, onCancel, onSu
       const payload = {
         full_name: form.full_name.trim(),
         ci: form.ci.trim() || null,
-        phone: form.phone.trim() || null,
+        // Found live 2026-09-23: this used to store phone exactly as
+        // typed, no normalization — a contact entered the natural local
+        // way ("0981555444") produced a wa.me link missing the 595
+        // country code entirely. Same class already fixed elsewhere
+        // (QA-2: CheckoutForm.tsx/CheckoutStep.tsx/searchContacts).
+        phone: normalizeWhatsAppNumber(form.phone),
         comment: form.comment.trim() || null,
       };
 

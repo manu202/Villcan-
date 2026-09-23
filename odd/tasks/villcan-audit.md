@@ -579,11 +579,23 @@ Owner reported live: "los buscadores de contactos... están todos rotos y no sir
 
 **Verified live against real production data**: searching `0981555444` on `/contacts` now returns "1 clientes" / "QA Contacto Directo" instead of zero.
 
-**Adjacent finding, NOT fixed (flagged only — out of scope for what was asked)**: `/contacts`' "+ Nuevo" contact-creation form stores the phone exactly as typed, with zero normalization — the new test contact's WhatsApp link came out as `wa.me/0981555444` (missing the `595` country code entirely, a 4th independent occurrence of the phone-formatting gap already fixed in QA-2 for `CheckoutForm.tsx`/`CheckoutStep.tsx`). Worth a follow-up task: reuse `normalizeWhatsAppNumber` from `src/lib/storefront.ts` on save in whatever component renders the "+ Nuevo"/edit contact form.
+**RESOLVED 2026-09-23** (was flagged only, fixed in a follow-up): `ContactForm.tsx` (shared by both create and edit — `ContactFormSheet.tsx` renders it for both) stored the phone exactly as typed, zero normalization — `wa.me/0981555444` instead of `wa.me/595981555444`, a 4th independent occurrence of the phone-formatting gap already fixed in QA-2. Fixed by reusing `normalizeWhatsAppNumber` from `src/lib/storefront.ts` on save — same helper already used elsewhere, single shared fix covers both create and edit since they're one component. RED→GREEN in `ContactForm.test.tsx`. 515/515, clean build.
+
+## 2026-09-23: Contactos/Sucursales/Catálogo QA pass — 1 real finding
+
+Continued the "Group A" unscanned-screens sweep from the earlier QA backlog.
+
+- **Contactos** (crear/editar/detalle): all clean. Detail sheet shows visitas/total/última visita correctly; edit form preloads correctly; no new bugs beyond the already-flagged phone-normalization gap on create (see the 2026-09-23 contact-search entry above).
+- **Sucursales** (`/settings/branches`): clean. Edit form (Nombre/Dirección/Rubro/WhatsApp) preloads correctly, storefront link/active-state shown correctly. Didn't submit a real "+Nueva" branch (creating one has broader side effects — shows up in the branch selector everywhere — so only inspected the form fields without saving).
+- **Catálogo — real finding**: two parallel, duplicated "edit service" implementations exist with different field sets, and the one users actually reach from the list is the incomplete one.
+  - `src/components/ServiceEditSheet.tsx` — the modal opened by clicking a row in `/services` (the list, the real day-to-day path). Fields: Nombre, Precio, Costo, Categoría, Descripción, one generic "Disponible en el catálogo" toggle. **Missing: Imagen (upload or URL) and "Global" (todas las sucursales)** — once a service is created, there's no way to change its image or its global/branch-scoped flag through this path.
+  - `src/app/(app)/services/[id]/edit/page.tsx` — a full page reachable only via `/services/[id]` (detail)'s own "Editar" button, itself apparently not linked from the list (clicking a list row opens the sheet directly, never navigates to the detail page first). Has the complete field set: Imagen (file upload + URL fallback), Categoría, "Disponible en la tienda pública", and "Global (todas las sucursales)" as a separate toggle.
+  - Verified live: created a real test service (`QA Catalogo Test`, ₲20.000) via `/services/new` (which itself has the full field set, matching the edit page, not the sheet) — saved correctly, appeared in the list. Clicking it opened `ServiceEditSheet`, confirming that's the real path, not the full edit page.
+  - **Not fixed — a product/architecture decision, not a one-line bug**: either drop `ServiceEditSheet.tsx` and route the list to the full edit page, or bring the sheet's field set up to parity. Flagged for the owner to decide.
 
 ### Not yet covered by this pass (owner asked for "todo" — still pending)
 
-Contact detail/edit/create forms, Settings/Sucursales, Services/new + edit forms, and a dedicated touch-target measurement pass (44×44px rule) beyond the one screenshot comparison already done.
+Contact detail/edit/create forms, Settings/Sucursales, Services/new + edit forms — **all done 2026-09-23, see the entry above**. Still pending: a dedicated touch-target measurement pass (44×44px rule) beyond the one screenshot comparison already done, and the decision on which ServiceEditSheet-vs-full-edit-page to keep.
 
 ## Deferred: extend the data access layer beyond orders/movements
 
