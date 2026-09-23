@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useBranch } from '@/contexts/BranchContext';
 import { useSettings } from '@/contexts/SettingsContext';
 import { useToast } from '@/contexts/ToastContext';
-import { createClient } from '@/lib/supabase/client';
+import { updateBusinessModulesSettings } from '@/lib/data/settings-modules';
 import { Toggle } from '@/components/Toggle';
 import type { BusinessSettings, BusinessVertical } from '@/types';
 
@@ -66,15 +66,11 @@ function ModulesForm({
     e.preventDefault();
     setSubmitting(true);
 
-    const supabase = createClient();
-    const { error: updateError } = await supabase
-      .from('business_settings')
-      .update({
-        commissions_enabled: commissionsEnabled,
-        default_commission_pct: parseFloat(defaultCommissionPct) || 0,
-        mandatory_arqueo_enabled: mandatoryArqueoEnabled,
-      })
-      .eq('id', 1);
+    const { error: updateError } = await updateBusinessModulesSettings({
+      commissions_enabled: commissionsEnabled,
+      default_commission_pct: parseFloat(defaultCommissionPct) || 0,
+      mandatory_arqueo_enabled: mandatoryArqueoEnabled,
+    });
 
     if (updateError) {
       showToast(updateError.message, 'error');
