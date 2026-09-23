@@ -59,6 +59,15 @@ Legend: unchecked = open, not started or not finished. Each ID is searchable in 
 - [ ] **Backups** — no verified restore of a Supabase backup has ever been performed or documented.
 - [ ] **Production monitoring/alerting** — `client_errors` table + manual `/errors` page review is the entire observability story; no alerting, no uptime check, nothing beyond what a human remembers to go look at.
 
+### Supabase security skill + `db advisors` sweep (2026-09-23) — new findings
+Installed `supabase/agent-skills` (security checklist) and `supabase-postgres-best-practices`. Applying the checklist against real migrations + a live `db advisors` run surfaced items not previously in this document.
+
+- [x] **CLOSED 2026-09-23** (`54af46c`) — `update_order`/`create_branch_with_admin` still carried the implicit PUBLIC EXECUTE grant Postgres adds by default; `complete_order_payment`'s own migration revoked from PUBLIC but never from `anon` specifically (Supabase grants anon EXECUTE separately by default), so **anon could call it directly in production**. None were exploitable (each checks `auth.uid()` against `user_branch_access` and rejects a null caller), but this closes the gap properly instead of relying on the internal check alone. Verified live via `has_function_privilege` before/after.
+- [ ] **`function_search_path_mutable`** (advisor WARN, 4 functions) — `format_gs`, `_guard_order_financial_fields`, `_safe_branch_uuid`, `_prevent_overlapping_closing` have no fixed `search_path`. Not yet checked whether any are `SECURITY DEFINER` (which would make this more than cosmetic — a mutable search_path on a SECURITY DEFINER function is a schema-hijacking vector).
+- [ ] **`anon_security_definer_function_executable`** (advisor WARN, 10 functions total, `complete_order_payment` now fixed above) — remaining: `_find_or_create_contact`, `_latest_closing_at`, `compute_branch_slug`, `create_storefront_order` (intentional — public storefront), `fn_order_completed_to_movement`, `has_branch_access`, `is_branch_admin`, `prevent_last_admin_removal`, `recompute_all_branch_slugs`. Most look like trigger functions or internal helpers that probably don't need direct anon RPC exposure at all — not individually verified for exploitability yet, unlike `complete_order_payment` which was checked.
+- [ ] **`extension_in_public`** (advisor WARN, LOW) — the `citext` extension is installed in the `public` schema; should live in a dedicated schema.
+- [ ] **`auth_leaked_password_protection`** (advisor WARN) — HaveIBeenPwned password-leak checking is disabled in Supabase Auth settings; a one-click dashboard toggle, not code.
+
 ### Explicitly deferred by owner decision (not forgotten, don't re-raise without new info)
 - Storefront visual redesign — separate track, owner deciding design direction (Figma/Pinterest reference) in another session.
 - Kapso (WhatsApp AI bot) integration — Package 3, not started.
