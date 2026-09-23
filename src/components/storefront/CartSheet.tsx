@@ -62,6 +62,16 @@ export function CartSheet({ lines, onIncrement, onDecrement, onCheckout, checkou
           flex-direction: column;
           gap: 8px;
           margin-bottom: 12px;
+          /* QA-6 (2026-09-22): with only 1-2 lines this sticky panel stays
+             small and pinned nicely above the checkout button. Tested live
+             with a realistic 8-item sale (a barbershop combo, ₲420.000):
+             the panel's own content grew tall enough to swallow almost the
+             entire viewport, burying the catalog above it. Bounding just
+             this inner list (not the whole sticky panel) keeps Total and
+             the checkout button always reachable, and only the line items
+             themselves scroll once there are more than a handful. */
+          max-height: 33vh;
+          overflow-y: auto;
         }
         .cart-line {
           display: flex;

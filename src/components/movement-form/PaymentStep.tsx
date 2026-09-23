@@ -187,6 +187,60 @@ export function PaymentStep({
           text-transform: none;
           letter-spacing: 0;
         }
+
+        /* QA-5 (2026-09-22): .method-grid/.method-btn were used here with no
+           CSS at all — DetailsStep.tsx defines these same class names (for
+           its own "fuente" selector, gasto/apertura/cierre only), but that
+           component never mounts during a Venta, so its <style> block never
+           reaches the DOM here. Copied verbatim (same convention already
+           used across this codebase's per-step inline <style> blocks) so
+           this screen's payment-method buttons get real spacing and a
+           visible selected state instead of unstyled default buttons. */
+        .method-grid {
+          display: grid;
+          grid-template-columns: repeat(3, 1fr);
+          gap: 8px;
+        }
+
+        .method-btn {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 6px;
+          padding: 16px 12px;
+          background: var(--surface);
+          border: 1px solid var(--border);
+          border-radius: 8px;
+          font-size: 14px;
+          font-weight: 500;
+          color: var(--text-secondary);
+          cursor: pointer;
+          transition: all 0.15s ease;
+        }
+
+        .method-btn:hover {
+          border-color: var(--accent-hover);
+        }
+
+        .method-btn:active {
+          background: var(--accent-subtle);
+          border-color: var(--accent);
+        }
+
+        .method-btn:focus-visible {
+          outline: 2px solid var(--accent);
+          outline-offset: 2px;
+        }
+
+        .method-btn.selected {
+          border-color: var(--accent);
+          background: var(--accent);
+          color: var(--accent-foreground);
+        }
+
+        .method-icon {
+          color: inherit;
+        }
       `}</style>
     </div>
   );
