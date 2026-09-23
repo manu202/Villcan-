@@ -4,8 +4,13 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { ExternalLink, Globe } from 'lucide-react';
-import { createClient } from '@/lib/supabase/client';
 import { normalizeWhatsAppNumber } from '@/lib/storefront';
+import {
+  listBranchStorefrontData,
+  updateBranch,
+  createBranchWithAdmin,
+  deleteBranch,
+} from '@/lib/data/settings-branches';
 import { useBranch } from '@/contexts/BranchContext';
 import { useSettings } from '@/contexts/SettingsContext';
 import { useToast } from '@/contexts/ToastContext';
@@ -57,10 +62,7 @@ export default function BranchesPage() {
   useEffect(() => setStoreOrigin(window.location.origin), []);
 
   const loadStorefrontData = async () => {
-    const supabase = createClient();
-    const { data, error } = await supabase
-      .from('branches')
-      .select('id, whatsapp_number, slug, storefront_enabled');
+    const { data, error } = await listBranchStorefrontData();
 
     if (!error && data) {
       setStorefrontData(
@@ -87,18 +89,13 @@ export default function BranchesPage() {
     e.preventDefault();
     setSaving(true);
 
-    const supabase = createClient();
-
     if (editingBranch) {
-      const { error } = await supabase
-        .from('branches')
-        .update({
-          name: formData.name,
-          address: formData.address,
-          vertical: formData.vertical,
-          whatsapp_number: normalizeWhatsAppNumber(formData.whatsapp),
-        })
-        .eq('id', editingBranch.id);
+      const { error } = await updateBranch(editingBranch.id, {
+        name: formData.name,
+        address: formData.address,
+        vertical: formData.vertical,
+        whatsapp_number: normalizeWhatsAppNumber(formData.whatsapp),
+      });
       if (error) showToast(error.message, 'error');
       else {
         showToast('Sucursal actualizada', 'success');
@@ -112,7 +109,7 @@ export default function BranchesPage() {
       // Atomic bootstrap: creates the branch and the first admin
       // user_branch_access row server-side (SECURITY DEFINER RPC), so the
       // client never needs (and no longer has) a direct branch INSERT policy.
-      const { error } = await supabase.rpc('create_branch_with_admin', {
+      const { error } = await createBranchWithAdmin({
         p_name: formData.name,
         p_address: formData.address,
         p_vertical: formData.vertical,
@@ -153,8 +150,7 @@ export default function BranchesPage() {
     const branchId = branchPendingDelete.id;
     setBranchPendingDelete(null);
 
-    const supabase = createClient();
-    const { error } = await supabase.from('branches').delete().eq('id', branchId);
+    const { error } = await deleteBranch(branchId);
 
     if (error) showToast(error.message, 'error');
     else {
