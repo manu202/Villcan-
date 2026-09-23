@@ -7,7 +7,7 @@ import { useToast } from '@/contexts/ToastContext';
 import { getCurrentUserId } from '@/lib/auth';
 import { getLastClosing, getCalculatedBalanceSince } from '@/lib/closings';
 import { buildClosingPayload } from '@/lib/arqueo';
-import { createClient } from '@/lib/supabase/client';
+import { insertCashClosing } from '@/lib/data/closings';
 import { formatGuaranies, parseGuaranies, formatDate } from '@/lib/utils';
 import { HoldButton } from './HoldButton';
 import { GuaraniesInput } from './GuaraniesInput';
@@ -86,8 +86,7 @@ export function ClosingWizard({ onClose, onSaved }: ClosingWizardProps) {
       notes: notes.trim() === '' ? null : notes.trim(),
     });
 
-    const supabase = createClient();
-    const { error } = await supabase.from('cash_closings').insert(payload);
+    const { error } = await insertCashClosing(payload);
 
     if (error) {
       showToast('Error al cerrar caja', 'error');

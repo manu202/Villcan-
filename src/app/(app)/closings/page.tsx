@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useRef } from 'react';
 import Link from 'next/link';
-import { createClient } from '@/lib/supabase/client';
+import { listCashClosingsForBranch } from '@/lib/data/closings';
 import { useBranch } from '@/contexts/BranchContext';
 import { formatGuaranies, formatDate, formatTime } from '@/lib/utils';
 import { Spinner } from '@/components/Spinner';
@@ -59,21 +59,8 @@ export default function ClosingsHistoryPage() {
 
       setLoading(true);
       setError(false);
-      const supabase = createClient();
 
-      const { data, error: fetchError } = await supabase
-        .from('cash_closings')
-        .select(`
-          id, closed_at, arqueo_enabled,
-          calculated_efectivo, calculated_transferencia, calculated_pos, calculated_total,
-          counted_efectivo, counted_transferencia, counted_pos,
-          discrepancy_efectivo, discrepancy_transferencia, discrepancy_pos,
-          branch:branches(name),
-          closed_by_profile:profiles!cash_closings_closed_by_fkey(full_name)
-        `)
-        .eq('branch_id', branch.id)
-        .order('closed_at', { ascending: false })
-        .limit(100);
+      const { data, error: fetchError } = await listCashClosingsForBranch(branch.id);
 
       if (cancelled) return;
 

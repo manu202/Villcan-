@@ -1,7 +1,14 @@
-import { createClient } from '@/lib/supabase/client';
 import type { ArqueoAmounts, CashClosing, PaymentMethod } from '@/types';
 import { calcRunningBalance, type KpiMovement, type RunningBalance } from '@/lib/kpis';
 import { computeCashBalance, type CashBalanceMovement } from '@/lib/cashBalance';
+import {
+  listServiceMovementsSince,
+  listAperturaMovementsSince,
+  listExpenseMovementsSince,
+  listCierreMovementsSince,
+  getLastCashClosing,
+  listMovementsByTypeSince,
+} from '@/lib/data/closings';
 
 /**
  * Calculates the system's expected cash-box balance per payment method,
@@ -17,35 +24,10 @@ export async function getCalculatedBalanceSince(
   branchId: string,
   periodStart: string
 ): Promise<ArqueoAmounts> {
-  const supabase = createClient();
-
-  const { data: serviceMovements } = await supabase
-    .from('movements')
-    .select('income, payment_method')
-    .eq('type', 'servicio')
-    .eq('branch_id', branchId)
-    .gte('created_at', periodStart);
-
-  const { data: aperturaMovements } = await supabase
-    .from('movements')
-    .select('income')
-    .eq('type', 'apertura')
-    .eq('branch_id', branchId)
-    .gte('created_at', periodStart);
-
-  const { data: expenseMovements } = await supabase
-    .from('movements')
-    .select('expense, comment')
-    .eq('type', 'gasto')
-    .eq('branch_id', branchId)
-    .gte('created_at', periodStart);
-
-  const { data: cierreMovements } = await supabase
-    .from('movements')
-    .select('expense')
-    .eq('type', 'cierre')
-    .eq('branch_id', branchId)
-    .gte('created_at', periodStart);
+  const { data: serviceMovements } = await listServiceMovementsSince(branchId, periodStart);
+  const { data: aperturaMovements } = await listAperturaMovementsSince(branchId, periodStart);
+  const { data: expenseMovements } = await listExpenseMovementsSince(branchId, periodStart);
+  const { data: cierreMovements } = await listCierreMovementsSince(branchId, periodStart);
 
   const services = (serviceMovements || []) as { income: number; payment_method: PaymentMethod | null }[];
   const aperturas = (aperturaMovements || []) as { income: number }[];
@@ -94,14 +76,7 @@ export async function getCalculatedBalanceSince(
  * closing's period_start (from the prior closing's closed_at).
  */
 export async function getLastClosing(branchId: string): Promise<CashClosing | null> {
-  const supabase = createClient();
-
-  const { data } = await supabase
-    .from('cash_closings')
-    .select('*')
-    .eq('branch_id', branchId)
-    .order('closed_at', { ascending: false })
-    .limit(1);
+  const { data } = await getLastCashClosing(branchId);
 
   const rows = (data || []) as CashClosing[];
   return rows[0] ?? null;
@@ -122,26 +97,13 @@ export async function getLastClosing(branchId: string): Promise<CashClosing | nu
  * only fetches rows and picks the lower boundary.
  */
 export async function getRunningCashBalance(branchId: string): Promise<RunningBalance> {
-  const supabase = createClient();
   const lastClosing = await getLastClosing(branchId);
   const since = lastClosing?.closed_at;
 
   const movementTypes = ['apertura', 'servicio', 'gasto', 'cierre'] as const;
 
   const results = await Promise.all(
-    movementTypes.map((type) => {
-      let query = supabase
-        .from('movements')
-        .select('type, income, expense, payment_method, comment')
-        .eq('type', type)
-        .eq('branch_id', branchId);
-
-      if (since) {
-        query = query.gte('created_at', since);
-      }
-
-      return query;
-    })
+    movementTypes.map((type) => listMovementsByTypeSince(branchId, type, since))
   );
 
   const movements: KpiMovement[] = results.flatMap(
