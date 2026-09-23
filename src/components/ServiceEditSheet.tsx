@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
+import { logClientError } from '@/lib/errorLogging';
 import { Toggle } from '@/components/Toggle';
 import { useBranch } from '@/contexts/BranchContext';
 import { Spinner } from '@/components/Spinner';
@@ -26,6 +27,8 @@ export function ServiceEditSheet({ serviceId, onClose, onSaved }: ServiceEditShe
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [uploadingImage, setUploadingImage] = useState(false);
+  const [uploadError, setUploadError] = useState('');
 
   useEffect(() => {
     if (!serviceId) return;
@@ -58,6 +61,38 @@ export function ServiceEditSheet({ serviceId, onClose, onSaved }: ServiceEditShe
     load();
     return () => { cancelled = true; };
   }, [serviceId]);
+
+  const handleImageFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setUploadError('');
+    setUploadingImage(true);
+
+    if (!currentBranch) {
+      setUploadingImage(false);
+      setUploadError('Seleccioná una sucursal antes de subir una imagen.');
+      return;
+    }
+
+    const supabase = createClient();
+    const path = `${currentBranch.id}/${crypto.randomUUID()}-${file.name}`;
+    const { error: uploadErr } = await supabase.storage.from('service-images').upload(path, file);
+
+    if (uploadErr) {
+      setUploadingImage(false);
+      setUploadError('No se pudo subir la imagen. Intenta de nuevo o pegá una URL.');
+      void logClientError({
+        message: uploadErr instanceof Error ? uploadErr.message : String(uploadErr),
+        stack: uploadErr instanceof Error ? uploadErr.stack ?? null : null,
+      });
+      return;
+    }
+
+    const { data } = supabase.storage.from('service-images').getPublicUrl(path);
+    setImageUrl(data.publicUrl);
+    setUploadingImage(false);
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -162,6 +197,32 @@ export function ServiceEditSheet({ serviceId, onClose, onSaved }: ServiceEditShe
         />
       </div>
 
+      <div className="ses-field">
+        <label className="ses-label" htmlFor="ses-image-file">Imagen</label>
+        {imageUrl && (
+          <img src={imageUrl} alt="Vista previa" className="ses-image-preview" />
+        )}
+        <input
+          id="ses-image-file"
+          className="ses-input"
+          type="file"
+          accept="image/*"
+          onChange={handleImageFileChange}
+          disabled={uploadingImage}
+          aria-label="Subir imagen"
+        />
+        {uploadingImage && <p className="ses-upload-status">Subiendo imagen...</p>}
+        {uploadError && <p className="ses-error">{uploadError}</p>}
+        <input
+          id="ses-image-url"
+          className="ses-input ses-image-url-fallback"
+          type="url"
+          value={imageUrl}
+          onChange={(e) => setImageUrl(e.target.value)}
+          placeholder="https://..."
+        />
+      </div>
+
       <div className="ses-toggle-row">
         <span className="ses-label">Disponible en el catálogo</span>
         <Toggle
@@ -171,13 +232,22 @@ export function ServiceEditSheet({ serviceId, onClose, onSaved }: ServiceEditShe
         />
       </div>
 
+      <div className="ses-toggle-row">
+        <span className="ses-label">Global (todas las sucursales)</span>
+        <Toggle
+          checked={isGlobal}
+          onChange={setIsGlobal}
+          label="Servicio global (todas las sucursales)"
+        />
+      </div>
+
       {error && <p className="ses-error">{error}</p>}
 
       <div className="ses-actions">
         <button type="button" className="ses-btn-cancel" onClick={onClose}>
           Cancelar
         </button>
-        <button type="submit" className="ses-btn-save" disabled={submitting}>
+        <button type="submit" className="ses-btn-save" disabled={submitting || uploadingImage}>
           {submitting ? 'Guardando...' : 'Guardar cambios'}
         </button>
       </div>
@@ -193,6 +263,13 @@ export function ServiceEditSheet({ serviceId, onClose, onSaved }: ServiceEditShe
         }
         .ses-input:focus { outline: 2px solid var(--accent); border-color: var(--accent); }
         .ses-textarea { resize: vertical; min-height: 72px; }
+        .ses-image-preview {
+          display: block; width: 96px; height: 96px;
+          object-fit: cover; border-radius: 8px; margin-bottom: 8px;
+          border: 1px solid var(--border);
+        }
+        .ses-image-url-fallback { margin-top: 8px; }
+        .ses-upload-status { font-size: 13px; color: var(--text-secondary); margin-top: 6px; }
         .ses-toggle-row {
           display: flex; justify-content: space-between; align-items: center;
           padding: 4px 0;

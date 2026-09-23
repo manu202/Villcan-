@@ -1,27 +1,26 @@
 'use client';
 
-import { useParams, useRouter } from 'next/navigation';
+import { useParams } from 'next/navigation';
 import Link from 'next/link';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { formatGuaranies, formatDate } from '@/lib/utils';
 import { computeMargin } from '@/lib/margin';
+import { AppSheet } from '@/components/AppSheet';
+import { ServiceEditSheet } from '@/components/ServiceEditSheet';
 import type { Service, MovementWithDetails } from '@/types';
 
 export default function ServiceDetailPage() {
   const params = useParams();
-  const router = useRouter();
   const serviceId = params.id as string;
 
   const [service, setService] = useState<Service | null>(null);
   const [movements, setMovements] = useState<MovementWithDetails[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [editing, setEditing] = useState(false);
 
-  useEffect(() => {
-    if (!serviceId) return;
-
-    async function fetchData() {
+  const fetchData = useCallback(async () => {
       const supabase = createClient();
 
       const [serviceRes, movementsRes] = await Promise.all([
@@ -51,10 +50,12 @@ export default function ServiceDetailPage() {
       setService(serviceRes.data);
       setMovements((movementsRes.data ?? []) as unknown as MovementWithDetails[]);
       setLoading(false);
-    }
-
-    fetchData();
   }, [serviceId]);
+
+  useEffect(() => {
+    if (!serviceId) return;
+    fetchData();
+  }, [serviceId, fetchData]);
 
   if (loading) {
     return (
@@ -84,7 +85,7 @@ export default function ServiceDetailPage() {
         <h1 className="page-title">{service.name}</h1>
         <button
           className="edit-btn"
-          onClick={() => router.push(`/services/${serviceId}/edit`)}
+          onClick={() => setEditing(true)}
         >
           Editar
         </button>
@@ -146,6 +147,20 @@ export default function ServiceDetailPage() {
           </ul>
         )}
       </section>
+
+      <AppSheet
+        open={editing}
+        onOpenChange={setEditing}
+        title="Editar servicio"
+      >
+        {editing && (
+          <ServiceEditSheet
+            serviceId={serviceId}
+            onClose={() => setEditing(false)}
+            onSaved={fetchData}
+          />
+        )}
+      </AppSheet>
 
       <style>{`
         .page {
