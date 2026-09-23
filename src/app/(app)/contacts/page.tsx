@@ -1,8 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { createClient } from '@/lib/supabase/client';
-import { escapeSearchQuery } from '@/lib/utils';
+import { listContacts, listLastVisitsForContacts } from '@/lib/data/contacts';
 import type { Contact } from '@/types';
 import { Spinner } from '@/components/Spinner';
 import { Users } from 'lucide-react';
@@ -39,29 +38,13 @@ export default function ContactsPage() {
       const currentPage = reset ? 0 : page;
       setLoading(currentPage === 0);
       setError(false);
-      const supabase = createClient();
 
-      let query = supabase
-        .from('contacts')
-        .select('id, full_name, ci, phone, comment');
-
-      if (search.length >= 2) {
-        const escaped = escapeSearchQuery(search);
-        // Reported live 2026-09-23: searching a contact's exact phone
-        // number returned zero results even though it existed — phone is
-        // the single most common thing staff actually search by (a
-        // customer calls in, or is standing at the counter), and it was
-        // never included in the filter.
-        query = query.or(`full_name.ilike.%${escaped}%,ci.ilike.%${escaped}%,phone.ilike.%${escaped}%`);
-      }
-
-      query = query.order(sortBy === 'name' ? 'full_name' : 'created_at', {
-        ascending: sortBy === 'name',
+      const { data, error: fetchError } = await listContacts({
+        search,
+        sortBy,
+        page: currentPage,
+        pageSize: PAGE_SIZE,
       });
-
-      query = query.range(currentPage * PAGE_SIZE, (currentPage + 1) * PAGE_SIZE - 1);
-
-      const { data, error: fetchError } = await query;
 
       if (fetchError) {
         setError(true);
@@ -78,10 +61,7 @@ export default function ContactsPage() {
       let lastVisitMap = new Map<string, string>();
 
       if (ids.length > 0) {
-        const { data: visitRows } = await supabase
-          .from('movements')
-          .select('contact_id, created_at')
-          .in('contact_id', ids);
+        const { data: visitRows } = await listLastVisitsForContacts(ids);
 
         for (const row of (visitRows ?? []) as { contact_id: string; created_at: string }[]) {
           const existing = lastVisitMap.get(row.contact_id);

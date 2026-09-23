@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { createClient } from '@/lib/supabase/client';
+import { updateContact, createContact } from '@/lib/data/contacts';
 import { logClientError } from '@/lib/errorLogging';
 import { normalizeWhatsAppNumber } from '@/lib/storefront';
 import { useToast } from '@/contexts/ToastContext';
@@ -54,7 +54,6 @@ export function ContactForm({ initialData, contactId, hideHeader, onCancel, onSu
     setIsSubmitting(true);
 
     try {
-      const supabase = createClient();
       const payload = {
         full_name: form.full_name.trim(),
         ci: form.ci.trim() || null,
@@ -70,7 +69,7 @@ export function ContactForm({ initialData, contactId, hideHeader, onCancel, onSu
       if (contactId) {
         // UPDATE: branch_id is NOT included — the RLS WITH CHECK already prevents
         // moving a contact to a different branch.
-        const { error } = await supabase.from('contacts').update(payload).eq('id', contactId);
+        const { error } = await updateContact(contactId, payload);
         if (error) throw error;
         setIsSubmitting(false);
         if (onSuccess) {
@@ -86,11 +85,7 @@ export function ContactForm({ initialData, contactId, hideHeader, onCancel, onSu
           setError('Seleccioná una sucursal antes de crear un contacto.');
           return;
         }
-        const { data, error } = await supabase
-          .from('contacts')
-          .insert({ ...payload, branch_id: currentBranch.id })
-          .select()
-          .single();
+        const { data, error } = await createContact({ ...payload, branch_id: currentBranch.id });
         if (error) throw error;
         setIsSubmitting(false);
         if (onSuccess && data) {

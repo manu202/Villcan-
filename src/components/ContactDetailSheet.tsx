@@ -1,7 +1,11 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { createClient } from '@/lib/supabase/client';
+import {
+  getContactDetail,
+  listRecentMovementsForContact,
+  listAllMovementAmountsForContact,
+} from '@/lib/data/contacts';
 import { formatGuaranies, formatDate } from '@/lib/utils';
 import { getContactVisitAggregate } from '@/lib/contactAggregates';
 import { AppSheet } from './AppSheet';
@@ -26,18 +30,11 @@ export function ContactDetailSheet({ contactId, open, onOpenChange, onEdit }: Co
   useEffect(() => {
     if (!open) return;
     setLoading(true);
-    const supabase = createClient();
 
     Promise.all([
-      supabase.from('contacts').select('id, full_name, ci, phone, comment, created_at').eq('id', contactId).single(),
-      supabase.from('movements')
-        .select('id, type, amount_charged, income, expense, created_at, service:services(name)')
-        .eq('contact_id', contactId)
-        .order('created_at', { ascending: false })
-        .limit(5),
-      supabase.from('movements')
-        .select('amount_charged')
-        .eq('contact_id', contactId),
+      getContactDetail(contactId),
+      listRecentMovementsForContact(contactId),
+      listAllMovementAmountsForContact(contactId),
     ]).then(([contactRes, movRes, allMovRes]) => {
       setContact(contactRes.data ?? null);
       setMovements((movRes.data ?? []) as unknown as MovementWithDetails[]);

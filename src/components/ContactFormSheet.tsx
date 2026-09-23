@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { createClient } from '@/lib/supabase/client';
+import { getContactById } from '@/lib/data/contacts';
 import { AppSheet } from './AppSheet';
 import { ContactForm } from './ContactForm';
 import type { Contact } from '@/types';
@@ -24,16 +24,10 @@ export function ContactFormSheet({ open, onOpenChange, contactId, onSuccess }: C
       return;
     }
     setLoading(true);
-    const supabase = createClient();
-    supabase
-      .from('contacts')
-      .select('id, full_name, ci, phone, comment')
-      .eq('id', contactId)
-      .single()
-      .then(({ data }) => {
-        setInitialData(data ?? undefined);
-        setLoading(false);
-      });
+    getContactById(contactId).then(({ data }) => {
+      setInitialData(data ?? undefined);
+      setLoading(false);
+    });
   }, [open, contactId]);
 
   const handleSuccess = (contact: { id: string; full_name: string }) => {
