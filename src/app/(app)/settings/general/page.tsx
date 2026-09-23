@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useBranch } from '@/contexts/BranchContext';
 import { useSettings } from '@/contexts/SettingsContext';
 import { useToast } from '@/contexts/ToastContext';
-import { createClient } from '@/lib/supabase/client';
+import { upsertBusinessSettings } from '@/lib/data/settings-general';
 import type { BusinessSettings } from '@/types';
 
 const ACCENT_PRESETS: { key: string; label: string }[] = [
@@ -84,13 +84,13 @@ function SettingsForm({
     e.preventDefault();
     setSubmitting(true);
 
-    const supabase = createClient();
-    const { error: updateError } = await supabase
-      .from('business_settings')
-      .upsert(
-        { id: 1, business_name: businessName, services_label: servicesLabel, staff_label: staffLabel, brand_color: brandColor },
-        { onConflict: 'id' }
-      );
+    const { error: updateError } = await upsertBusinessSettings({
+      id: 1,
+      business_name: businessName,
+      services_label: servicesLabel,
+      staff_label: staffLabel,
+      brand_color: brandColor,
+    });
 
     if (updateError) {
       showToast(updateError.message, 'error');
