@@ -52,6 +52,9 @@ Legend: unchecked = open, not started or not finished. Each ID is searchable in 
 - [ ] **Backups** — no verified restore of a Supabase backup has ever been performed or documented.
 - [ ] **Production monitoring/alerting** — `client_errors` table + manual `/errors` page review is the entire observability story; no alerting, no uptime check, nothing beyond what a human remembers to go look at.
 
+### RDD (native review) of today's security batch (2026-09-24) — CLOSED
+Ran `gentle-ai review` for real on the security-hardening commits (`6b97f49`..`e9c8bd5`, 23 files, 753 lines — the full session's accumulated diff was too large, `lens_context_budget_exceeded`, sliced to this candidate). Risk `high`, 4 lenses (risk/resilience/readability/reliability), **approved**. 12 raw findings, all advisory/non-blocking, deduplicated to 2 real corroborated-by-3-lenses issues + 5 single-lens reliability/readability items. All fixed in `66a3e18`: client_errors constraints made genuinely idempotent + `NOT VALID` (were validating every existing row and would fail on re-run), `getPendingOrdersCount` no longer conflates a failed query with "zero pending orders" (returns `null`, logs, distinct UI message), `/login`'s unhandled promise rejection on `getUser()` failure, O-6/A-7 integration-test gaps (missing setup assertions, a misleadingly-named test), AuthGuard's magic retry-delay number. One cosmetic finding (a stale comment in an already-applied migration) deliberately left alone. Authority acknowledged and burned (`review-6470625f28b41495`).
+
 ### Supabase security skill + `db advisors` sweep (2026-09-23) — new findings
 Installed `supabase/agent-skills` (security checklist) and `supabase-postgres-best-practices`. Applying the checklist against real migrations + a live `db advisors` run surfaced items not previously in this document.
 
