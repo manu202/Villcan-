@@ -23,5 +23,7 @@ export function computeCommissionPct(settings: CommissionSettings): number | nul
  */
 export function computeCommissionAmount(amountCharged: number, pct: number | null): number {
   if (pct === null || pct === undefined) return 0;
-  return (amountCharged * pct) / 100;
+  // M-6: guaraníes have no cents -- round each line to the nearest whole
+  // guaraní rather than letting a fractional result sum up across movements.
+  return Math.round((amountCharged * pct) / 100);
 }

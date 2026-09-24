@@ -35,4 +35,14 @@ describe('computeCommissionAmount (REQ-PROFIT-1/2)', () => {
   it('amountCharged is 0 -> amount is 0 regardless of pct', () => {
     expect(computeCommissionAmount(0, 20)).toBe(0);
   });
+
+  // M-6: guaraníes have no cents -- a fractional result (e.g. an odd
+  // percentage against an amount that doesn't divide evenly) must round to
+  // the nearest whole guaraní, not stay a float, or Liquidación's totals
+  // silently drift when many fractional commissions are summed.
+  it('rounds a fractional result to the nearest whole guaraní', () => {
+    expect(computeCommissionAmount(33333, 15)).toBe(5000); // 4999.95 -> 5000
+    expect(computeCommissionAmount(100, 33)).toBe(33); // 33.00 exactly
+    expect(computeCommissionAmount(101, 33)).toBe(33); // 33.33 -> 33
+  });
 });
