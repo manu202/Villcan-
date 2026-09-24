@@ -880,6 +880,63 @@ describe('RLS/RPC authorization (real Postgres, local stack)', () => {
     });
   });
 
+  // ===========================================================================
+  // A-7 — profiles_update_own had no column restriction / WITH CHECK: a user
+  // could rewrite their own profiles.email, which the invite route
+  // (src/app/api/users/invite/route.ts) uses to look up accounts.
+  // ===========================================================================
+  describe('A-7: profiles_update_own cannot change email, can still change full_name', () => {
+    it('positive: a user can still update their own full_name', async () => {
+      const { error } = await userA.client
+        .from('profiles')
+        .update({ full_name: 'Updated Name' })
+        .eq('id', userA.id);
+      expect(error).toBeNull();
+
+      const { data: row } = await admin
+        .from('profiles')
+        .select('full_name')
+        .eq('id', userA.id)
+        .single();
+      expect(row?.full_name).toBe('Updated Name');
+    });
+
+    it('negative: a user cannot change their own email', async () => {
+      const { data: before } = await admin
+        .from('profiles')
+        .select('email')
+        .eq('id', userA.id)
+        .single();
+
+      await userA.client
+        .from('profiles')
+        .update({ email: 'hijacked@example.com' })
+        .eq('id', userA.id);
+
+      const { data: after } = await admin
+        .from('profiles')
+        .select('email')
+        .eq('id', userA.id)
+        .single();
+      expect(after?.email).toBe(before?.email);
+    });
+
+    it('negative: a user cannot update someone else\'s profile row (defense-in-depth WITH CHECK)', async () => {
+      const { error } = await userA.client
+        .from('profiles')
+        .update({ full_name: 'Hijacked' })
+        .eq('id', userB.id);
+
+      const { data: row } = await admin
+        .from('profiles')
+        .select('full_name')
+        .eq('id', userB.id)
+        .single();
+      expect(row?.full_name).not.toBe('Hijacked');
+      void error;
+    });
+  });
+
   async function seedService(branchId: string, name: string) {
     const { data, error } = await admin
       .from('services')
