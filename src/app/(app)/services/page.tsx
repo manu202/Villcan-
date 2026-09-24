@@ -107,7 +107,7 @@ export default function ServicesPage() {
       </AppSheet>
 
       <style>{`
-        .page { max-width: 480px; margin: 0 auto; }
+        .page { max-width: 480px; margin: 0 auto; background: var(--refresh-bg, transparent); }
 
         .flex-header {
           display: flex;
@@ -115,9 +115,14 @@ export default function ServicesPage() {
           align-items: flex-start;
         }
 
+        .page-title {
+          font-family: var(--refresh-font-display, inherit);
+          color: var(--refresh-ink, var(--text-primary));
+        }
+
         .page-subtitle {
           font-size: 14px;
-          color: var(--text-secondary);
+          color: var(--refresh-ink-secondary, var(--text-secondary));
           margin-top: 4px;
         }
 
@@ -126,20 +131,23 @@ export default function ServicesPage() {
           align-items: center;
           justify-content: center;
           padding: 10px 16px;
-          background: var(--accent);
-          color: var(--accent-foreground);
-          border-radius: 8px;
+          background: var(--refresh-accent, var(--accent));
+          color: #fff;
+          border: var(--refresh-border-hard, none);
+          box-shadow: var(--refresh-shadow-hard-sm, none);
+          border-radius: var(--refresh-radius-control, 8px);
           font-size: 14px;
           font-weight: 600;
           text-decoration: none;
           min-height: 44px;
           min-width: 44px;
+          font-family: var(--refresh-font-sans, inherit);
         }
 
         .empty-state {
           text-align: center;
           padding: 48px 24px;
-          color: var(--text-secondary);
+          color: var(--refresh-ink-secondary, var(--text-secondary));
         }
 
         .empty-state p { margin-bottom: 16px; }

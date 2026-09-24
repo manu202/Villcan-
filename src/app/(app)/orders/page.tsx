@@ -178,14 +178,24 @@ export default function OrdersPage() {
       </section>
 
       <style>{`
-        .page { max-width: 480px; margin: 0 auto; }
+        .page { max-width: 480px; margin: 0 auto; background: var(--refresh-bg, transparent); }
+
+        .page-title {
+          font-family: var(--refresh-font-display, inherit);
+          color: var(--refresh-ink, var(--text-primary));
+        }
 
         .flex-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
         .new-order-btn {
           padding: 9px 16px;
-          background: var(--accent); color: var(--accent-foreground);
-          border-radius: 8px; font-size: 14px; font-weight: 600; text-decoration: none;
-          white-space: nowrap; flex-shrink: 0; min-height: unset;
+          min-height: 44px;
+          display: inline-flex; align-items: center; justify-content: center;
+          background: var(--refresh-accent, var(--accent)); color: #fff;
+          border: var(--refresh-border-hard, none);
+          box-shadow: var(--refresh-shadow-hard-sm, none);
+          border-radius: var(--refresh-radius-control, 8px); font-size: 14px; font-weight: 600; text-decoration: none;
+          white-space: nowrap; flex-shrink: 0;
+          font-family: var(--refresh-font-sans, inherit);
         }
 
         .status-tabs {
@@ -194,14 +204,16 @@ export default function OrdersPage() {
         }
         .status-tabs::-webkit-scrollbar { display: none; }
         .status-tab {
-          padding: 7px 14px; border-radius: 20px; border: 1px solid var(--border);
-          background: var(--surface); color: var(--text-secondary);
+          padding: 7px 14px; border-radius: var(--refresh-radius-control, 20px);
+          border: var(--refresh-border-hard, 1px solid var(--border));
+          background: var(--refresh-surface-glass, var(--surface)); color: var(--refresh-ink-secondary, var(--text-secondary));
           font-size: 13px; font-weight: 600; white-space: nowrap; cursor: pointer;
           min-height: 44px; flex-shrink: 0;
           display: inline-flex; align-items: center; justify-content: center;
+          font-family: var(--refresh-font-sans, inherit);
         }
         .status-tab.active {
-          background: var(--accent); color: var(--accent-foreground); border-color: var(--accent);
+          background: var(--refresh-accent, var(--accent)); color: #fff; border-color: var(--refresh-accent, var(--accent));
         }
 
         .order-list {

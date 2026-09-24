@@ -172,6 +172,7 @@ export default function MovementsPage() {
         .page {
           max-width: 480px;
           margin: 0 auto;
+          background: var(--refresh-bg, transparent);
         }
 
         .flex-header {
@@ -180,9 +181,14 @@ export default function MovementsPage() {
           align-items: flex-start;
         }
 
+        .page-title {
+          font-family: var(--refresh-font-display, inherit);
+          color: var(--refresh-ink, var(--text-primary));
+        }
+
         .page-subtitle {
           font-size: 14px;
-          color: var(--text-secondary);
+          color: var(--refresh-ink-secondary, var(--text-secondary));
           margin-top: 4px;
         }
 
@@ -191,14 +197,17 @@ export default function MovementsPage() {
           align-items: center;
           justify-content: center;
           padding: 10px 16px;
-          background: var(--accent);
-          color: var(--accent-foreground);
-          border-radius: 8px;
+          background: var(--refresh-accent, var(--accent));
+          color: #fff;
+          border: var(--refresh-border-hard, none);
+          box-shadow: var(--refresh-shadow-hard-sm, none);
+          border-radius: var(--refresh-radius-control, 8px);
           font-size: 14px;
           font-weight: 600;
           text-decoration: none;
           min-height: 44px;
           min-width: 44px;
+          font-family: var(--refresh-font-sans, inherit);
         }
 
         .filter-row {
@@ -213,44 +222,47 @@ export default function MovementsPage() {
           display: flex;
           align-items: center;
           justify-content: center;
-          background: var(--surface);
-          border: 1px solid var(--border);
-          border-radius: 8px;
+          background: var(--refresh-surface-glass, var(--surface));
+          border: var(--refresh-border-hard, 1px solid var(--border));
+          border-radius: var(--refresh-radius-control, 8px);
           font-size: 13px;
-          font-weight: 500;
-          color: var(--text-secondary);
+          font-weight: 600;
+          color: var(--refresh-ink-secondary, var(--text-secondary));
           cursor: pointer;
           transition: all 0.15s ease;
+          font-family: var(--refresh-font-sans, inherit);
         }
 
         .filter-btn:hover {
-          border-color: var(--accent-hover);
+          border-color: var(--refresh-accent-hover, var(--accent-hover));
         }
 
         .filter-btn.active {
-          background: var(--accent);
-          color: var(--accent-foreground);
-          border-color: var(--accent);
+          background: var(--refresh-accent, var(--accent));
+          color: #fff;
+          border-color: var(--refresh-accent, var(--accent));
         }
 
         .empty-state {
           text-align: center;
           padding: 48px 24px;
-          color: var(--text-secondary);
+          color: var(--refresh-ink-secondary, var(--text-secondary));
         }
 
         .empty-state p {
           margin-bottom: 16px;
         }
 
+        /* Each row now renders as its own glass card (matching the
+           reskinned MovementCard/OrderCard family) with a gap between
+           items instead of the old shared-background hairline divider,
+           since a bordered/radius'd row no longer reads correctly bled
+           against its neighbors. */
         .movement-list {
           list-style: none;
           display: flex;
           flex-direction: column;
-          gap: 1px;
-          background: var(--border);
-          border-radius: 12px;
-          overflow: hidden;
+          gap: 8px;
         }
 
         .movement-item {
@@ -258,10 +270,16 @@ export default function MovementsPage() {
           justify-content: space-between;
           align-items: center;
           gap: 12px;
-          padding: 16px;
-          background: var(--surface);
+          padding: 14px 16px;
+          background: var(--refresh-surface-glass, var(--surface));
+          backdrop-filter: blur(12px);
+          -webkit-backdrop-filter: blur(12px);
+          border: var(--refresh-border-hard, 1px solid var(--border));
+          border-radius: var(--refresh-radius-card, 12px);
+          box-shadow: var(--refresh-shadow-hard-sm, none);
           text-decoration: none;
           color: inherit;
+          font-family: var(--refresh-font-sans, inherit);
         }
 
         .movement-item:active {
@@ -289,13 +307,13 @@ export default function MovementsPage() {
           font-weight: 600;
           text-transform: uppercase;
           letter-spacing: 0.05em;
-          color: var(--text-secondary);
+          color: var(--refresh-ink-secondary, var(--text-secondary));
         }
 
         .movement-contact {
           font-size: 14px;
           font-weight: 500;
-          color: var(--text-primary);
+          color: var(--refresh-ink, var(--text-primary));
           white-space: nowrap;
           overflow: hidden;
           text-overflow: ellipsis;
@@ -321,7 +339,7 @@ export default function MovementsPage() {
 
         .movement-time {
           font-size: 11px;
-          color: var(--text-muted);
+          color: var(--refresh-ink-muted, var(--text-muted));
         }
 
         .payment-badge {
@@ -329,7 +347,7 @@ export default function MovementsPage() {
           font-weight: 600;
           text-transform: uppercase;
           letter-spacing: 0.05em;
-          color: var(--text-secondary);
+          color: var(--refresh-ink-secondary, var(--text-secondary));
           background: var(--surface-elevated);
           padding: 4px 8px;
           border-radius: 4px;

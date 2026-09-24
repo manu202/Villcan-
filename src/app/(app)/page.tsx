@@ -170,6 +170,32 @@ export default function HomePage() {
       </section>
 
       <style>{`
+        .page-title {
+          font-family: var(--refresh-font-display, inherit);
+          color: var(--refresh-ink, var(--text-primary));
+        }
+
+        .page-subtitle {
+          font-size: 14px;
+          color: var(--refresh-ink-secondary, var(--text-secondary));
+          margin-top: 4px;
+        }
+
+        .kpi-card {
+          background: var(--refresh-surface-glass, var(--surface));
+          backdrop-filter: blur(12px);
+          -webkit-backdrop-filter: blur(12px);
+          border: var(--refresh-border-hard, 1px solid var(--border));
+          border-radius: var(--refresh-radius-card, 12px);
+          box-shadow: var(--refresh-shadow-hard-sm, var(--shadow-sm));
+          font-family: var(--refresh-font-sans, inherit);
+        }
+
+        .kpi-card.highlight {
+          background: var(--refresh-accent, var(--accent));
+          color: #fff;
+        }
+
         .filter-row {
           display: flex;
           gap: 8px;
@@ -177,25 +203,35 @@ export default function HomePage() {
 
         .filter-btn {
           flex: 1;
+          min-height: 44px;
           padding: 10px 12px;
-          background: var(--surface);
-          border: 1px solid var(--border);
-          border-radius: 8px;
+          background: var(--refresh-surface-glass, var(--surface));
+          border: var(--refresh-border-hard, 1px solid var(--border));
+          border-radius: var(--refresh-radius-control, 8px);
           font-size: 13px;
-          font-weight: 500;
-          color: var(--text-secondary);
+          font-weight: 600;
+          color: var(--refresh-ink-secondary, var(--text-secondary));
           cursor: pointer;
           transition: all 0.15s ease;
+          font-family: var(--refresh-font-sans, inherit);
         }
 
         .filter-btn:hover {
-          border-color: var(--accent-hover);
+          border-color: var(--refresh-accent-hover, var(--accent-hover));
         }
 
         .filter-btn.active {
-          background: var(--accent);
-          color: var(--accent-foreground);
-          border-color: var(--accent);
+          background: var(--refresh-accent, var(--accent));
+          color: #fff;
+          border-color: var(--refresh-accent, var(--accent));
+        }
+
+        .btn-primary {
+          background: var(--refresh-accent, var(--accent));
+          border: var(--refresh-border-hard, none);
+          border-radius: var(--refresh-radius-control, 8px);
+          box-shadow: var(--refresh-shadow-hard-sm, none);
+          font-family: var(--refresh-font-sans, inherit);
         }
       `}</style>
     </div>
