@@ -54,17 +54,21 @@ export function ServiceCard({ service, onToggle, onClick }: ServiceCardProps) {
           align-items: center;
           gap: 12px;
           padding: 14px 16px;
-          background: var(--surface);
-          border-radius: 12px;
-          border: 1px solid var(--border);
+          background: var(--refresh-surface-glass, var(--surface));
+          backdrop-filter: blur(12px);
+          -webkit-backdrop-filter: blur(12px);
+          border-radius: var(--refresh-radius-card, 12px);
+          border: var(--refresh-border-hard, 1px solid var(--border));
+          box-shadow: var(--refresh-shadow-hard-sm, none);
           cursor: pointer;
           list-style: none;
           transition: background 0.1s;
+          font-family: var(--refresh-font-sans, inherit);
         }
         .sc-card:active { background: var(--surface-elevated); }
 
         [data-unavailable="true"] .sc-name {
-          color: var(--text-muted);
+          color: var(--refresh-ink-muted, var(--text-muted));
           text-decoration: line-through;
           opacity: 0.6;
         }
@@ -82,12 +86,12 @@ export function ServiceCard({ service, onToggle, onClick }: ServiceCardProps) {
         .sc-name {
           font-size: 15px;
           font-weight: 600;
-          color: var(--text-primary);
+          color: var(--refresh-ink, var(--text-primary));
           transition: opacity 0.15s, color 0.15s;
         }
         .sc-price {
           font-size: 13px;
-          color: var(--text-secondary);
+          color: var(--refresh-ink-secondary, var(--text-secondary));
           font-variant-numeric: tabular-nums;
           transition: opacity 0.15s;
         }

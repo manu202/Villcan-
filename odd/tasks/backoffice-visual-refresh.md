@@ -33,7 +33,7 @@ Current backoffice reads as generic/"AI slop" (flat hairline lists, no elevation
 ## Tasks
 - [ ] T1 — Add the new tokens to `globals.css` (light theme only), load Archivo Black + Space Grotesk via `next/font/google`. Route: direct inline (1 file, already understood).
 - [x] T2 — Reskin `AppSheet.tsx` (bottom sheet + desktop modal) with the hard border/shadow/radius system. Route: direct inline (1 file).
-- [ ] T3 — Reskin `OrderCard`, `MovementCard`, `ContactCard`, `ServiceCard` (4 components). Route: delegated direct (writer trigger: 2+ non-trivial files).
+- [x] T3 — Reskin `OrderCard`, `MovementCard`, `ContactCard`, `ServiceCard` (4 components). Route: delegated direct (writer trigger: 2+ non-trivial files).
 - [ ] T4 — Reskin container screens (Caja `/`, `/orders`, `/orders/new`, `/movements`, `/contacts`, `/services`) to the new card/list layout, remove the old flat hairline pattern. Route: delegated direct.
 - [ ] T5 — Visual verification pass: run dev server, screenshot each touched screen, compare against the canvas artboards.
 
@@ -42,6 +42,7 @@ Current backoffice reads as generic/"AI slop" (flat hairline lists, no elevation
 - 2026-09-24: T1 done — `--refresh-*` tokens added to globals.css, Archivo Black + Space Grotesk loaded via next/font/google in layout.tsx. `npm test` 580/580 green, `tsc --noEmit` shows only pre-existing unrelated errors. Commit `276a0ea`.
 - 2026-09-24: T2 done — `AppSheet.tsx` bottom sheet + desktop modal reskinned with `--refresh-*` tokens (hard border, offset shadow, glass close button, handle, dividers). `npm test` 580/580 green, `tsc --noEmit` shows only pre-existing unrelated errors (none touching AppSheet.tsx).
 - 2026-09-24: RDD review (native, medium tier) on T2 commit `bd6d12e` came back approved with 3 non-blocking findings. Fixed the real one inline: close button had shrunk to 32x32px, below the 44px touch-target minimum — restored to 44x44px, icon stays visually small (16px, strokeWidth 2.8) inside it. `npm test` 580/580 green. Two findings left as noted follow-ups (out of this task's scope): dark-mode contrast on `--refresh-bg` (dark mode is a separate future pass per task Scope), and `--font-display` not namespaced in `layout.tsx` (storefront-wide exposure risk, cosmetic naming fix).
+- 2026-09-24: T3 done (delegated) — `OrderCard`, `MovementCard`, `ContactCard`, `ServiceCard` reskinned with `--refresh-*` tokens (glass background, hard border/shadow-sm, refresh radius/font), following the AppSheet defensive-fallback pattern. Semantic colors (order status badges, action buttons, movement amount sign, WhatsApp brand green) intentionally left untouched — collapsing them to the accent token would destroy their meaning. No touch targets reduced. `npm test` 580/580 green (verified independently, not just from the delegate's report), `tsc --noEmit` no new errors in the 4 files.
 
 ## Checks
 - `npm test` (or the project's configured runner) green after each component/screen change.
