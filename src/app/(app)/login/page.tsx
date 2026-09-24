@@ -17,9 +17,15 @@ export default function LoginPage() {
   // again with no indication they're already signed in.
   useEffect(() => {
     let cancelled = false;
-    getUser().then((user) => {
-      if (!cancelled && user) router.replace('/');
-    });
+    getUser()
+      .then((user) => {
+        if (!cancelled && user) router.replace('/');
+      })
+      .catch(() => {
+        // A network failure here just means "stay on the form" -- the same
+        // condition A-9 handles for AuthGuard. Swallow it rather than
+        // leaving an unhandled rejection.
+      });
     return () => { cancelled = true; };
   }, [router]);
 

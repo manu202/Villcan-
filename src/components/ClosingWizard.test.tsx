@@ -101,6 +101,16 @@ describe('ClosingWizard — paso 1 (resumen)', () => {
     await waitFor(() => expect(screen.getByText(/3 pedidos pendientes/i)).toBeTruthy());
   });
 
+  // Found by the RDD review of the original S-5 fix: a failed pending-count
+  // query used to be indistinguishable from "confirmed zero pending
+  // orders" -- the safety warning silently disappeared exactly when the
+  // backend was degraded. null now means "couldn't verify", not "zero".
+  it('muestra un aviso distinto cuando no se pudo verificar si hay pedidos pendientes', async () => {
+    mockGetPendingOrdersCount.mockResolvedValueOnce(null);
+    render(<ClosingWizard onClose={vi.fn()} onSaved={vi.fn()} />);
+    await waitFor(() => expect(screen.getByText(/no se pudo verificar/i)).toBeTruthy());
+  });
+
   it('no muestra ningún aviso cuando no hay pedidos pendientes', async () => {
     render(<ClosingWizard onClose={vi.fn()} onSaved={vi.fn()} />);
     await waitFor(() => screen.getByText(/₲ 10000/));

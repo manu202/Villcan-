@@ -897,6 +897,11 @@ describe('RLS/RPC authorization (real Postgres, local stack)', () => {
       });
       const orderId = created?.order_id;
       const originalTotal = created?.total;
+      // Found by the RDD review: without these, a broken setup and a
+      // successful negative-fee rejection were indistinguishable -- the
+      // test could pass for the wrong reason (undefined === undefined).
+      expect(orderId).toBeTruthy();
+      expect(originalTotal).toBeGreaterThan(0);
 
       const { error } = await userC.client.rpc('update_order', {
         p_order_id: orderId,
@@ -912,7 +917,7 @@ describe('RLS/RPC authorization (real Postgres, local stack)', () => {
         p_delivery_fee: -5000,
       });
       expect(error).not.toBeNull();
-      expect(error?.message).toMatch(/VC400|invalido/i);
+      expect(error?.message).toMatch(/costo de delivery/i);
 
       const { data: row } = await admin.from('orders').select('total, delivery_fee').eq('id', orderId).single();
       expect(row?.total).toBe(originalTotal);
@@ -960,8 +965,13 @@ describe('RLS/RPC authorization (real Postgres, local stack)', () => {
       expect(after?.email).toBe(before?.email);
     });
 
-    it('negative: a user cannot update someone else\'s profile row (defense-in-depth WITH CHECK)', async () => {
-      const { error } = await userA.client
+    // Note: this is blocked by the policy's USING clause (auth.uid() = id
+    // filters the row out before it's ever a candidate row), not by
+    // WITH CHECK -- WITH CHECK only re-validates a row USING already let
+    // through, e.g. if id itself were reassignable. Named for what it
+    // actually proves, per the RDD review.
+    it('negative: a user cannot update someone else\'s profile row', async () => {
+      await userA.client
         .from('profiles')
         .update({ full_name: 'Hijacked' })
         .eq('id', userB.id);
@@ -972,7 +982,6 @@ describe('RLS/RPC authorization (real Postgres, local stack)', () => {
         .eq('id', userB.id)
         .single();
       expect(row?.full_name).not.toBe('Hijacked');
-      void error;
     });
   });
 

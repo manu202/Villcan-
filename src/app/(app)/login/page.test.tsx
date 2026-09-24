@@ -40,4 +40,16 @@ describe('LoginPage', () => {
     expect(mockReplace).not.toHaveBeenCalled();
     expect(screen.getByText('Ingresar')).toBeTruthy();
   });
+
+  // Found by the RDD review: getUser().then(...) had no .catch -- a network
+  // failure on mount (the same condition A-9 handles for AuthGuard) was an
+  // unhandled promise rejection instead of just leaving the form visible.
+  it('stays on the form (no crash, no unhandled rejection) when getUser rejects', async () => {
+    mockGetUser.mockRejectedValue(new Error('network down'));
+    render(<LoginPage />);
+
+    await waitFor(() => expect(mockGetUser).toHaveBeenCalled());
+    expect(mockReplace).not.toHaveBeenCalled();
+    expect(screen.getByText('Ingresar')).toBeTruthy();
+  });
 });

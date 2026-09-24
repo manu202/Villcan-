@@ -22,6 +22,11 @@ import { Spinner } from './Spinner';
 // design "AuthGuard — el fix" (sdd/storefront-whatsapp-orders/design).
 const PUBLIC_PATHS = ['/login', '/logout', '/auth/set-password'];
 
+// A-9's retry delay. Named per the RDD review -- AuthGuard.test.tsx's
+// waitFor timeouts are implicitly coupled to this value (they must exceed
+// it), which was previously an unexplained magic number.
+const RETRYABLE_ERROR_DELAY_MS = 1500;
+
 export function AuthGuard({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
@@ -47,7 +52,7 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
       // perfectly valid session to /login just because a request blipped.
       // Give it one retry before falling back to the safe default.
       if (!isRetry && error?.name === 'AuthRetryableFetchError') {
-        setTimeout(() => { if (!cancelled) checkSession(true); }, 1500);
+        setTimeout(() => { if (!cancelled) checkSession(true); }, RETRYABLE_ERROR_DELAY_MS);
         return;
       }
 

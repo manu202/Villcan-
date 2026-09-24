@@ -31,7 +31,7 @@ export function ClosingWizard({ onClose, onSaved }: ClosingWizardProps) {
   const [loading, setLoading] = useState(true);
   const [periodStart, setPeriodStart] = useState<string>(FALLBACK_PERIOD_START);
   const [calculated, setCalculated] = useState<ArqueoAmounts | null>(null);
-  const [pendingOrdersCount, setPendingOrdersCount] = useState(0);
+  const [pendingOrdersCount, setPendingOrdersCount] = useState<number | null>(0);
   const [submitting, setSubmitting] = useState(false);
 
   const [countedEfectivo, setCountedEfectivo] = useState('');
@@ -154,7 +154,12 @@ export function ClosingWizard({ onClose, onSaved }: ClosingWizardProps) {
               : `Desde ${formatDate(periodStart)}`} hasta ahora
           </p>
 
-          {pendingOrdersCount > 0 && (
+          {pendingOrdersCount === null && (
+            <p className="wz-pending-warning">
+              ⚠ No se pudo verificar si hay pedidos pendientes. Revisá la lista de pedidos antes de cerrar caja.
+            </p>
+          )}
+          {typeof pendingOrdersCount === 'number' && pendingOrdersCount > 0 && (
             <p className="wz-pending-warning">
               ⚠ Hay {pendingOrdersCount} pedido{pendingOrdersCount === 1 ? '' : 's'} pendiente{pendingOrdersCount === 1 ? '' : 's'} sin completar. Sus movimientos no están incluidos en este cierre y quedarán en el próximo período.
             </p>

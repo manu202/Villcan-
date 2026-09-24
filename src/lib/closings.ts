@@ -1,6 +1,7 @@
 import type { ArqueoAmounts, CashClosing, PaymentMethod } from '@/types';
 import { calcRunningBalance, type KpiMovement, type RunningBalance } from '@/lib/kpis';
 import { computeCashBalance, type CashBalanceMovement } from '@/lib/cashBalance';
+import { logClientError } from '@/lib/errorLogging';
 import {
   listServiceMovementsSince,
   listAperturaMovementsSince,
@@ -118,8 +119,21 @@ export async function getRunningCashBalance(branchId: string): Promise<RunningBa
  * S-5: number of orders still in flight (`pending`/`confirmed`) for a
  * branch — used to warn (not block) before closing a period, since those
  * orders' eventual movements will land in whatever period they complete in.
+ *
+ * Returns null (not 0) when the count could not be determined -- a failed
+ * query and "confirmed zero pending orders" must stay distinguishable, or
+ * the S-5 warning silently fails open exactly when the backend is degraded
+ * (found by the RDD review of the original S-5 fix). The caller decides how
+ * to render "unknown" vs "definitely zero".
  */
-export async function getPendingOrdersCount(branchId: string): Promise<number> {
-  const { count } = await countPendingOrdersForBranch(branchId);
+export async function getPendingOrdersCount(branchId: string): Promise<number | null> {
+  const { count, error } = await countPendingOrdersForBranch(branchId);
+  if (error) {
+    void logClientError({
+      message: `getPendingOrdersCount failed: ${error.message}`,
+      stack: null,
+    });
+    return null;
+  }
   return count ?? 0;
 }

@@ -1,10 +1,16 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { getCalculatedBalanceSince, getLastClosing } from './closings';
+import { getCalculatedBalanceSince, getLastClosing, getPendingOrdersCount } from './closings';
 
 type MovementsData = Record<string, { data: unknown[] | null; error: unknown }>;
 
 let movementsByType: MovementsData = {};
 let closingsRows: unknown[] = [];
+let ordersCountResult: { count: number | null; error: { message: string } | null } = { count: 0, error: null };
+
+const mockLogClientError = vi.fn();
+vi.mock('@/lib/errorLogging', () => ({
+  logClientError: (...args: unknown[]) => mockLogClientError(...args),
+}));
 
 vi.mock('@/lib/supabase/client', () => ({
   createClient: () => ({
@@ -37,6 +43,15 @@ vi.mock('@/lib/supabase/client', () => ({
         builder.eq = chain;
         builder.order = chain;
         builder.limit = () => Promise.resolve({ data: closingsRows, error: null });
+        return builder;
+      }
+
+      if (table === 'orders') {
+        const builder: Record<string, unknown> = {};
+        const chain = () => builder;
+        builder.select = chain;
+        builder.eq = chain;
+        builder.in = () => Promise.resolve(ordersCountResult);
         return builder;
       }
 
@@ -112,5 +127,31 @@ describe('getLastClosing (REQ-CAJA-8 support: determines the next period_start)'
 
     const result = await getLastClosing('branch-1');
     expect(result).toBeNull();
+  });
+});
+
+describe('getPendingOrdersCount (S-5)', () => {
+  beforeEach(() => {
+    ordersCountResult = { count: 0, error: null };
+    mockLogClientError.mockReset();
+  });
+
+  it('returns the count when the query succeeds', async () => {
+    ordersCountResult = { count: 3, error: null };
+    const result = await getPendingOrdersCount('branch-1');
+    expect(result).toBe(3);
+    expect(mockLogClientError).not.toHaveBeenCalled();
+  });
+
+  // Found by the RDD review: this used to swallow the error and return 0,
+  // making a failed query indistinguishable from "confirmed zero pending
+  // orders" -- the S-5 safety warning silently failed open.
+  it('returns null and logs when the query fails, instead of silently returning 0', async () => {
+    ordersCountResult = { count: null, error: { message: 'permission denied' } };
+    const result = await getPendingOrdersCount('branch-1');
+    expect(result).toBeNull();
+    expect(mockLogClientError).toHaveBeenCalledWith(
+      expect.objectContaining({ message: expect.stringContaining('permission denied') })
+    );
   });
 });
