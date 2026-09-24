@@ -124,3 +124,18 @@ export async function listCashClosingsForBranch(branchId: string) {
     .order('closed_at', { ascending: false })
     .limit(100);
 }
+
+/**
+ * Count of orders still `pending`/`confirmed` (not yet completed/cancelled)
+ * for a branch, used by ClosingWizard (S-5) to warn before closing a period
+ * with unresolved orders still in flight — their eventual movements would
+ * otherwise land in whatever period they complete in, silently.
+ */
+export async function countPendingOrdersForBranch(branchId: string) {
+  const supabase = createClient();
+  return supabase
+    .from('orders')
+    .select('id', { count: 'exact', head: true })
+    .eq('branch_id', branchId)
+    .in('status', ['pending', 'confirmed']);
+}

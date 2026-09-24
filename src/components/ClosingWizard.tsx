@@ -5,7 +5,7 @@ import { useBranch } from '@/contexts/BranchContext';
 import { useSettings } from '@/contexts/SettingsContext';
 import { useToast } from '@/contexts/ToastContext';
 import { getCurrentUserId } from '@/lib/auth';
-import { getLastClosing, getCalculatedBalanceSince } from '@/lib/closings';
+import { getLastClosing, getCalculatedBalanceSince, getPendingOrdersCount } from '@/lib/closings';
 import { buildClosingPayload } from '@/lib/arqueo';
 import { insertCashClosing } from '@/lib/data/closings';
 import { formatGuaranies, parseGuaranies, formatDate } from '@/lib/utils';
@@ -31,6 +31,7 @@ export function ClosingWizard({ onClose, onSaved }: ClosingWizardProps) {
   const [loading, setLoading] = useState(true);
   const [periodStart, setPeriodStart] = useState<string>(FALLBACK_PERIOD_START);
   const [calculated, setCalculated] = useState<ArqueoAmounts | null>(null);
+  const [pendingOrdersCount, setPendingOrdersCount] = useState(0);
   const [submitting, setSubmitting] = useState(false);
 
   const [countedEfectivo, setCountedEfectivo] = useState('');
@@ -48,10 +49,14 @@ export function ClosingWizard({ onClose, onSaved }: ClosingWizardProps) {
       setLoading(true);
       const lastClosing = await getLastClosing(currentBranch.id);
       const start = lastClosing?.closed_at || FALLBACK_PERIOD_START;
-      const balance = await getCalculatedBalanceSince(currentBranch.id, start);
+      const [balance, pendingCount] = await Promise.all([
+        getCalculatedBalanceSince(currentBranch.id, start),
+        getPendingOrdersCount(currentBranch.id),
+      ]);
       if (cancelled) return;
       setPeriodStart(start);
       setCalculated(balance);
+      setPendingOrdersCount(pendingCount);
       setLoading(false);
     };
 
@@ -148,6 +153,12 @@ export function ClosingWizard({ onClose, onSaved }: ClosingWizardProps) {
               ? 'Período: desde el inicio'
               : `Desde ${formatDate(periodStart)}`} hasta ahora
           </p>
+
+          {pendingOrdersCount > 0 && (
+            <p className="wz-pending-warning">
+              ⚠ Hay {pendingOrdersCount} pedido{pendingOrdersCount === 1 ? '' : 's'} pendiente{pendingOrdersCount === 1 ? '' : 's'} sin completar. Sus movimientos no están incluidos en este cierre y quedarán en el próximo período.
+            </p>
+          )}
 
           <h3 className="wz-section-title">Balance calculado</h3>
           <div className="wz-balance">
@@ -316,6 +327,11 @@ export function ClosingWizard({ onClose, onSaved }: ClosingWizardProps) {
 
         .wz-loading { color: var(--text-secondary); font-size: 14px; }
         .wz-period { font-size: 13px; color: var(--text-secondary); }
+        .wz-pending-warning {
+          font-size: 13px; color: #92400e; background: rgba(217,119,6,.12);
+          border: 1px solid rgba(217,119,6,.28); border-radius: 8px;
+          padding: 10px 12px; margin: 12px 0;
+        }
         .wz-section-title {
           font-size: 12px; font-weight: 700; text-transform: uppercase;
           letter-spacing: 0.06em; color: var(--text-muted); margin-bottom: 10px;

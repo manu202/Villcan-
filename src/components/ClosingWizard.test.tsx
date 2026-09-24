@@ -24,10 +24,14 @@ vi.mock('@/lib/auth', () => ({
 
 const mockGetLastClosing = vi.fn();
 const mockGetCalculatedBalanceSince = vi.fn();
+// Defaults to 0 so existing tests (which don't care about S-5) don't need to
+// mock this explicitly; only the dedicated S-5 test overrides it.
+const mockGetPendingOrdersCount = vi.fn(() => Promise.resolve(0));
 
 vi.mock('@/lib/closings', () => ({
   getLastClosing: (...args: unknown[]) => mockGetLastClosing(...args),
   getCalculatedBalanceSince: (...args: unknown[]) => mockGetCalculatedBalanceSince(...args),
+  getPendingOrdersCount: (...args: unknown[]) => mockGetPendingOrdersCount(...args),
 }));
 
 const mockBuildClosingPayload = vi.fn(() => ({ branch_id: 'b1', total: 50000 }));
@@ -87,6 +91,20 @@ describe('ClosingWizard — paso 1 (resumen)', () => {
     await waitFor(() => screen.getByRole('button', { name: /siguiente/i }));
     fireEvent.click(screen.getByRole('button', { name: /siguiente/i }));
     expect(screen.getByTestId('wizard-step-2')).toBeTruthy();
+  });
+
+  // S-5: closing a period never warned about orders still in flight --
+  // their eventual movements land in whatever period they complete in.
+  it('muestra un aviso cuando hay pedidos pendientes sin completar', async () => {
+    mockGetPendingOrdersCount.mockResolvedValueOnce(3);
+    render(<ClosingWizard onClose={vi.fn()} onSaved={vi.fn()} />);
+    await waitFor(() => expect(screen.getByText(/3 pedidos pendientes/i)).toBeTruthy());
+  });
+
+  it('no muestra ningún aviso cuando no hay pedidos pendientes', async () => {
+    render(<ClosingWizard onClose={vi.fn()} onSaved={vi.fn()} />);
+    await waitFor(() => screen.getByText(/₲ 10000/));
+    expect(screen.queryByText(/pendiente/i)).toBeNull();
   });
 });
 

@@ -8,6 +8,7 @@ import {
   listCierreMovementsSince,
   getLastCashClosing,
   listMovementsByTypeSince,
+  countPendingOrdersForBranch,
 } from '@/lib/data/closings';
 
 /**
@@ -111,4 +112,14 @@ export async function getRunningCashBalance(branchId: string): Promise<RunningBa
   );
 
   return calcRunningBalance(movements);
+}
+
+/**
+ * S-5: number of orders still in flight (`pending`/`confirmed`) for a
+ * branch — used to warn (not block) before closing a period, since those
+ * orders' eventual movements will land in whatever period they complete in.
+ */
+export async function getPendingOrdersCount(branchId: string): Promise<number> {
+  const { count } = await countPendingOrdersForBranch(branchId);
+  return count ?? 0;
 }
