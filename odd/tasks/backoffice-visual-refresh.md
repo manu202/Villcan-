@@ -32,13 +32,15 @@ Current backoffice reads as generic/"AI slop" (flat hairline lists, no elevation
 
 ## Tasks
 - [ ] T1 — Add the new tokens to `globals.css` (light theme only), load Archivo Black + Space Grotesk via `next/font/google`. Route: direct inline (1 file, already understood).
-- [ ] T2 — Reskin `AppSheet.tsx` (bottom sheet + desktop modal) with the hard border/shadow/radius system. Route: direct inline (1 file).
+- [x] T2 — Reskin `AppSheet.tsx` (bottom sheet + desktop modal) with the hard border/shadow/radius system. Route: direct inline (1 file).
 - [ ] T3 — Reskin `OrderCard`, `MovementCard`, `ContactCard`, `ServiceCard` (4 components). Route: delegated direct (writer trigger: 2+ non-trivial files).
 - [ ] T4 — Reskin container screens (Caja `/`, `/orders`, `/orders/new`, `/movements`, `/contacts`, `/services`) to the new card/list layout, remove the old flat hairline pattern. Route: delegated direct.
 - [ ] T5 — Visual verification pass: run dev server, screenshot each touched screen, compare against the canvas artboards.
 
 ## Progress
 - 2026-09-24: Task file created. Design direction approved by user (Caja, Pedidos, Catálogo, Reportes artboards). Starting T1.
+- 2026-09-24: T1 done — `--refresh-*` tokens added to globals.css, Archivo Black + Space Grotesk loaded via next/font/google in layout.tsx. `npm test` 580/580 green, `tsc --noEmit` shows only pre-existing unrelated errors. Commit `276a0ea`.
+- 2026-09-24: T2 done — `AppSheet.tsx` bottom sheet + desktop modal reskinned with `--refresh-*` tokens (hard border, offset shadow, glass close button, handle, dividers). `npm test` 580/580 green, `tsc --noEmit` shows only pre-existing unrelated errors (none touching AppSheet.tsx).
 
 ## Checks
 - `npm test` (or the project's configured runner) green after each component/screen change.
