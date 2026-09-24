@@ -80,10 +80,11 @@ export default function ServicesPage() {
           </div>
         ) : (
           <ul className="service-list">
-            {services.map((s) => (
+            {services.map((s, i) => (
               <ServiceCard
                 key={s.id}
                 service={s}
+                index={i}
                 onToggle={handleToggle}
                 onClick={handleServiceClick}
               />
@@ -154,9 +155,9 @@ export default function ServicesPage() {
 
         .service-list {
           list-style: none;
-          display: flex;
-          flex-direction: column;
-          gap: 8px;
+          display: grid;
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+          gap: 12px;
           padding: 0;
         }
       `}</style>
