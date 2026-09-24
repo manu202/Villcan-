@@ -986,6 +986,65 @@ describe('RLS/RPC authorization (real Postgres, local stack)', () => {
   });
 
   // ===========================================================================
+  // O-5 — create_storefront_order's rate-limit checks (count-then-insert)
+  // weren't atomic against concurrent calls. Fixed in
+  // 20260924020000_serialize_storefront_order_rate_limit.sql via an
+  // advisory lock keyed on (branch, phone).
+  //
+  // Honesty note: forcing the original race deterministically would need
+  // an artificial delay hook inside the RPC, which isn't worth adding to
+  // production code for a test. This proves the FIXED code enforces the
+  // 3-per-10-minutes-per-phone limit exactly under real concurrent load
+  // (6 simultaneous calls -> exactly 3 succeed, every run) rather than
+  // proving the old code could occasionally let more than 3 through.
+  // ===========================================================================
+  describe('O-5: concurrent submits for the same phone cannot bypass the rate limit', () => {
+    it('firing 6 simultaneous create_storefront_order calls for the same phone yields exactly 3 successes', async () => {
+      const phone = '+595981000040';
+      const anon = createClient(SUPABASE_URL, ANON_KEY!, {
+        auth: { autoRefreshToken: false, persistSession: false },
+      });
+
+      // storefront_enabled is derived by a trigger from whatsapp_number
+      // (compute_branch_slug()) -- setting it directly is a no-op.
+      const { data: storefrontBranch, error: branchErr } = await admin
+        .from('branches')
+        .insert({
+          name: `RLS Test Storefront Branch ${RUN_ID}`,
+          is_active: true,
+          whatsapp_number: '+595981000000',
+        })
+        .select('id, slug')
+        .single();
+      expect(branchErr).toBeNull();
+      createdBranchIds.push(storefrontBranch!.id);
+      const service = await seedService(storefrontBranch!.id, 'Servicio O5');
+
+      const results = await Promise.all(
+        Array.from({ length: 6 }, () =>
+          anon.rpc('create_storefront_order', {
+            p_slug: storefrontBranch!.slug,
+            p_customer_name: 'Cliente O5 Concurrente',
+            p_customer_phone: phone,
+            p_items: [{ service_id: service.id, qty: 1 }],
+          })
+        )
+      );
+
+      const successes = results.filter((r) => r.error === null);
+      const rateLimited = results.filter((r) => r.error?.message?.match(/VC429|Demasiados/i));
+
+      expect(successes.length).toBe(3);
+      expect(rateLimited.length).toBe(3);
+
+      if (successes.length > 0) {
+        const orderIds = successes.map((r) => r.data?.order_id).filter(Boolean);
+        await admin.from('orders').delete().in('id', orderIds);
+      }
+    });
+  });
+
+  // ===========================================================================
   // O-7/P-4 — order codes are per-branch now, not one shared global
   // sequence. Fixed in 20260924010000_per_branch_order_numbering.sql.
   // ===========================================================================
