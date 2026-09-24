@@ -102,6 +102,19 @@ describe('searchContacts (MovementForm "Buscar cliente" autocomplete)', () => {
       expect(lastIlikeArgs).toBeNull();
     }
   });
+
+  // Reported live 2026-09-24: contacts saved after the ContactForm
+  // normalization fix (2026-09-23) store phone WITHOUT the local leading 0
+  // (e.g. "595994641522"), but a staffer searches the natural way they'd
+  // dial it, WITH the leading 0 ("0994641522"). A plain ILIKE against the
+  // raw typed digits can never match — "595994641522" contains no literal
+  // "0" character at all once normalized. The two fixes from yesterday
+  // were incompatible with each other.
+  it('also matches a normalized (no leading 0) stored phone when the query is typed with a leading 0', async () => {
+    await searchContacts('0994641522');
+
+    expect(lastOrFilter).toContain('phone.ilike.%994641522%');
+  });
 });
 
 describe('listContacts (ContactsPage)', () => {
@@ -116,6 +129,12 @@ describe('listContacts (ContactsPage)', () => {
   it('skips the .or() filter when search is under 2 characters', async () => {
     await listContacts({ search: 'a', sortBy: 'name', page: 0, pageSize: 30 });
     expect(lastOrFilter).toBeNull();
+  });
+
+  // Same gap as searchContacts above, for the main Contactos list search.
+  it('also matches a normalized (no leading 0) stored phone when the query is typed with a leading 0', async () => {
+    await listContacts({ search: '0994641522', sortBy: 'name', page: 0, pageSize: 30 });
+    expect(lastOrFilter).toContain('phone.ilike.%994641522%');
   });
 
   it('orders by full_name ascending when sortBy is "name"', async () => {
