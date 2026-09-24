@@ -108,6 +108,66 @@ describe('POST /api/users/invite', () => {
     });
   });
 
+  // A-10: request.json() used to be unguarded (malformed JSON crashed with a
+  // generic 500), and email/role/branch_id were only checked for truthiness,
+  // not shape -- an invalid role slipped past the route and only got caught
+  // by the DB's CHECK constraint, whose raw Postgres error then leaked to
+  // the client (see the next test for that).
+  it('returns a clean 400 instead of crashing on malformed JSON', async () => {
+    const request = new Request('http://localhost/api/users/invite', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: '{not valid json',
+    });
+
+    const { POST } = await import('./route');
+    const response = await POST(request);
+
+    expect(response.status).toBe(400);
+    expect(mockCreateClient).not.toHaveBeenCalled();
+  });
+
+  it('returns 400 for an invalid role instead of reaching the DB', async () => {
+    const { POST } = await import('./route');
+    const response = await POST(
+      makeRequest({ email: 'new@example.com', role: 'superadmin', branch_id: 'b1' })
+    );
+
+    expect(response.status).toBe(400);
+    expect(mockCreateClient).not.toHaveBeenCalled();
+  });
+
+  it('returns 400 for a malformed email instead of reaching the DB', async () => {
+    const { POST } = await import('./route');
+    const response = await POST(
+      makeRequest({ email: 'not-an-email', role: 'user', branch_id: 'b1' })
+    );
+
+    expect(response.status).toBe(400);
+    expect(mockCreateClient).not.toHaveBeenCalled();
+  });
+
+  it('does not leak the raw DB error message when the branch-access upsert fails', async () => {
+    mockGetUser.mockResolvedValue({ data: { user: { id: 'admin-1' } }, error: null });
+    mockRpc.mockResolvedValue({ data: true, error: null });
+    mockInviteUserByEmail.mockResolvedValue({
+      data: { user: { id: 'new-user-1' } },
+      error: null,
+    });
+    mockUbaUpsert.mockResolvedValue({
+      error: { message: 'new row for relation "user_branch_access" violates check constraint "user_branch_access_role_check"' },
+    });
+
+    const { POST } = await import('./route');
+    const response = await POST(
+      makeRequest({ email: 'new@example.com', role: 'user', branch_id: 'b1' })
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(500);
+    expect(body.error).not.toMatch(/constraint|relation|violates/i);
+  });
+
   it('is idempotent for an email that already has an account (200, invited: false)', async () => {
     mockGetUser.mockResolvedValue({ data: { user: { id: 'admin-1' } }, error: null });
     mockRpc.mockResolvedValue({ data: true, error: null });

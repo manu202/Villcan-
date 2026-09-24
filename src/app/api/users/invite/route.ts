@@ -17,16 +17,41 @@ function isEmailExistsError(error: { code?: string; message?: string } | null): 
   return /already been registered|already exists/i.test(error.message ?? '');
 }
 
-export async function POST(request: Request) {
-  const body = (await request.json()) as Partial<InviteRequestBody>;
-  const { email, role, branch_id } = body;
+// A-10: input validation used to be "truthy or bust" (any string accepted for
+// email/role/branch_id) plus an unguarded request.json() that 500'd on
+// malformed JSON. The DB's own CHECK constraint on user_branch_access.role
+// already backstops an invalid role, but that surfaces as a raw Postgres
+// constraint-violation error to the client -- see the generic error mapping
+// below for why that matters.
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const VALID_ROLES = ['admin', 'user'] as const;
 
-  if (!email || !role || !branch_id) {
-    return Response.json(
-      { error: 'email, role and branch_id are required' },
-      { status: 400 }
-    );
+function validateInviteBody(body: Partial<InviteRequestBody>): string | null {
+  if (typeof body.email !== 'string' || !EMAIL_PATTERN.test(body.email)) {
+    return 'email inválido';
   }
+  if (typeof body.role !== 'string' || !VALID_ROLES.includes(body.role as (typeof VALID_ROLES)[number])) {
+    return `role debe ser uno de: ${VALID_ROLES.join(', ')}`;
+  }
+  if (typeof body.branch_id !== 'string' || body.branch_id.trim() === '') {
+    return 'branch_id inválido';
+  }
+  return null;
+}
+
+export async function POST(request: Request) {
+  let body: Partial<InviteRequestBody>;
+  try {
+    body = (await request.json()) as Partial<InviteRequestBody>;
+  } catch {
+    return Response.json({ error: 'Cuerpo de la solicitud inválido' }, { status: 400 });
+  }
+
+  const validationError = validateInviteBody(body);
+  if (validationError) {
+    return Response.json({ error: validationError }, { status: 400 });
+  }
+  const { email, role, branch_id } = body as InviteRequestBody;
 
   // 1. Authenticate the CALLER via their own session cookies (anon client).
   const supabase = await createClient();
@@ -64,7 +89,8 @@ export async function POST(request: Request) {
 
   if (inviteError) {
     if (!isEmailExistsError(inviteError)) {
-      return Response.json({ error: inviteError.message }, { status: 500 });
+      console.error('[invite] inviteUserByEmail failed:', inviteError);
+      return Response.json({ error: 'No se pudo enviar la invitación' }, { status: 500 });
     }
 
     invited = false;
@@ -93,7 +119,8 @@ export async function POST(request: Request) {
     .upsert({ user_id: userId, branch_id, role });
 
   if (upsertError) {
-    return Response.json({ error: upsertError.message }, { status: 500 });
+    console.error('[invite] user_branch_access upsert failed:', upsertError);
+    return Response.json({ error: 'No se pudo otorgar el acceso a la sucursal' }, { status: 500 });
   }
 
   return Response.json({ user_id: userId, invited }, { status: 200 });
