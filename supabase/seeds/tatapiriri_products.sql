@@ -1,5 +1,5 @@
 -- Seed: productos Tatapiriri
--- Ejecutar en: https://supabase.com/dashboard/project/vjgdtxryudoscumwsjhs/sql/new
+-- Ejecutar en el SQL editor del proyecto Supabase correspondiente (Dashboard > SQL Editor)
 --
 -- Desactiva todos los servicios existentes del branch y luego inserta
 -- los 17 productos reales en sus 4 categorías.
