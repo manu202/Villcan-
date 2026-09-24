@@ -34,11 +34,23 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
     const supabase = createClient();
     let cancelled = false;
 
-    async function checkSession() {
+    async function checkSession(isRetry = false) {
       // getUser() validates the JWT against the auth server — getSession() only
       // reads localStorage and accepts expired/tampered tokens.
       const { data: { user }, error } = await supabase.auth.getUser();
       if (cancelled) return;
+
+      // A-9: getUser() wraps a plain fetch/network failure (offline, flaky
+      // connection — common on a PWA) in an AuthRetryableFetchError, distinct
+      // from a real rejection (AuthSessionMissingError, invalid JWT, etc).
+      // Treating it identically to "you are logged out" bounces a user with a
+      // perfectly valid session to /login just because a request blipped.
+      // Give it one retry before falling back to the safe default.
+      if (!isRetry && error?.name === 'AuthRetryableFetchError') {
+        setTimeout(() => { if (!cancelled) checkSession(true); }, 1500);
+        return;
+      }
+
       if (error || !user) {
         router.replace('/login');
       } else {

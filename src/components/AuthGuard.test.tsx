@@ -4,10 +4,15 @@ import { AuthGuard } from './AuthGuard';
 
 const mockReplace = vi.fn();
 let mockPathname = '/';
+// Real Next.js router objects are referentially stable across renders;
+// returning a fresh object per call here would make AuthGuard's
+// `useEffect(..., [isPublic, router])` re-fire on every render (any state
+// update, e.g. from a retry), re-invoking checkSession an extra time.
+const mockRouter = { replace: mockReplace };
 
 vi.mock('next/navigation', () => ({
   usePathname: () => mockPathname,
-  useRouter: () => ({ replace: mockReplace }),
+  useRouter: () => mockRouter,
 }));
 
 // TDD (RED→GREEN): tests use getUser (server-validated) instead of getSession
@@ -98,6 +103,52 @@ describe('AuthGuard', () => {
 
     await waitFor(() => expect(mockReplace).toHaveBeenCalledWith('/login'));
     expect(screen.queryByText('Storefront content')).toBeNull();
+  });
+
+  // A-9: a plain network failure (e.g. offline PWA, flaky connection) was
+  // treated identically to "you are logged out" -- getUser() wraps a fetch
+  // failure in an AuthRetryableFetchError, distinguishable from a real
+  // rejection like AuthSessionMissingError.
+  it('does not redirect immediately on a retryable network error, and renders children if a retry succeeds', async () => {
+    mockGetUser
+      .mockResolvedValueOnce({
+        data: { user: null },
+        error: { name: 'AuthRetryableFetchError', message: 'fetch failed' },
+      })
+      .mockResolvedValueOnce({ data: { user: { id: 'u1' } }, error: null });
+
+    render(
+      <AuthGuard>
+        <p>Protected content</p>
+      </AuthGuard>
+    );
+
+    // The first (retryable) failure must not bounce to /login immediately.
+    await waitFor(() => expect(mockGetUser).toHaveBeenCalledTimes(1));
+    expect(mockReplace).not.toHaveBeenCalled();
+
+    await waitFor(() => expect(screen.getByText('Protected content')).toBeTruthy(), {
+      timeout: 3000,
+    });
+    expect(mockReplace).not.toHaveBeenCalled();
+    expect(mockGetUser).toHaveBeenCalledTimes(2);
+  });
+
+  it('redirects to /login if the retry after a network error also fails to confirm a user', async () => {
+    mockGetUser.mockResolvedValue({
+      data: { user: null },
+      error: { name: 'AuthRetryableFetchError', message: 'fetch failed' },
+    });
+
+    render(
+      <AuthGuard>
+        <p>Protected content</p>
+      </AuthGuard>
+    );
+
+    await waitFor(() => expect(mockReplace).toHaveBeenCalledWith('/login'), { timeout: 3000 });
+    expect(screen.queryByText('Protected content')).toBeNull();
+    expect(mockGetUser).toHaveBeenCalledTimes(2);
   });
 
   it('redirects to /login if the session disappears later (SIGNED_OUT event)', async () => {
