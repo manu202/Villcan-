@@ -11,7 +11,7 @@ Why this section exists: on 2026-09-23 I answered "what's still pending" from a 
 5. **New findings go into `## Current status` immediately**, even mid-session, even before they're triaged into a severity table — a real gap sitting only in chat/agent output and not in this file does not exist for the next session.
 6. **History is genuinely append-only.** Do not edit or delete past History entries to "clean them up" — if something in History turns out to have been wrong (like a false-positive finding), append a correction note pointing back at it; don't rewrite it silently.
 
-## Current status (reconciled 2026-09-23 — read this, not History, for "what's left")
+## Current status (reconciled 2026-09-24 — read this, not History, for "what's left")
 
 Legend: unchecked = open, not started or not finished. Each ID is searchable in `## History` for full evidence/reasoning.
 
