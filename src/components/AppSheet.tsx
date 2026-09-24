@@ -115,10 +115,10 @@ export function AppSheet({ open, onOpenChange, title, children, footer }: AppShe
               display: flex;
               align-items: center;
               justify-content: center;
-              width: 32px;
-              height: 32px;
-              min-width: 32px;
-              min-height: 32px;
+              width: 44px;
+              height: 44px;
+              min-width: 44px;
+              min-height: 44px;
               border-radius: 8px;
               background: rgba(255, 255, 255, 0.7);
               border: 2px solid rgba(36, 27, 22, 0.85);

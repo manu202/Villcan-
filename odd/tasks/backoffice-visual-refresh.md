@@ -41,6 +41,7 @@ Current backoffice reads as generic/"AI slop" (flat hairline lists, no elevation
 - 2026-09-24: Task file created. Design direction approved by user (Caja, Pedidos, Catálogo, Reportes artboards). Starting T1.
 - 2026-09-24: T1 done — `--refresh-*` tokens added to globals.css, Archivo Black + Space Grotesk loaded via next/font/google in layout.tsx. `npm test` 580/580 green, `tsc --noEmit` shows only pre-existing unrelated errors. Commit `276a0ea`.
 - 2026-09-24: T2 done — `AppSheet.tsx` bottom sheet + desktop modal reskinned with `--refresh-*` tokens (hard border, offset shadow, glass close button, handle, dividers). `npm test` 580/580 green, `tsc --noEmit` shows only pre-existing unrelated errors (none touching AppSheet.tsx).
+- 2026-09-24: RDD review (native, medium tier) on T2 commit `bd6d12e` came back approved with 3 non-blocking findings. Fixed the real one inline: close button had shrunk to 32x32px, below the 44px touch-target minimum — restored to 44x44px, icon stays visually small (16px, strokeWidth 2.8) inside it. `npm test` 580/580 green. Two findings left as noted follow-ups (out of this task's scope): dark-mode contrast on `--refresh-bg` (dark mode is a separate future pass per task Scope), and `--font-display` not namespaced in `layout.tsx` (storefront-wide exposure risk, cosmetic naming fix).
 
 ## Checks
 - `npm test` (or the project's configured runner) green after each component/screen change.
