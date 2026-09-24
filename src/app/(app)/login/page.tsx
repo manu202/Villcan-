@@ -1,9 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { signInWithPassword } from '@/lib/auth';
+import { getUser, signInWithPassword } from '@/lib/auth';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -11,6 +11,17 @@ export default function LoginPage() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+
+  // A-12: an already-authenticated visitor landing on /login (e.g. a bookmark,
+  // a stale tab, tapping back after logging in) used to just see the form
+  // again with no indication they're already signed in.
+  useEffect(() => {
+    let cancelled = false;
+    getUser().then((user) => {
+      if (!cancelled && user) router.replace('/');
+    });
+    return () => { cancelled = true; };
+  }, [router]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
