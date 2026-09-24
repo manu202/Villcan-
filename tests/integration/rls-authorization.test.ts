@@ -881,6 +881,45 @@ describe('RLS/RPC authorization (real Postgres, local stack)', () => {
   });
 
   // ===========================================================================
+  // O-6 — update_order accepted a negative p_delivery_fee with no range
+  // check (confirm_order_delivery_fee already validated this correctly).
+  // ===========================================================================
+  describe('O-6: update_order rejects a negative delivery fee', () => {
+    it('negative: a negative delivery fee is rejected, order total unaffected', async () => {
+      const service = await seedService(branchX, 'Servicio O6');
+      const { data: created } = await userC.client.rpc('create_manual_order', {
+        p_branch_id: branchX,
+        p_customer_name: 'Cliente O6',
+        p_customer_phone: '+595981000020',
+        p_items: [{ service_id: service.id, qty: 1 }],
+        p_delivery_type: 'delivery',
+        p_delivery_address: 'Calle Falsa 123',
+      });
+      const orderId = created?.order_id;
+      const originalTotal = created?.total;
+
+      const { error } = await userC.client.rpc('update_order', {
+        p_order_id: orderId,
+        p_customer_name: 'Cliente O6',
+        p_customer_phone: '+595981000020',
+        p_customer_email: null,
+        p_note: null,
+        p_payment_method: 'efectivo',
+        p_delivery_type: 'delivery',
+        p_delivery_address: 'Calle Falsa 123',
+        p_status: 'pending',
+        p_items: [{ service_id: service.id, qty: 1 }],
+        p_delivery_fee: -5000,
+      });
+      expect(error).not.toBeNull();
+      expect(error?.message).toMatch(/VC400|invalido/i);
+
+      const { data: row } = await admin.from('orders').select('total, delivery_fee').eq('id', orderId).single();
+      expect(row?.total).toBe(originalTotal);
+    });
+  });
+
+  // ===========================================================================
   // A-7 — profiles_update_own had no column restriction / WITH CHECK: a user
   // could rewrite their own profiles.email, which the invite route
   // (src/app/api/users/invite/route.ts) uses to look up accounts.
