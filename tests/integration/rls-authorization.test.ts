@@ -985,6 +985,66 @@ describe('RLS/RPC authorization (real Postgres, local stack)', () => {
     });
   });
 
+  // ===========================================================================
+  // O-7/P-4 — order codes are per-branch now, not one shared global
+  // sequence. Fixed in 20260924010000_per_branch_order_numbering.sql.
+  // ===========================================================================
+  describe('O-7/P-4: order codes are numbered independently per branch', () => {
+    it('positive: two orders in the same branch get sequential codes', async () => {
+      const service = await seedService(branchX, 'Servicio O7a');
+      const first = await userC.client.rpc('create_manual_order', {
+        p_branch_id: branchX,
+        p_customer_name: 'Cliente O7a',
+        p_customer_phone: '+595981000030',
+        p_items: [{ service_id: service.id, qty: 1 }],
+      });
+      const second = await userC.client.rpc('create_manual_order', {
+        p_branch_id: branchX,
+        p_customer_name: 'Cliente O7b',
+        p_customer_phone: '+595981000031',
+        p_items: [{ service_id: service.id, qty: 1 }],
+      });
+
+      expect(first.error).toBeNull();
+      expect(second.error).toBeNull();
+      const codeA = Number(first.data?.order_code);
+      const codeB = Number(second.data?.order_code);
+      expect(codeB).toBe(codeA + 1);
+    });
+
+    it('positive: a different branch starts its own numbering, independent of branchX', async () => {
+      const serviceX = await seedService(branchX, 'Servicio O7c');
+      const serviceY = await seedService(branchY, 'Servicio O7d');
+
+      const orderX = await userC.client.rpc('create_manual_order', {
+        p_branch_id: branchX,
+        p_customer_name: 'Cliente O7c',
+        p_customer_phone: '+595981000032',
+        p_items: [{ service_id: serviceX.id, qty: 1 }],
+      });
+      const orderY = await userB.client.rpc('create_manual_order', {
+        p_branch_id: branchY,
+        p_customer_name: 'Cliente O7d',
+        p_customer_phone: '+595981000033',
+        p_items: [{ service_id: serviceY.id, qty: 1 }],
+      });
+
+      expect(orderX.error).toBeNull();
+      expect(orderY.error).toBeNull();
+      // Not asserting a specific number (branchY accumulates codes across
+      // this whole test file's earlier cases) -- only that branchX's own
+      // sequence never skipped because of writes in a different branch.
+      const codeXBefore = Number(orderX.data?.order_code);
+      const secondOrderX = await userC.client.rpc('create_manual_order', {
+        p_branch_id: branchX,
+        p_customer_name: 'Cliente O7e',
+        p_customer_phone: '+595981000034',
+        p_items: [{ service_id: serviceX.id, qty: 1 }],
+      });
+      expect(Number(secondOrderX.data?.order_code)).toBe(codeXBefore + 1);
+    });
+  });
+
   async function seedService(branchId: string, name: string) {
     const { data, error } = await admin
       .from('services')
