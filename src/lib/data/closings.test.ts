@@ -91,7 +91,7 @@ describe('listExpenseMovementsSince (getCalculatedBalanceSince gasto leg)', () =
   it('queries movements filtered by type=gasto', async () => {
     await listExpenseMovementsSince('branch-1', '2026-07-15T00:00:00.000Z');
     expect(lastTable).toBe('movements');
-    expect(lastSelectArg).toBe('expense, comment');
+    expect(lastSelectArg).toBe('expense, comment, expense_source');
     expect(lastEqArgs).toContainEqual(['type', 'gasto']);
     expect(lastEqArgs).toContainEqual(['branch_id', 'branch-1']);
   });
@@ -122,7 +122,7 @@ describe('listMovementsByTypeSince (getRunningCashBalance)', () => {
   it('queries movements by type and branch_id without gte when since is omitted', async () => {
     await listMovementsByTypeSince('branch-1', 'servicio');
     expect(lastTable).toBe('movements');
-    expect(lastSelectArg).toBe('type, income, expense, payment_method, comment');
+    expect(lastSelectArg).toBe('type, income, expense, payment_method, comment, expense_source');
     expect(lastEqArgs).toContainEqual(['type', 'servicio']);
     expect(lastEqArgs).toContainEqual(['branch_id', 'branch-1']);
     expect(lastGteArgs).toBeNull();

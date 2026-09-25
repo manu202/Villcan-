@@ -85,6 +85,42 @@ describe('computeCashBalance (M-3: the one shared cash-balance formula)', () => 
     expect(computeCashBalance(period2).efectivo).toBe(30000); // fresh float, no leftover cierre
   });
 
+  it('M-4: expense_source=\'cta_bancaria\' reduces global but NOT efectivo, same as the comment tag', () => {
+    const movements: CashBalanceMovement[] = [
+      { type: 'servicio', income: 100000, expense: 0, payment_method: 'efectivo', comment: null },
+      { type: 'gasto', income: 0, expense: 10000, payment_method: null, comment: null, expense_source: 'caja' },
+      { type: 'gasto', income: 0, expense: 40000, payment_method: null, comment: null, expense_source: 'cta_bancaria' },
+    ];
+
+    const result = computeCashBalance(movements);
+
+    expect(result.efectivo).toBe(90000);
+    expect(result.global).toBe(50000);
+  });
+
+  it("M-4: expense_source is the source of truth even when comment says otherwise (no stale-tag drift)", () => {
+    const movements: CashBalanceMovement[] = [
+      // A comment tag that disagrees with the column -- the column wins.
+      { type: 'gasto', income: 0, expense: 20000, payment_method: null, comment: 'Pago [Cta Bancaria]', expense_source: 'caja' },
+    ];
+
+    const result = computeCashBalance(movements);
+
+    // Treated as caja (column wins): reduces efectivo.
+    expect(result.efectivo).toBe(-20000);
+  });
+
+  it('M-4: falls back to the comment tag only when expense_source is null (row predates the column)', () => {
+    const movements: CashBalanceMovement[] = [
+      { type: 'gasto', income: 0, expense: 15000, payment_method: null, comment: 'Alquiler [Cta Bancaria]', expense_source: null },
+    ];
+
+    const result = computeCashBalance(movements);
+
+    expect(result.efectivo).toBe(0);
+    expect(result.global).toBe(-15000);
+  });
+
   it('full scenario: apertura + mixed-method income + mixed gastos + cierre', () => {
     const movements: CashBalanceMovement[] = [
       { type: 'apertura', income: 200000, expense: 0, payment_method: null, comment: null },
