@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useRef, useCallback } from 'react';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import { confirmOrderDeliveryFee, listOrdersForBranch, updateOrderStatus } from '@/lib/data/orders';
 import { useBranch } from '@/contexts/BranchContext';
 import { useSettings } from '@/contexts/SettingsContext';
@@ -14,6 +15,7 @@ import { AppSheet } from '@/components/AppSheet';
 import { OrderDetailSheet } from '@/components/OrderDetailSheet';
 import { OrderCard } from '@/components/OrderCard';
 import { OrderPaymentSheet } from '@/components/OrderPaymentSheet';
+import { getDateRange } from '@/lib/dateRange';
 
 const STATUS_TABS: Array<{ value: OrderStatus | 'all'; label: string }> = [
   { value: 'all', label: 'Todos' },
@@ -23,16 +25,40 @@ const STATUS_TABS: Array<{ value: OrderStatus | 'all'; label: string }> = [
   { value: 'cancelled', label: 'Cancelados' },
 ];
 
+// M-8: drill-down from Reports' "Servicios" breakdown links here with
+// ?range=<today|week|month>, seeding this date filter instead of inventing
+// a new one -- same vocabulary/values as Movements' own filter, minus
+// 'custom' (Reports only offers a drill-down link for its named views, see
+// reports/page.tsx). Not present in the URL (direct navigation, the normal
+// case) -> 'all', matching this page's original always-unscoped-by-date
+// behavior exactly.
+type DateFilter = 'today' | 'week' | 'month' | 'all';
+const DATE_FILTER_VALUES: DateFilter[] = ['today', 'week', 'month', 'all'];
+
+function readDateFilterFromParams(params: URLSearchParams): DateFilter {
+  const range = params.get('range');
+  return (DATE_FILTER_VALUES as string[]).includes(range ?? '') ? (range as DateFilter) : 'all';
+}
+
+const DATE_FILTER_TABS: Array<{ value: DateFilter; label: string }> = [
+  { value: 'today', label: 'Hoy' },
+  { value: 'week', label: 'Semana' },
+  { value: 'month', label: 'Mes' },
+  { value: 'all', label: 'Todo' },
+];
+
 const POLL_INTERVAL_MS = 30_000;
 
 export default function OrdersPage() {
   const { currentBranch, initialized } = useBranch();
   const { settings } = useSettings();
   const { showToast } = useToast();
+  const searchParams = useSearchParams();
   const [orders, setOrders] = useState<OrderWithItems[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   const [statusFilter, setStatusFilter] = useState<OrderStatus | 'all'>('all');
+  const [dateFilter, setDateFilter] = useState<DateFilter>(() => readDateFilterFromParams(searchParams));
   const [reloadToken, setReloadToken] = useState(0);
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
   const [submittingOrderId, setSubmittingOrderId] = useState<string | null>(null);
@@ -47,12 +73,13 @@ export default function OrdersPage() {
     if (!branch) return;
     if (!silent) setLoading(true);
     setError(false);
-    const { data, error: fetchError } = await listOrdersForBranch(branch.id);
+    const { start, end } = dateFilter === 'all' ? {} : getDateRange(dateFilter);
+    const { data, error: fetchError } = await listOrdersForBranch(branch.id, start, end);
 
     if (fetchError) { setError(true); }
     else if (data) { setOrders(data as OrderWithItems[]); }
     if (!silent) setLoading(false);
-  }, []);
+  }, [dateFilter]);
 
   useEffect(() => {
     if (!initialized || !currentBranch) return;
@@ -154,6 +181,19 @@ export default function OrdersPage() {
         ))}
       </div>
 
+      <div className="date-filter-row">
+        {DATE_FILTER_TABS.map((tab) => (
+          <button
+            key={tab.value}
+            type="button"
+            className={`date-filter-btn ${dateFilter === tab.value ? 'active' : ''}`}
+            onClick={() => setDateFilter(tab.value)}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
       <section className="section">
         {loading ? (
           <p className="page-subtitle">Cargando...</p>
@@ -213,6 +253,29 @@ export default function OrdersPage() {
           font-family: var(--refresh-font-sans, inherit);
         }
         .status-tab.active {
+          background: var(--refresh-accent, var(--accent)); color: #fff; border-color: var(--refresh-accent, var(--accent));
+        }
+
+        /* M-8: date-scope tabs, separate row from status -- same visual
+           language as Movements' own filter-row so the two feel like one
+           system, not a bolted-on second control. */
+        .date-filter-row {
+          display: flex; gap: 8px; padding-bottom: 12px;
+        }
+        .date-filter-btn {
+          flex: 1;
+          padding: 10px 12px;
+          min-height: 44px;
+          display: flex; align-items: center; justify-content: center;
+          background: var(--refresh-surface-glass, var(--surface));
+          border: var(--refresh-border-hard, 1px solid var(--border));
+          border-radius: var(--refresh-radius-control, 8px);
+          font-size: 13px; font-weight: 600;
+          color: var(--refresh-ink-secondary, var(--text-secondary));
+          cursor: pointer;
+          font-family: var(--refresh-font-sans, inherit);
+        }
+        .date-filter-btn.active {
           background: var(--refresh-accent, var(--accent)); color: #fff; border-color: var(--refresh-accent, var(--accent));
         }
 

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import ReportsPage from './page';
 
 const mockUseBranch = vi.fn();
@@ -256,5 +256,106 @@ describe('ReportsPage KPI/card labels use configurable services_label instead of
 
     expect(screen.getByText('Total Servicios')).toBeTruthy();
     expect(screen.getByRole('heading', { name: 'Servicios' })).toBeTruthy();
+  });
+});
+
+describe('ReportsPage M-8: drill-down links and CSV export', () => {
+  beforeEach(() => {
+    callCountByType = {};
+    orderItemsData = [
+      { name_snapshot: 'Corte', line_total: 100000, qty: 1 },
+    ];
+    movementsByType = {
+      // Extra slots (3rd servicio, 2nd gasto) cover the "switch to
+      // Personalizar" test, which triggers a second main fetch (no
+      // prevPeriod compare for a custom range).
+      servicio: [
+        [{ amount_charged: 100000, income: 100000, expense: 0, payment_method: 'efectivo', created_at: new Date().toISOString(), branch_id: 'branch-1', order_id: 'order-1', service: null }],
+        [],
+        [{ amount_charged: 100000, income: 100000, expense: 0, payment_method: 'efectivo', created_at: new Date().toISOString(), branch_id: 'branch-1', order_id: 'order-1', service: null }],
+      ],
+      gasto: [
+        [{ expense: 30000, income: 0, comment: 'Alquiler' }],
+        [{ expense: 30000, income: 0, comment: 'Alquiler' }],
+      ],
+      apertura: [[], []],
+      cierre: [[], []],
+    };
+    mockUseBranch.mockReturnValue({
+      currentBranch: { id: 'branch-1', name: 'Centro', vertical: 'barbershop' },
+      branches: [],
+      initialized: true,
+    });
+    mockUseSettings.mockReturnValue({ settings: { staff_label: 'Barbero', services_label: 'Servicios' } });
+  });
+
+  it('the default view (Hoy) renders drill-down links for Servicios and Por Método rows', async () => {
+    render(<ReportsPage />);
+
+    await waitFor(() => screen.getByText('Corte'));
+
+    const serviceLink = screen.getByText('Corte').closest('a');
+    expect(serviceLink?.getAttribute('href')).toBe('/orders?range=today');
+
+    const methodLink = screen.getByText('efectivo').closest('a');
+    expect(methodLink?.getAttribute('href')).toBe('/movements?range=today&method=efectivo');
+  });
+
+  it('does not offer a drill-down link when the view is "Personalizar" (custom)', async () => {
+    render(<ReportsPage />);
+    await waitFor(() => screen.getByText('Corte'));
+
+    fireEvent.click(screen.getByText('Personalizar'));
+    fireEvent.change(screen.getByPlaceholderText('Desde'), { target: { value: '2026-01-01' } });
+    fireEvent.change(screen.getByPlaceholderText('Hasta'), { target: { value: '2026-01-31' } });
+
+    await waitFor(() => screen.getByText('Corte'));
+    expect(screen.getByText('Corte').closest('a')).toBeNull();
+    expect(screen.getByText('efectivo').closest('a')).toBeNull();
+  });
+
+  it('a method with no real payment_method ("sin método") never renders as a link', async () => {
+    movementsByType = {
+      ...movementsByType,
+      servicio: [
+        [{ amount_charged: 100000, income: 100000, expense: 0, payment_method: null, created_at: new Date().toISOString(), branch_id: 'branch-1', order_id: 'order-1', service: null }],
+        [],
+      ],
+    };
+    render(<ReportsPage />);
+
+    await waitFor(() => screen.getByText('sin método'));
+    expect(screen.getByText('sin método').closest('a')).toBeNull();
+  });
+
+  it('"Exportar CSV" triggers a CSV download with the current period\'s breakdown data', async () => {
+    const createObjectURL = vi.fn().mockReturnValue('blob:mock-url');
+    const revokeObjectURL = vi.fn();
+    vi.stubGlobal('URL', { ...URL, createObjectURL, revokeObjectURL });
+    const clickSpy = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
+
+    render(<ReportsPage />);
+    await waitFor(() => screen.getByText('Exportar CSV'));
+
+    fireEvent.click(screen.getByText('Exportar CSV'));
+
+    expect(createObjectURL).toHaveBeenCalledTimes(1);
+    const blobArg = createObjectURL.mock.calls[0][0] as Blob;
+    expect(blobArg.type).toContain('text/csv');
+    const csvText = await blobArg.text();
+    expect(csvText).toContain('Corte');
+    expect(csvText).toContain('efectivo');
+    expect(csvText).toContain('Alquiler');
+    expect(clickSpy).toHaveBeenCalledTimes(1);
+    expect(revokeObjectURL).toHaveBeenCalledWith('blob:mock-url');
+
+    clickSpy.mockRestore();
+    vi.unstubAllGlobals();
+  });
+
+  it('the export button is hidden while loading', async () => {
+    render(<ReportsPage />);
+    expect(screen.queryByText('Exportar CSV')).toBeNull();
+    await waitFor(() => screen.getByText('Exportar CSV'));
   });
 });

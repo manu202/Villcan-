@@ -7,6 +7,7 @@ import { useBranch } from '@/contexts/BranchContext';
 import { useSettings } from '@/contexts/SettingsContext';
 import { getDateRange, type ViewType } from '@/lib/dateRange';
 import { computeCashBalance, type CashBalanceMovement } from '@/lib/cashBalance';
+import type { PaymentMethod } from '@/types';
 import {
   listServicioMovementsForReports,
   listOrderItemsForOrders,
@@ -15,6 +16,37 @@ import {
   listCierreMovementsForReports,
   listServicioIncomeForPrevPeriod,
 } from '@/lib/data/reports';
+
+// M-8: drill-down into Movements/Orders, pre-filtered by date range (and
+// method, for "Por Método"), reusing those pages' own existing filter
+// state via query params rather than inventing new filter UI there (see
+// their own ?range=/?method= handling). Only offered for the 3 named,
+// single-tap views Movements/Orders already understand -- 'custom' has no
+// equivalent there (would need a full date-picker on 2 more pages to
+// support one drill-down link) and 'all' has no boundary to speak of, so
+// both breakdowns render as plain, non-clickable rows in those cases.
+const DRILLDOWN_RANGE: Partial<Record<ViewType, 'today' | 'week' | 'month'>> = {
+  today: 'today',
+  week: 'week',
+  month: 'month',
+};
+const KNOWN_PAYMENT_METHODS: PaymentMethod[] = ['efectivo', 'transferencia', 'pos'];
+
+/** Builds a CSV file (comma-separated, quoted) and triggers a download. */
+function downloadCsv(filename: string, rows: (string | number)[][]) {
+  const csv = rows
+    .map((row) => row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(','))
+    .join('\r\n');
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+}
 
 interface ServiceSummary {
   name: string;
@@ -344,11 +376,29 @@ export default function ReportsPage() {
   const servicesLabel = settings.services_label || 'Servicios';
   const staffLabelLower = (settings.staff_label || 'Barbero').toLowerCase();
 
+  const handleExportCsv = () => {
+    const periodLabel = view === 'today' ? 'hoy' : view === 'week' ? 'semana' : view === 'month' ? 'mes' : view === 'all' ? 'todo' : 'personalizado';
+    const rows: (string | number)[][] = [
+      ['Sección', 'Concepto', 'Cantidad', 'Monto (Gs)'],
+      ...byService.map((s) => ['Servicios', s.name, s.count, s.total]),
+      ...byMethod.map((m) => ['Por Método', m.method, '', m.total]),
+      ...expenses.map((e) => ['Gastos', e.comment, '', e.total]),
+    ];
+    downloadCsv(`reporte-${periodLabel}-${new Date().toISOString().slice(0, 10)}.csv`, rows);
+  };
+
   return (
     <div className="page">
-      <header className="page-header">
-        <h1 className="page-title">Reportes</h1>
-        <p className="page-subtitle">Análisis de ventas</p>
+      <header className="page-header flex-header">
+        <div>
+          <h1 className="page-title">Reportes</h1>
+          <p className="page-subtitle">Análisis de ventas</p>
+        </div>
+        {!loading && (
+          <button type="button" className="export-btn" onClick={handleExportCsv}>
+            Exportar CSV
+          </button>
+        )}
       </header>
 
       <section className="section">
@@ -523,13 +573,32 @@ export default function ReportsPage() {
                 {byService.length === 0 ? (
                   <li className="breakdown-empty">Sin servicios en este período</li>
                 ) : (
-                  byService.map((item) => (
-                    <li key={item.name} className="breakdown-row">
-                      <span className="breakdown-label">{item.name}</span>
-                      <span className="breakdown-count">{item.count} ×</span>
-                      <span className="breakdown-amount">{formatGuaranies(item.total)}</span>
-                    </li>
-                  ))
+                  byService.map((item) => {
+                    // M-8: "Servicios" drills down to /orders for the same
+                    // date range -- not filtered to this specific service,
+                    // since orders don't have a single service to filter by
+                    // (an order can contain several); see DRILLDOWN_RANGE's
+                    // own comment for why 'custom'/'all' aren't offered.
+                    const range = DRILLDOWN_RANGE[view];
+                    const rowContent = (
+                      <>
+                        <span className="breakdown-label">{item.name}</span>
+                        <span className="breakdown-count">{item.count} ×</span>
+                        <span className="breakdown-amount">{formatGuaranies(item.total)}</span>
+                      </>
+                    );
+                    return (
+                      <li key={item.name} className="breakdown-row">
+                        {range ? (
+                          <Link href={`/orders?range=${range}`} className="breakdown-row-link">
+                            {rowContent}
+                          </Link>
+                        ) : (
+                          rowContent
+                        )}
+                      </li>
+                    );
+                  })
                 )}
               </ul>
             </div>
@@ -541,12 +610,29 @@ export default function ReportsPage() {
               {byMethod.length === 0 ? (
                 <p className="grouped-card-empty">Sin métodos registrados</p>
               ) : (
-                byMethod.map((item) => (
-                  <div key={item.method} className="grouped-card-row">
-                    <span className="grouped-card-label method">{item.method}</span>
-                    <span className="grouped-card-amount">{formatGuaranies(item.total)}</span>
-                  </div>
-                ))
+                byMethod.map((item) => {
+                  const range = DRILLDOWN_RANGE[view];
+                  const isKnownMethod = (KNOWN_PAYMENT_METHODS as string[]).includes(item.method);
+                  const rowContent = (
+                    <>
+                      <span className="grouped-card-label method">{item.method}</span>
+                      <span className="grouped-card-amount">{formatGuaranies(item.total)}</span>
+                    </>
+                  );
+                  return range && isKnownMethod ? (
+                    <Link
+                      key={item.method}
+                      href={`/movements?range=${range}&method=${item.method}`}
+                      className="grouped-card-row grouped-card-row-link"
+                    >
+                      {rowContent}
+                    </Link>
+                  ) : (
+                    <div key={item.method} className="grouped-card-row">
+                      {rowContent}
+                    </div>
+                  );
+                })
               )}
             </div>
           </section>
@@ -581,6 +667,49 @@ export default function ReportsPage() {
           font-size: 14px;
           color: var(--text-secondary);
           margin-top: 4px;
+        }
+
+        .flex-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: flex-start;
+          gap: 12px;
+        }
+
+        .export-btn {
+          flex-shrink: 0;
+          padding: 9px 14px;
+          min-height: 44px;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          background: var(--refresh-surface-glass, var(--surface));
+          border: var(--refresh-border-hard, 1px solid var(--border));
+          border-radius: var(--refresh-radius-control, 8px);
+          font-size: 13px;
+          font-weight: 600;
+          color: var(--refresh-ink, var(--text-primary));
+          cursor: pointer;
+          font-family: var(--refresh-font-sans, inherit);
+        }
+
+        /* M-8: drill-down rows -- same visual position as the plain (non-
+           clickable) rows they replace, just made tappable. */
+        .breakdown-row-link {
+          display: flex;
+          align-items: center;
+          width: 100%;
+          text-decoration: none;
+          color: inherit;
+        }
+
+        .grouped-card-row-link {
+          text-decoration: none;
+          cursor: pointer;
+        }
+
+        .grouped-card-row-link:hover {
+          background: var(--accent-subtle);
         }
 
         .filter-row {
