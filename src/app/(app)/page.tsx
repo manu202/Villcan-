@@ -13,6 +13,7 @@ import {
   ShoppingBag,
   Wallet,
   ArrowDownLeft,
+  RefreshCw,
   type LucideIcon,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
@@ -72,6 +73,12 @@ export default function HomePage() {
   const [recentMovements, setRecentMovements] = useState<MovementWithDetails[]>([]);
   const [loading, setLoading] = useState(true);
   const [balanceExpanded, setBalanceExpanded] = useState(false);
+  // K5: dashboard has no auto-refresh (a poll, a realtime subscription),
+  // so the numbers can go stale while the tab sits open -- surface when
+  // they were last fetched and let the user force a refetch instead of
+  // guessing or reloading the page.
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+  const [reloadToken, setReloadToken] = useState(0);
 
   // Use ref to always have current branch value inside async functions
   const currentBranchRef = useRef(currentBranch);
@@ -134,6 +141,7 @@ export default function HomePage() {
 
       setRunning(balance);
       setLoading(false);
+      setLastUpdated(new Date());
     };
 
     // Best-effort: the "Movimientos recientes" card is a display convenience,
@@ -160,13 +168,32 @@ export default function HomePage() {
     return () => {
       cancelled = true;
     };
-  }, [initialized, view]);
+  }, [initialized, view, reloadToken]);
 
   return (
     <div className="page">
-      <header className="page-header">
-        <span className="page-eyebrow">{currentBranch?.name ?? 'Villcan'}</span>
-        <h1 className="page-title">Caja</h1>
+      <header className="page-header page-header--row">
+        <div>
+          <span className="page-eyebrow">{currentBranch?.name ?? 'Villcan'}</span>
+          <h1 className="page-title">Caja</h1>
+        </div>
+        {/* K5: no auto-refresh exists on this page (no poll, no realtime
+            subscription) -- these numbers can go stale while the tab sits
+            open, so show when they were last fetched and let the user
+            force a refetch instead of guessing or reloading the page. */}
+        {lastUpdated && (
+          <div className="refresh-row">
+            <span className="refresh-label">Actualizado {formatRelativeTime(lastUpdated)}</span>
+            <button
+              type="button"
+              className="refresh-btn"
+              aria-label="Actualizar"
+              onClick={() => setReloadToken((t) => t + 1)}
+            >
+              <RefreshCw size={16} aria-hidden="true" />
+            </button>
+          </div>
+        )}
       </header>
 
       {loading || branchLoading ? (
@@ -184,7 +211,16 @@ export default function HomePage() {
               <div className="balance-top">
                 <div>
                   <span className="balance-label">Balance global</span>
-                  <div className="balance-value">{formatGuaranies(running.balanceGlobal)}</div>
+                  <div className={`balance-value ${running.balanceGlobal < 0 ? 'balance-value--negative' : ''}`}>
+                    {running.balanceGlobal < 0 ? '−' : ''}{formatGuaranies(Math.abs(running.balanceGlobal))}
+                  </div>
+                  {/* K1/K2: this is a running total since the last cash
+                      closing (or all-time) -- it does NOT change with the
+                      Hoy/Semana/Mes tabs below, which only scope the
+                      breakdown rows (Efectivo/Transferencia/POS/Egresos).
+                      Reports' own numbers ARE fully range-scoped -- this is
+                      the actual difference between the two screens. */}
+                  <span className="balance-scope-note">Total acumulado, no varía por período</span>
                 </div>
                 <button
                   type="button"
@@ -203,7 +239,9 @@ export default function HomePage() {
                 <div className="balance-collapsed">
                   <div className="balance-mini">
                     <span className="balance-mini-label">Efectivo</span>
-                    <span className="balance-mini-value">{formatGuaranies(running.balanceEfectivo)}</span>
+                    <span className={`balance-mini-value ${running.balanceEfectivo < 0 ? 'balance-mini-value--negative' : ''}`}>
+                      {running.balanceEfectivo < 0 ? '−' : ''}{formatGuaranies(Math.abs(running.balanceEfectivo))}
+                    </span>
                   </div>
                   <div className="balance-mini">
                     <span className="balance-mini-label">Ingresos {view === 'today' ? 'hoy' : view === 'week' ? 'esta semana' : 'este mes'}</span>
@@ -212,6 +250,13 @@ export default function HomePage() {
                 </div>
               ) : (
                 <div className="balance-expanded">
+                  {/* K1/K2: these tabs scope ONLY the breakdown rows below
+                      (Efectivo/Transferencia/POS/Egresos come from
+                      `activity`, computed for the selected period) -- they
+                      never touch Balance global/Efectivo above, which stay
+                      a running total. Labeled explicitly since the tabs
+                      sit inside the same card as the running totals. */}
+                  <span className="period-tabs-label">Detalle del período</span>
                   <div className="period-tabs">
                     <button
                       type="button"
@@ -341,6 +386,13 @@ export default function HomePage() {
           flex-direction: column;
         }
 
+        .page-header--row {
+          flex-direction: row;
+          align-items: flex-start;
+          justify-content: space-between;
+          gap: 12px;
+        }
+
         .page-eyebrow {
           font-size: 13px;
           color: var(--refresh-ink-muted, var(--text-secondary));
@@ -351,6 +403,37 @@ export default function HomePage() {
           font-weight: 700;
           font-family: var(--refresh-font-sans, inherit);
           color: var(--refresh-ink, var(--text-primary));
+        }
+
+        /* K5: last-updated + manual refresh, since this page has no
+           auto-refresh mechanism of its own. */
+        .refresh-row {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          flex-shrink: 0;
+          padding-top: 2px;
+        }
+
+        .refresh-label {
+          font-size: 11px;
+          color: var(--refresh-ink-muted, var(--text-secondary));
+          white-space: nowrap;
+        }
+
+        .refresh-btn {
+          width: 32px;
+          height: 32px;
+          min-width: 32px;
+          min-height: 32px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          background: var(--refresh-surface-glass, var(--surface));
+          border: var(--refresh-border-hard, 1px solid var(--border));
+          border-radius: var(--refresh-radius-control, 8px);
+          color: var(--refresh-ink-secondary, var(--text-secondary));
+          cursor: pointer;
         }
 
         .page-subtitle {
@@ -387,6 +470,34 @@ export default function HomePage() {
           font-size: 38px;
           line-height: 1.1;
           color: var(--refresh-ink, var(--text-primary));
+        }
+
+        /* K3: no negative-amount color coding previously existed on these
+           two headline numbers, despite it existing on movement rows
+           (.movement-amount--positive/--negative) and Reports' own
+           equivalent. */
+        .balance-value--negative {
+          color: #f43f5e;
+        }
+
+        /* K1/K2: clarifies these are a running total, not scoped by the
+           Hoy/Semana/Mes tabs below -- see the JSX comment above this
+           element for the full reasoning. */
+        .balance-scope-note {
+          display: block;
+          font-size: 11px;
+          color: var(--refresh-ink-muted, var(--text-secondary));
+          margin-top: 2px;
+        }
+
+        .period-tabs-label {
+          display: block;
+          font-size: 11px;
+          font-weight: 600;
+          text-transform: uppercase;
+          letter-spacing: 0.04em;
+          color: var(--refresh-ink-muted, var(--text-secondary));
+          margin-bottom: 8px;
         }
 
         .balance-toggle {
@@ -440,6 +551,10 @@ export default function HomePage() {
           font-weight: 700;
           font-size: 16px;
           color: var(--refresh-ink, var(--text-primary));
+        }
+
+        .balance-mini-value--negative {
+          color: #f43f5e;
         }
 
         .period-tabs {

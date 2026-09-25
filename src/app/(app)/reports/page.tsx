@@ -879,20 +879,25 @@ export default function ReportsPage() {
           font-size: 20px;
         }
 
+        /* K3: Balance Neto used ink-tone-only differences (primary vs
+           muted) here, not a real alarm signal -- switched to the same
+           green/red hue pair movement rows already use
+           (.movement-amount--positive/--negative, #10b981/#f43f5e), so a
+           negative Balance Neto actually reads as a warning. */
         .kpi-tile-value.income {
-          color: var(--refresh-ink, var(--text-primary));
+          color: #10b981;
         }
 
         .kpi-tile-value.expense {
-          color: var(--refresh-ink-secondary, var(--text-secondary));
+          color: #f43f5e;
         }
 
         .kpi-tile-sign.income {
-          color: var(--refresh-ink, var(--text-primary));
+          color: #10b981;
         }
 
         .kpi-tile-sign.expense {
-          color: var(--refresh-ink-secondary, var(--text-secondary));
+          color: #f43f5e;
         }
 
         .kpi-badge {

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import HomePage from './page';
 
 const mockUseBranch = vi.fn();
@@ -167,5 +167,73 @@ describe('HomePage "Movimientos recientes" card', () => {
     render(<HomePage />);
     await waitFor(() => screen.getByText('Sin movimientos recientes'));
     expect(screen.getByText('Sin movimientos recientes')).toBeTruthy();
+  });
+});
+
+describe('HomePage K1/K2: running-total scope note + K5: last-updated/refresh', () => {
+  beforeEach(() => {
+    movementsByType = {
+      servicio: [{ type: 'servicio', income: 50000, expense: 0, payment_method: 'efectivo', comment: null }],
+      gasto: [],
+      apertura: [],
+      cierre: [],
+    };
+    closingsRows = [];
+    recentMovementsRows = [];
+    mockUseBranch.mockReturnValue({
+      currentBranch: { id: 'branch-1', name: 'Centro' },
+      isLoading: false,
+      initialized: true,
+    });
+  });
+
+  it('K1/K2: shows a note that the headline balance is a running total, independent of the period tabs', async () => {
+    render(<HomePage />);
+    await waitFor(() => expect(screen.getAllByText('₲ 50.000').length).toBeGreaterThan(0));
+    expect(screen.getByText(/total acumulado, no varía por período/i)).toBeTruthy();
+  });
+
+  it('K1/K2: labels the period tabs as scoping only the breakdown below, once expanded', async () => {
+    render(<HomePage />);
+    await waitFor(() => expect(screen.getAllByText('₲ 50.000').length).toBeGreaterThan(0));
+
+    fireEvent.click(screen.getByLabelText('Ver desglose'));
+
+    expect(screen.getByText('Detalle del período')).toBeTruthy();
+  });
+
+  it('K5: shows a last-updated label and a refresh button once loaded', async () => {
+    render(<HomePage />);
+    await waitFor(() => screen.getByText(/actualizado/i));
+    expect(screen.getByLabelText('Actualizar')).toBeTruthy();
+  });
+
+  it('K5: clicking refresh re-fetches the running balance', async () => {
+    const { container } = render(<HomePage />);
+    await waitFor(() => expect(screen.getAllByText('₲ 50.000').length).toBeGreaterThan(0));
+
+    // Change the underlying data, as if new movements landed server-side,
+    // then trigger a manual refresh -- the page has no poll of its own.
+    movementsByType = {
+      ...movementsByType,
+      servicio: [{ type: 'servicio', income: 90000, expense: 0, payment_method: 'efectivo', comment: null }],
+    };
+
+    fireEvent.click(screen.getByLabelText('Actualizar'));
+
+    await waitFor(() => expect(container.querySelector('.balance-value')?.textContent).toContain('90.000'));
+  });
+
+  it('K3: a negative running balance renders with the same negative color as movement rows', async () => {
+    movementsByType = {
+      servicio: [],
+      gasto: [{ type: 'gasto', income: 0, expense: 50000, payment_method: null, comment: 'Alquiler' }],
+      apertura: [],
+      cierre: [],
+    };
+    const { container } = render(<HomePage />);
+
+    await waitFor(() => expect(container.querySelector('.balance-value')?.textContent).toContain('50.000'));
+    expect(container.querySelector('.balance-value')?.className).toContain('balance-value--negative');
   });
 });

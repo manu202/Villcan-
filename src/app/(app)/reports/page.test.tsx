@@ -359,3 +359,46 @@ describe('ReportsPage M-8: drill-down links and CSV export', () => {
     await waitFor(() => screen.getByText('Exportar CSV'));
   });
 });
+
+describe('ReportsPage K3: Balance Neto uses a real green/red alarm signal, not ink-tone-only', () => {
+  beforeEach(() => {
+    callCountByType = {};
+    orderItemsData = [];
+    mockUseBranch.mockReturnValue({
+      currentBranch: { id: 'branch-1', name: 'Centro', vertical: 'barbershop' },
+      branches: [],
+      initialized: true,
+    });
+    mockUseSettings.mockReturnValue({ settings: { staff_label: 'Barbero', services_label: 'Servicios' } });
+  });
+
+  it('a positive Balance Neto renders with the same green as a positive movement row', async () => {
+    movementsByType = {
+      servicio: [[{ amount_charged: 100000, income: 100000, expense: 0, payment_method: 'efectivo', created_at: new Date().toISOString(), branch_id: 'branch-1', service: { name: 'Corte' } }], []],
+      gasto: [[]],
+      apertura: [[]],
+      cierre: [[]],
+    };
+    const { container } = render(<ReportsPage />);
+
+    await waitFor(() => expect(container.querySelector('.kpi-tile-value')).toBeTruthy());
+    const value = container.querySelector('.kpi-tile-value.income');
+    expect(value).toBeTruthy();
+    expect(value?.className).not.toContain('expense');
+  });
+
+  it('a negative Balance Neto renders with the same red as a negative movement row', async () => {
+    movementsByType = {
+      servicio: [[], []],
+      gasto: [[{ expense: 50000, income: 0, comment: 'Alquiler' }]],
+      apertura: [[]],
+      cierre: [[]],
+    };
+    const { container } = render(<ReportsPage />);
+
+    await waitFor(() => expect(container.querySelector('.kpi-tile-value')).toBeTruthy());
+    const value = container.querySelector('.kpi-tile-value.expense');
+    expect(value).toBeTruthy();
+    expect(value?.className).not.toContain('income');
+  });
+});
