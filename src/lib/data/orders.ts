@@ -5,14 +5,23 @@ import type { OrderStatus, CreateManualOrderInput, UpdateOrderInput } from '@/ty
  * Orders + their items for a branch, newest first. Full order_items columns
  * (not just id/qty/name_snapshot) so the same in-memory order object can be
  * handed straight to OrderPaymentSheet (SW-O1) without a second fetch.
+ *
+ * `start`/`end` are optional (M-8 drill-down from Reports' "Servicios"
+ * breakdown) — omitted entirely, the query is unscoped by date, matching
+ * the page's original all-orders-for-branch behavior exactly.
  */
-export async function listOrdersForBranch(branchId: string) {
+export async function listOrdersForBranch(branchId: string, start?: string, end?: string) {
   const supabase = createClient();
-  return supabase
+  let query = supabase
     .from('orders')
     .select('*, order_items(*)')
     .eq('branch_id', branchId)
     .order('created_at', { ascending: false });
+
+  if (start) query = query.gte('created_at', start);
+  if (end) query = query.lt('created_at', end);
+
+  return query;
 }
 
 /**

@@ -2,6 +2,11 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import OrdersPage from './page';
 
+let mockSearchParams = new URLSearchParams();
+vi.mock('next/navigation', () => ({
+  useSearchParams: () => mockSearchParams,
+}));
+
 const mockUseBranch = vi.fn();
 vi.mock('@/contexts/BranchContext', () => ({
   useBranch: () => mockUseBranch(),
@@ -17,6 +22,8 @@ vi.mock('@/contexts/ToastContext', () => ({
 }));
 
 const eqCalls: Array<[string, unknown]> = [];
+const gteCalls: Array<[string, unknown]> = [];
+const ltCalls: Array<[string, unknown]> = [];
 
 // Mutable result for handleStatusChange's .update().eq().select().single() chain.
 let mockUpdateResult: { data: unknown; error: unknown } = {
@@ -30,6 +37,14 @@ function createQueryMock(resultPromise: Promise<unknown>) {
   mock.select = chainable;
   mock.eq = (col: string, val: unknown) => {
     eqCalls.push([col, val]);
+    return mock;
+  };
+  mock.gte = (col: string, val: unknown) => {
+    gteCalls.push([col, val]);
+    return mock;
+  };
+  mock.lt = (col: string, val: unknown) => {
+    ltCalls.push([col, val]);
     return mock;
   };
   mock.order = chainable;
@@ -74,13 +89,57 @@ const ORDER_BASE = {
 describe('OrdersPage (REQ: incoming orders panel)', () => {
   beforeEach(() => {
     eqCalls.length = 0;
+    gteCalls.length = 0;
+    ltCalls.length = 0;
     rpcCalls.length = 0;
     mockShowToast.mockReset();
     mockUpdateResult = { data: { id: 'o1' }, error: null };
     mockRpcResult = { data: {}, error: null };
+    mockSearchParams = new URLSearchParams();
     mockUseBranch.mockReturnValue({
       currentBranch: { id: 'branch-1', name: 'Centro', user_role: 'admin' },
       initialized: true,
+    });
+  });
+
+  describe('M-8: date-range drill-down from Reports', () => {
+    it('defaults to no date scoping (all orders) when no ?range= param is present', async () => {
+      queryResult = Promise.resolve({ data: [ORDER_BASE], error: null });
+      render(<OrdersPage />);
+      await waitFor(() => expect(screen.getByText('#A1B2C3')).toBeTruthy());
+      expect(gteCalls).toEqual([]);
+      expect(ltCalls).toEqual([]);
+      expect(screen.getByRole('button', { name: 'Todo' }).className).toContain('active');
+    });
+
+    it('scopes the query to the week range when ?range=week is present, and marks that tab active', async () => {
+      mockSearchParams = new URLSearchParams('range=week');
+      queryResult = Promise.resolve({ data: [ORDER_BASE], error: null });
+      render(<OrdersPage />);
+      await waitFor(() => expect(screen.getByText('#A1B2C3')).toBeTruthy());
+      expect(gteCalls).toContainEqual(['created_at', expect.any(String)]);
+      expect(ltCalls).toContainEqual(['created_at', expect.any(String)]);
+      expect(screen.getByRole('button', { name: 'Semana' }).className).toContain('active');
+    });
+
+    it('ignores an invalid ?range= value and falls back to unscoped', async () => {
+      mockSearchParams = new URLSearchParams('range=bogus');
+      queryResult = Promise.resolve({ data: [ORDER_BASE], error: null });
+      render(<OrdersPage />);
+      await waitFor(() => expect(screen.getByText('#A1B2C3')).toBeTruthy());
+      expect(gteCalls).toEqual([]);
+      expect(ltCalls).toEqual([]);
+    });
+
+    it('clicking a date-filter tab re-scopes the query', async () => {
+      queryResult = Promise.resolve({ data: [ORDER_BASE], error: null });
+      render(<OrdersPage />);
+      await waitFor(() => expect(screen.getByText('#A1B2C3')).toBeTruthy());
+
+      fireEvent.click(screen.getByRole('button', { name: 'Hoy' }));
+
+      await waitFor(() => expect(gteCalls.length).toBeGreaterThan(0));
+      expect(screen.getByRole('button', { name: 'Hoy' }).className).toContain('active');
     });
   });
 

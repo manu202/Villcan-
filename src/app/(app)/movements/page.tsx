@@ -2,26 +2,47 @@
 
 import { useEffect, useState, useRef } from 'react';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import { formatGuaranies, formatDate, formatTime, getMovementTypeLabel } from '@/lib/utils';
 import { listMovementsForBranch } from '@/lib/data/movements';
 import { useBranch } from '@/contexts/BranchContext';
-import type { MovementWithDetails } from '@/types';
+import type { MovementWithDetails, PaymentMethod } from '@/types';
 import { Spinner } from '@/components/Spinner';
-import { Wallet } from 'lucide-react';
+import { Wallet, X } from 'lucide-react';
 import { EmptyState } from '@/components/EmptyState';
 import { ErrorState } from '@/components/ErrorState';
 import { getDateRange } from '@/lib/dateRange';
 
 type FilterType = 'today' | 'week' | 'month' | 'all';
+const FILTER_VALUES: FilterType[] = ['today', 'week', 'month', 'all'];
+const PAYMENT_METHODS: PaymentMethod[] = ['efectivo', 'transferencia', 'pos'];
+
+// M-8: drill-down from Reports' "Por Método" breakdown links here with
+// ?range=<...>&method=<...>, seeding this page's existing filter state
+// instead of inventing a new one. Direct navigation (the normal case) has
+// neither param -> unchanged default behavior ('today', no method scope).
+function readFilterFromParams(params: URLSearchParams): FilterType {
+  const range = params.get('range');
+  return (FILTER_VALUES as string[]).includes(range ?? '') ? (range as FilterType) : 'today';
+}
+
+function readMethodFromParams(params: URLSearchParams): PaymentMethod | null {
+  const method = params.get('method');
+  return (PAYMENT_METHODS as string[]).includes(method ?? '') ? (method as PaymentMethod) : null;
+}
 
 const TOTAL_MOVEMENTS = 100; // Maximum requested
 
 export default function MovementsPage() {
   const { currentBranch, initialized } = useBranch();
+  const searchParams = useSearchParams();
   const [movements, setMovements] = useState<MovementWithDetails[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
-  const [filter, setFilter] = useState<FilterType>('today');
+  const [filter, setFilter] = useState<FilterType>(() => readFilterFromParams(searchParams));
+  const [methodFilter, setMethodFilter] = useState<PaymentMethod | null>(() =>
+    readMethodFromParams(searchParams)
+  );
 
   // Use ref to always have current branch value inside async functions
   const currentBranchRef = useRef(currentBranch);
@@ -45,7 +66,12 @@ export default function MovementsPage() {
       setError(false);
       const { start, end } = getDateRange(filter);
 
-      const { data, error: fetchError } = await listMovementsForBranch(branch.id, start, end);
+      const { data, error: fetchError } = await listMovementsForBranch(
+        branch.id,
+        start,
+        end,
+        methodFilter ?? undefined
+      );
 
       if (cancelled) return;
 
@@ -61,7 +87,7 @@ export default function MovementsPage() {
     return () => {
       cancelled = true;
     };
-  }, [filter, initialized]);
+  }, [filter, methodFilter, initialized]);
 
   return (
     <div className="page">
@@ -100,6 +126,19 @@ export default function MovementsPage() {
             onClick={() => setFilter('all')}
           >Todo</button>
         </div>
+
+        {methodFilter && (
+          <div className="method-filter-chip">
+            <span>Filtrado por método: {methodFilter}</span>
+            <button
+              type="button"
+              aria-label="Quitar filtro de método"
+              onClick={() => setMethodFilter(null)}
+            >
+              <X size={14} strokeWidth={2.5} />
+            </button>
+          </div>
+        )}
       </section>
 
       <section className="section">
@@ -241,6 +280,38 @@ export default function MovementsPage() {
           background: var(--refresh-accent, var(--accent));
           color: #fff;
           border-color: var(--refresh-accent, var(--accent));
+        }
+
+        /* M-8: shows when a drill-down link from Reports narrowed this
+           list by payment method -- lets the user see why and undo it
+           without a full page reload. */
+        .method-filter-chip {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 8px;
+          margin-top: 8px;
+          padding: 8px 12px;
+          background: var(--refresh-surface-glass, var(--accent-subtle));
+          border: var(--refresh-border-hard, 1px solid var(--border));
+          border-radius: var(--refresh-radius-control, 8px);
+          font-size: 13px;
+          font-weight: 600;
+          color: var(--refresh-ink-secondary, var(--text-secondary));
+          text-transform: capitalize;
+        }
+
+        .method-filter-chip button {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          width: 24px;
+          height: 24px;
+          background: none;
+          border: none;
+          color: inherit;
+          cursor: pointer;
+          flex-shrink: 0;
         }
 
         .empty-state {

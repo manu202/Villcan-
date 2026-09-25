@@ -1,5 +1,5 @@
 import { createClient } from '@/lib/supabase/client';
-import type { MovementType } from '@/types';
+import type { MovementType, PaymentMethod } from '@/types';
 
 const MOVEMENT_DETAIL_COLUMNS = `
   id, type, amount_charged, income, expense, payment_method, comment, created_at,
@@ -30,10 +30,20 @@ export async function createMovement(params: CreateMovementParams) {
 /**
  * Movements for a branch within a date range (start inclusive, end
  * exclusive), newest first, capped at 100 — the movements list query.
+ *
+ * `method` is optional (M-8 drill-down from Reports' "Por Método"
+ * breakdown) — scopes to `servicio` movements paid via that method when
+ * given; omitted, the query is unscoped by method, matching the page's
+ * original behavior exactly.
  */
-export async function listMovementsForBranch(branchId: string, start: string, end: string) {
+export async function listMovementsForBranch(
+  branchId: string,
+  start: string,
+  end: string,
+  method?: PaymentMethod
+) {
   const supabase = createClient();
-  return supabase
+  let query = supabase
     .from('movements')
     .select(MOVEMENT_DETAIL_COLUMNS)
     .gte('created_at', start)
@@ -41,6 +51,10 @@ export async function listMovementsForBranch(branchId: string, start: string, en
     .order('created_at', { ascending: false })
     .limit(100)
     .eq('branch_id', branchId);
+
+  if (method) query = query.eq('payment_method', method);
+
+  return query;
 }
 
 /** Single movement detail query, joined with contact/service. */

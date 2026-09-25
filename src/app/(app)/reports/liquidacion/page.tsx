@@ -131,6 +131,16 @@ export default function LiquidacionPage() {
         <section className="section">
           <div className="card">
             <h2 className="card-title">{`Por ${staffLabelLower}`}</h2>
+            {/* K4: the commission figure had no label -- easy to misread as
+                a second revenue number instead of what it actually is (the
+                staff member's cut of the facturado column next to it). */}
+            {rows.length > 0 && settings.commissions_enabled && (
+              <div className="breakdown-header" aria-hidden="true">
+                <span className="breakdown-label" />
+                <span className="breakdown-amount">Facturado</span>
+                <span className="breakdown-commission">Comisión</span>
+              </div>
+            )}
             <ul className="breakdown-list">
               {rows.length === 0 ? (
                 <li className="breakdown-empty">Sin servicios en este período</li>
@@ -260,6 +270,22 @@ export default function LiquidacionPage() {
           color: var(--text-muted);
           text-align: center;
           padding: 24px 0;
+        }
+
+        .breakdown-header {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          padding-bottom: 6px;
+        }
+
+        .breakdown-header .breakdown-amount,
+        .breakdown-header .breakdown-commission {
+          font-size: 11px;
+          font-weight: 700;
+          text-transform: uppercase;
+          letter-spacing: 0.04em;
+          color: var(--text-muted);
         }
 
         .breakdown-row {

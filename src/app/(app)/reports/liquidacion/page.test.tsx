@@ -71,6 +71,32 @@ describe('LiquidacionPage commission column visibility (REQ-PROFIT-5)', () => {
     expect(screen.getAllByText('₲ 100.000')).toHaveLength(2);
     expect(screen.queryByText('₲ 15.000')).toBeNull();
   });
+
+  it('K4: labels the Facturado/Comisión columns so the commission figure is never misread as revenue', async () => {
+    mockUseSettings.mockReturnValue({
+      settings: { commissions_enabled: true, default_commission_pct: 15, staff_label: 'Barbero' },
+    });
+
+    render(<LiquidacionPage />);
+
+    await waitFor(() => screen.getByText('Ana'));
+
+    expect(screen.getByText('Facturado')).toBeTruthy();
+    expect(screen.getByText('Comisión')).toBeTruthy();
+  });
+
+  it('K4: does not render the column-label row when commissions are disabled (nothing to label)', async () => {
+    mockUseSettings.mockReturnValue({
+      settings: { commissions_enabled: false, default_commission_pct: 0, staff_label: 'Barbero' },
+    });
+
+    render(<LiquidacionPage />);
+
+    await waitFor(() => screen.getByText('Ana'));
+
+    expect(screen.queryByText('Facturado')).toBeNull();
+    expect(screen.queryByText('Comisión')).toBeNull();
+  });
 });
 
 describe('LiquidacionPage titles use configurable staff_label (generalize-verticals)', () => {
