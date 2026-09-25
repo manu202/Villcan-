@@ -93,6 +93,34 @@ describe('ContactForm — create mode', () => {
     expect(payload.phone).toBe('595981555444');
   });
 
+  // Found 2026-09-25 alongside the searchContacts phone-select gap: onSuccess
+  // only ever returned {id, full_name}, dropping the phone the form just
+  // normalized and saved. Every caller that feeds this straight into
+  // create_manual_order's p_customer_phone (MovementForm's Venta quick-create,
+  // and the new Orders customer picker) was submitting an empty/undefined
+  // phone for every freshly-created contact -- same root cause class as the
+  // searchContacts gap, confirmed live in production (see that test's
+  // comment). payload.phone is already known locally, so this doesn't
+  // depend on what the mocked insert response happens to echo back.
+  it('includes the normalized phone in onSuccess, not just id/full_name', async () => {
+    const onSuccess = vi.fn();
+    render(<ContactForm onSuccess={onSuccess} />);
+
+    fireEvent.change(screen.getByPlaceholderText('Nombre completo'), {
+      target: { value: 'Test User' },
+    });
+    fireEvent.change(screen.getByPlaceholderText('595 984 123456'), {
+      target: { value: '0981555444' },
+    });
+
+    fireEvent.click(screen.getByText('Guardar Contacto'));
+
+    await waitFor(() => expect(onSuccess).toHaveBeenCalled());
+    expect(onSuccess).toHaveBeenCalledWith(
+      expect.objectContaining({ phone: '595981555444' })
+    );
+  });
+
   it('shows an error and does NOT call insert when there is no currentBranch', async () => {
     currentBranchOverride = null;
     render(<ContactForm />);

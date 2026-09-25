@@ -13,6 +13,7 @@ import {
 
 let lastOrFilter: string | null = null;
 let lastIlikeArgs: [string, string] | null = null;
+let lastSelectArgs: string | null = null;
 let lastTable: string | null = null;
 let lastEqArgs: [string, string] | null = null;
 let lastInArgs: [string, string[]] | null = null;
@@ -28,7 +29,10 @@ vi.mock('@/lib/supabase/client', () => ({
       lastTable = table;
       const mock: Record<string, unknown> = {};
       const chainable = () => mock;
-      mock.select = chainable;
+      mock.select = (cols: string) => {
+        lastSelectArgs = cols;
+        return mock;
+      };
       mock.ilike = (field: string, pattern: string) => {
         lastIlikeArgs = [field, pattern];
         return mock;
@@ -73,6 +77,7 @@ vi.mock('@/lib/supabase/client', () => ({
 beforeEach(() => {
   lastOrFilter = null;
   lastIlikeArgs = null;
+  lastSelectArgs = null;
   lastTable = null;
   lastEqArgs = null;
   lastInArgs = null;
@@ -114,6 +119,22 @@ describe('searchContacts (MovementForm "Buscar cliente" autocomplete)', () => {
     await searchContacts('0994641522');
 
     expect(lastOrFilter).toContain('phone.ilike.%994641522%');
+  });
+
+  // Found 2026-09-25 while adding contact search to /orders/new: this select
+  // only ever fetched id+full_name, never phone. Both MovementForm's Venta
+  // flow and the new Orders customer picker feed the selected contact's
+  // `.phone` straight into create_manual_order's p_customer_phone -- with no
+  // phone in the row, that silently fell back to a sentinel ('0000000'),
+  // which _find_or_create_contact then matched/created a garbage shared
+  // contact against on every subsequent sale. Confirmed live in production:
+  // two contacts with phone='0000000', one with 2 orders wrongly attributed
+  // to it. This select must carry phone so the picked/created Contact object
+  // always has the real value.
+  it('selects phone (not just id/full_name), so a picked contact carries its real phone', async () => {
+    await searchContacts('Juan');
+
+    expect(lastSelectArgs).toContain('phone');
   });
 });
 

@@ -366,6 +366,38 @@ describe('commission_pct frozen at insert, servicio branch only (REQ-PROFIT-1/2)
     expect(lastRpcCall?.commission_pct).toBeUndefined();
   });
 
+  // Found 2026-09-25 (pre-merge review of an unrelated Orders UX fix):
+  // searchContacts() never selected `phone`, so a contact picked here always
+  // had `.phone === undefined`, and this component's own fallback
+  // (`selectedContact?.phone || '0000000'`) silently submitted the sentinel
+  // to create_manual_order instead of the real number. _find_or_create_contact
+  // matches by exact phone, so every such sale got attributed to a shared
+  // garbage '0000000' contact instead of the one actually picked — confirmed
+  // live in production (two such contacts, one with 2 real orders on it).
+  // searchContacts now selects phone too; this proves the real value makes
+  // it all the way through this component's submit path, not just that the
+  // data layer returns it.
+  it('submits the searched contact\'s real phone to create_manual_order, not the "0000000" fallback', async () => {
+    render(<MovementForm initialType="servicio" />);
+    await navigateToCatalogPaymentStep();
+
+    const searchInput = screen.getByPlaceholderText('Buscar cliente...');
+    fireEvent.change(searchInput, { target: { value: 'juan' } });
+    await waitFor(() => expect(contactFromCalls).toBe(1));
+    contactDeferreds[0].resolve({
+      data: [{ id: 'c1', full_name: 'Juan Perez', phone: '595981234567' }],
+      error: null,
+    });
+    await waitFor(() => screen.getByText('Juan Perez'));
+    fireEvent.click(screen.getByText('Juan Perez'));
+
+    fireEvent.click(screen.getByText('Efectivo'));
+    fireEvent.click(screen.getByText('Crear pedido'));
+
+    await waitFor(() => expect(lastRpcCall).not.toBeNull());
+    expect(lastRpcCall?.p_customer_phone).toBe('595981234567');
+  });
+
   // SW-M1: 'pos' must be sent through as-is to the RPC, not coerced to
   // 'efectivo' — the DB now accepts it end to end (see
   // 20260922050000_pos_payment_method_and_closing_overlap_guard.sql).

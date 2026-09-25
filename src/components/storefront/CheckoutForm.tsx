@@ -23,11 +23,29 @@ interface CheckoutFormProps {
   errorMessage: string | null;
   onSubmit: (values: CheckoutFormValues) => void;
   onBack: () => void;
+  // UX-1 (2026-09-25): /orders/new resolves the customer via a contact
+  // search + quick-create step before reaching this checkout step (see that
+  // page), matching MovementForm's Venta flow. When both are given
+  // (non-empty), the raw nombre/teléfono inputs below are skipped entirely
+  // and these values are used verbatim in onSubmit -- no country-code/
+  // leading-zero reconstruction, since a Contact's phone is already fully
+  // formed. Left optional and additive so the other (dead-code) consumer of
+  // this form, StorefrontClient, is unaffected either way.
+  customerName?: string;
+  customerPhone?: string;
 }
 
 const DEFAULT_COUNTRY_CODE = '+595'; // Paraguay default (product decision).
 
-export function CheckoutForm({ submitting, errorMessage, onSubmit, onBack }: CheckoutFormProps) {
+export function CheckoutForm({
+  submitting,
+  errorMessage,
+  onSubmit,
+  onBack,
+  customerName,
+  customerPhone,
+}: CheckoutFormProps) {
+  const hasResolvedCustomer = Boolean(customerName && customerPhone);
   const [name, setName] = useState('');
   const [countryCode, setCountryCode] = useState(DEFAULT_COUNTRY_CODE);
   const [phone, setPhone] = useState('');
@@ -39,15 +57,23 @@ export function CheckoutForm({ submitting, errorMessage, onSubmit, onBack }: Che
 
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
-    // QA-2 (2026-09-22 prod bug): strip exactly one local leading trunk 0
-    // before prepending the selected country code — customers/staff
-    // naturally type Paraguayan numbers with it (e.g. "0987654321"), and a
-    // plain `${countryCode}${phone}` concatenation kept it, producing an
-    // invalid, one-digit-too-long number (+5950987654321).
-    const localDigits = phone.replace(/\D/g, '').replace(/^0/, '');
+    let finalName = name;
+    let finalPhone: string;
+    if (hasResolvedCustomer) {
+      finalName = customerName!;
+      finalPhone = customerPhone!;
+    } else {
+      // QA-2 (2026-09-22 prod bug): strip exactly one local leading trunk 0
+      // before prepending the selected country code — customers/staff
+      // naturally type Paraguayan numbers with it (e.g. "0987654321"), and a
+      // plain `${countryCode}${phone}` concatenation kept it, producing an
+      // invalid, one-digit-too-long number (+5950987654321).
+      const localDigits = phone.replace(/\D/g, '').replace(/^0/, '');
+      finalPhone = `${countryCode}${localDigits}`;
+    }
     onSubmit({
-      name,
-      phone: `${countryCode}${localDigits}`,
+      name: finalName,
+      phone: finalPhone,
       email,
       note,
       paymentMethod,
@@ -62,29 +88,37 @@ export function CheckoutForm({ submitting, errorMessage, onSubmit, onBack }: Che
         ← Volver al menú
       </button>
 
-      <label>
-        Nombre*
-        <input value={name} onChange={(e) => setName(e.target.value)} required minLength={2} />
-      </label>
-      <div className="checkout-phone-row">
-        <label className="checkout-country-label">
-          País
-          <select
-            value={countryCode}
-            onChange={(e) => setCountryCode(e.target.value)}
-          >
-            {PHONE_COUNTRY_OPTIONS.map((option) => (
-              <option key={option.iso} value={option.code}>
-                {option.label}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="checkout-phone-label">
-          Teléfono*
-          <input value={phone} onChange={(e) => setPhone(e.target.value)} required type="tel" />
-        </label>
-      </div>
+      {hasResolvedCustomer ? (
+        <div className="checkout-customer-chip">
+          Cliente: <strong>{customerName}</strong>
+        </div>
+      ) : (
+        <>
+          <label>
+            Nombre*
+            <input value={name} onChange={(e) => setName(e.target.value)} required minLength={2} />
+          </label>
+          <div className="checkout-phone-row">
+            <label className="checkout-country-label">
+              País
+              <select
+                value={countryCode}
+                onChange={(e) => setCountryCode(e.target.value)}
+              >
+                {PHONE_COUNTRY_OPTIONS.map((option) => (
+                  <option key={option.iso} value={option.code}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="checkout-phone-label">
+              Teléfono*
+              <input value={phone} onChange={(e) => setPhone(e.target.value)} required type="tel" />
+            </label>
+          </div>
+        </>
+      )}
       <label>
         Email
         <input value={email} onChange={(e) => setEmail(e.target.value)} type="email" />
@@ -164,6 +198,14 @@ export function CheckoutForm({ submitting, errorMessage, onSubmit, onBack }: Che
         }
         .checkout-phone-label {
           flex: 1;
+        }
+        .checkout-customer-chip {
+          padding: 10px 12px;
+          border: 1px solid var(--border);
+          border-radius: 8px;
+          font-size: 14px;
+          color: var(--text-secondary);
+          background: var(--surface);
         }
         input, textarea, select {
           padding: 10px 12px;

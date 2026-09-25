@@ -66,7 +66,10 @@ describe('ContactFormSheet — modo CREATE', () => {
     });
     fireEvent.click(screen.getByText('Guardar Contacto'));
     await waitFor(() => {
-      expect(onSuccess).toHaveBeenCalledWith({ id: 'c1', full_name: 'Nuevo' });
+      // phone is null here: ContactForm passes payload.phone through
+      // verbatim (2026-09-25 fix, see contacts.test.ts/ContactForm.test.tsx)
+      // and no phone was typed in this test.
+      expect(onSuccess).toHaveBeenCalledWith({ id: 'c1', full_name: 'Nuevo', phone: null });
       expect(onOpenChange).toHaveBeenCalledWith(false);
     });
   });
