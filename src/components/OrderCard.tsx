@@ -217,9 +217,13 @@ export function OrderCard({ order, onStatusChange, onNotify, onClick, submitting
           white-space: nowrap;
           flex-shrink: 0;
         }
-        .badge-pending  { background: rgba(217,119,6,.14); color: #92400e; border: 1px solid rgba(217,119,6,.28); }
-        .badge-confirmed { background: rgba(37,99,235,.12); color: #1e40af; border: 1px solid rgba(37,99,235,.24); }
-        .badge-completed { background: rgba(22,163,74,.12); color: #166534; border: 1px solid rgba(22,163,74,.24); }
+        /* Colors tuned to the design canvas's exact pending/confirmed/completed
+           hues (Pedidos.dc.html status meta) — same values used by
+           OrderDetailSheet.tsx's status pill. Cancelled has no canvas
+           reference, kept as the existing neutral gray. */
+        .badge-pending  { background: rgba(232,93,44,.16); color: #B5431C; border: 1px solid #B5431C; }
+        .badge-confirmed { background: rgba(58,110,165,.14); color: #2E5F8A; border: 1px solid #2E5F8A; }
+        .badge-completed { background: rgba(74,124,89,.14); color: #3F6B4C; border: 1px solid #3F6B4C; }
         .badge-cancelled { background: rgba(107,114,128,.1); color: #6b7280; border: 1px solid rgba(107,114,128,.2); }
 
         [data-theme='dark'] .badge-pending  { background: rgba(251,191,36,.15); color: #fbbf24; border-color: rgba(251,191,36,.3); }
