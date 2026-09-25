@@ -910,6 +910,16 @@ export default function ReportsPage() {
           color: #fff8f3;
         }
 
+        .kpi-badge.up {
+          background: rgba(16, 185, 129, 0.2);
+          color: #10b981;
+        }
+
+        .kpi-badge.down {
+          background: rgba(244, 63, 94, 0.2);
+          color: #f43f5e;
+        }
+
         .nav-link-card {
           display: block;
           background: var(--refresh-surface-glass, var(--surface-elevated));
