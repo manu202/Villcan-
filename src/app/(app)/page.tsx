@@ -250,12 +250,14 @@ export default function HomePage() {
                 </div>
               ) : (
                 <div className="balance-expanded">
-                  {/* K1/K2: these tabs scope ONLY the breakdown rows below
+                  {/* K1/K2: these tabs scope the breakdown rows below
                       (Efectivo/Transferencia/POS/Egresos come from
-                      `activity`, computed for the selected period) -- they
-                      never touch Balance global/Efectivo above, which stay
-                      a running total. Labeled explicitly since the tabs
-                      sit inside the same card as the running totals. */}
+                      `activity`) and the "Movimientos recientes" card
+                      further down (both computed for the selected period)
+                      -- they never touch Balance global/Efectivo above,
+                      which stay a running total. Labeled explicitly since
+                      the tabs sit inside the same card as the running
+                      totals. */}
                   <span className="period-tabs-label">Detalle del período</span>
                   <div className="period-tabs">
                     <button
