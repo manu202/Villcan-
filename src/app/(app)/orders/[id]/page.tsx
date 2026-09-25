@@ -294,6 +294,7 @@ export default function OrderDetailPage() {
           statusSubmitting={statusSubmitting}
           onStatusChange={handleStatusChange}
           onNotify={handleNotify}
+          onOrderUpdated={() => refetchOrderAfterWrite(order.id, 'El pedido se actualizó, pero no se pudo refrescar la vista. Recargá la página.')}
         />
       )}
 
@@ -357,36 +358,53 @@ export default function OrderDetailPage() {
           min-height: unset;
         }
 
-        /* "Cancelar con motivo" placeholder — see comment in
-           OrderViewPanel.tsx. Deliberately dashed/muted so it never reads
-           as the real, working cancel-via-select control above it. */
+        /* "Cancelar con motivo" — real cancel_order RPC (O-8). Secondary to
+           the status <select>'s own cancel option, so styled as a plain
+           outlined action rather than the accent/danger treatment of the
+           select's own cancelled state. */
         .cancel-reason-row {
-          display: flex; align-items: center; gap: 10px;
           margin-bottom: 20px; margin-top: -8px;
         }
         .cancel-reason-btn {
           min-height: 44px;
           padding: 8px 14px;
           border-radius: 20px;
-          border: 1.5px dashed var(--refresh-ink-secondary, var(--text-secondary));
+          border: 1.5px solid var(--refresh-ink-secondary, var(--text-secondary));
           background: transparent;
           color: var(--refresh-ink-secondary, var(--text-secondary));
           font-size: 13px;
           font-weight: 600;
-          cursor: not-allowed;
-          opacity: 0.75;
+          cursor: pointer;
         }
-        .soon-badge {
-          font-size: 10px;
-          font-weight: 700;
-          text-transform: uppercase;
-          letter-spacing: 0.04em;
-          padding: 3px 8px;
-          border-radius: 999px;
-          background: rgba(107,114,128,.14);
-          color: var(--refresh-ink-secondary, var(--text-secondary));
-          white-space: nowrap;
+        .cancel-reason-form {
+          display: flex; flex-direction: column; gap: 8px;
+          padding: 12px; border-radius: 12px;
+          background: var(--refresh-surface-glass, var(--surface-elevated));
+          border: var(--refresh-border-hard, 1px solid var(--border));
         }
+        .cancel-reason-label {
+          font-size: 12px; font-weight: 600; color: var(--refresh-ink-secondary, var(--text-secondary));
+        }
+        .cancel-reason-textarea {
+          width: 100%; box-sizing: border-box; padding: 10px 12px;
+          border-radius: 10px; border: 1px solid var(--border);
+          font-size: 14px; font-family: inherit; resize: vertical;
+          color: var(--refresh-ink, var(--text-primary));
+          background: var(--surface);
+        }
+        .cancel-reason-actions { display: flex; gap: 10px; }
+        .cancel-reason-cancel, .cancel-reason-confirm {
+          flex: 1; min-height: 44px; border-radius: 10px;
+          font-size: 14px; font-weight: 600; cursor: pointer;
+        }
+        .cancel-reason-cancel {
+          border: 1px solid var(--border); background: var(--surface-elevated);
+          color: var(--text-primary);
+        }
+        .cancel-reason-confirm {
+          border: none; background: #dc2626; color: #fff;
+        }
+        .cancel-reason-confirm:disabled, .cancel-reason-cancel:disabled { opacity: 0.5; cursor: not-allowed; }
 
         /* Detail cards */
         .detail-card {
@@ -459,25 +477,53 @@ export default function OrderDetailPage() {
           font-weight: 600;
           color: var(--text-primary);
         }
-        /* Fee-edit placeholder — see comment in OrderViewPanel.tsx. Same
-           "small visual chip, full touch target" split as ServiceCard's
-           .sc-edit/.sc-edit-visual. */
+        /* Fee-edit — real edit_confirmed_order_delivery_fee RPC (SW-O4).
+           Same "small visual chip, full touch target" split as
+           ServiceCard's .sc-edit/.sc-edit-visual. */
         .fee-edit-btn {
           margin-left: auto;
           flex-shrink: 0;
           width: 44px; height: 44px; min-width: 44px; min-height: 44px;
           display: flex; align-items: center; justify-content: center;
           background: transparent; border: none; padding: 0;
-          cursor: not-allowed;
+          cursor: pointer;
           color: var(--refresh-ink-secondary, var(--text-secondary));
-          opacity: 0.7;
         }
         .fee-edit-visual {
           width: 28px; height: 28px;
           border-radius: 8px;
-          border: 1.5px dashed var(--refresh-ink-secondary, var(--text-secondary));
+          border: 1.5px solid var(--refresh-ink-secondary, var(--text-secondary));
           display: flex; align-items: center; justify-content: center;
         }
+        .fee-edit-form {
+          display: flex; flex-direction: column; gap: 8px;
+          padding: 12px; border-radius: 12px;
+          background: var(--refresh-surface-glass, var(--surface-elevated));
+          border: var(--refresh-border-hard, 1px solid var(--border));
+        }
+        .fee-edit-label {
+          font-size: 12px; font-weight: 600; color: var(--refresh-ink-secondary, var(--text-secondary));
+        }
+        .fee-edit-input {
+          width: 100%; box-sizing: border-box; padding: 10px 12px;
+          border-radius: 10px; border: 1px solid var(--border);
+          font-size: 16px; font-weight: 600;
+          color: var(--refresh-ink, var(--text-primary));
+          background: var(--surface);
+        }
+        .fee-edit-actions { display: flex; gap: 10px; }
+        .fee-edit-cancel, .fee-edit-confirm {
+          flex: 1; min-height: 44px; border-radius: 10px;
+          font-size: 14px; font-weight: 600; cursor: pointer;
+        }
+        .fee-edit-cancel {
+          border: 1px solid var(--border); background: var(--surface-elevated);
+          color: var(--text-primary);
+        }
+        .fee-edit-confirm {
+          border: none; background: var(--refresh-accent, var(--accent)); color: #fff;
+        }
+        .fee-edit-cancel:disabled, .fee-edit-confirm:disabled { opacity: 0.5; cursor: not-allowed; }
 
         /* Note */
         .order-note {

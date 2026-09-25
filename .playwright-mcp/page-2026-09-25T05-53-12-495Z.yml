@@ -1,0 +1,59 @@
+- generic [ref=f43e1]:
+  - button "Open Next.js Dev Tools" [ref=f43e11] [cursor=pointer]
+  - alert [ref=f43e15]
+  - button "Menu" [ref=f43e16] [cursor=pointer]
+  - navigation "Main navigation" [ref=f43e21]:
+    - generic [ref=f43e22]:
+      - generic [ref=f43e23]:
+        - generic [ref=f43e24]: VILLCAN
+        - button "Cerrar menú" [ref=f43e25] [cursor=pointer]
+      - combobox [ref=f43e29] [cursor=pointer]:
+        - option "Barberia Central" [selected]
+        - option "Spa Bienestar"
+        - option "Tatapiriri"
+        - option "TAITASHU — Burgers al fuego"
+    - list [ref=f43e30]:
+      - listitem [ref=f43e31]:
+        - generic [ref=f43e32]: ANÁLISIS
+        - list [ref=f43e33]:
+          - listitem [ref=f43e34]:
+            - link "Reportes" [ref=f43e35] [cursor=pointer]:
+              - /url: /reports
+          - listitem [ref=f43e39]:
+            - link "Cierres de Caja" [ref=f43e40] [cursor=pointer]:
+              - /url: /closings
+      - listitem [ref=f43e45]:
+        - generic [ref=f43e46]: CONFIGURACIÓN
+        - list [ref=f43e47]:
+          - listitem [ref=f43e48]:
+            - link "Configuración" [ref=f43e49] [cursor=pointer]:
+              - /url: /settings
+    - generic [ref=f43e54]:
+      - 'button "Tema: Claro" [ref=f43e55] [cursor=pointer]'
+      - generic [ref=f43e63]:
+        - generic [ref=f43e64]: manuelocampos777@gmail.com
+        - button "Cerrar sesión" [ref=f43e65] [cursor=pointer]
+  - main [ref=f43e66]:
+    - generic [ref=f43e67]:
+      - generic [ref=f43e68]:
+        - heading "Pedidos" [level=1] [ref=f43e69]
+        - link "Nuevo pedido" [ref=f43e70] [cursor=pointer]:
+          - /url: /orders/new
+      - generic [ref=f43e71]:
+        - button "Todos" [ref=f43e72] [cursor=pointer]
+        - button "Pendientes" [ref=f43e73] [cursor=pointer]
+        - button "Confirmados" [ref=f43e74] [cursor=pointer]
+        - button "Completados" [ref=f43e75] [cursor=pointer]
+        - button "Cancelados" [ref=f43e76] [cursor=pointer]
+      - paragraph [ref=f43e120]: Cargando...
+  - navigation "Navegación principal" [ref=f43e92]:
+    - link "Caja" [ref=f43e93] [cursor=pointer]:
+      - /url: /
+    - link "Pedidos" [ref=f43e98] [cursor=pointer]:
+      - /url: /orders
+    - link "Movimientos" [ref=f43e104] [cursor=pointer]:
+      - /url: /movements
+    - link "Contactos" [ref=f43e108] [cursor=pointer]:
+      - /url: /contacts
+    - link "Catálogo" [ref=f43e113] [cursor=pointer]:
+      - /url: /services

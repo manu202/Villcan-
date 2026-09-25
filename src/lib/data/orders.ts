@@ -105,3 +105,30 @@ export async function completeOrderPayment(orderId: string, amountReceived: numb
     p_amount_received: amountReceived,
   });
 }
+
+/**
+ * SW-O4: edits the delivery fee of an already-confirmed delivery order.
+ * Distinct from confirmOrderDeliveryFee, which only sets the fee once while
+ * confirming a pending order. Server-side guards: delivery orders only,
+ * status must be 'confirmed', fee must be >= 0.
+ */
+export async function editConfirmedOrderDeliveryFee(orderId: string, deliveryFee: number) {
+  const supabase = createClient();
+  return supabase.rpc('edit_confirmed_order_delivery_fee', {
+    p_order_id: orderId,
+    p_delivery_fee: deliveryFee,
+  });
+}
+
+/**
+ * O-8: dedicated cancellation RPC requiring a non-blank reason, recorded on
+ * the order (cancellation_reason/cancelled_at/cancelled_by). Server-side
+ * guard: cannot cancel an order already completed/cancelled.
+ */
+export async function cancelOrder(orderId: string, reason: string) {
+  const supabase = createClient();
+  return supabase.rpc('cancel_order', {
+    p_order_id: orderId,
+    p_reason: reason,
+  });
+}
