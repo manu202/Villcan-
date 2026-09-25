@@ -333,7 +333,7 @@ export function ServiceForm({ onCancel, onSuccess }: ServiceFormProps) {
         }
 
         .error {
-          color: var(--text-secondary);
+          color: var(--danger, #dc2626);
           font-size: 14px;
           margin-bottom: 16px;
         }
