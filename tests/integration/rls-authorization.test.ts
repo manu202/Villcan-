@@ -1131,7 +1131,16 @@ describe('RLS/RPC authorization (real Postgres, local stack)', () => {
       return orderId as string;
     }
 
-    it('positive: a branch member can edit the delivery fee of a confirmed order, total is recomputed', async () => {
+    // M-10 (2026-09-25, found live in production data cross-check, fixed
+    // here): orders.total is items-only everywhere else in the system --
+    // confirm_order_delivery_fee never touches it, complete_order_payment
+    // computes `total + delivery_fee` on top of it, and both display
+    // formulas (OrderCard.tsx/OrderViewPanel.tsx) do the same. This RPC's
+    // old formula (`total - old_fee + new_fee`) wrongly assumed total
+    // already included the old fee, which double-counted it once displayed
+    // or completed. The fix: total must never change here, only
+    // delivery_fee -- same contract as confirm_order_delivery_fee.
+    it('positive: a branch member can edit the delivery fee of a confirmed order, total (items-only) is untouched', async () => {
       const orderId = await createConfirmedDeliveryOrder('SWO4a', '+595981000050', 10000);
       const { data: before } = await admin
         .from('orders')
@@ -1153,7 +1162,7 @@ describe('RLS/RPC authorization (real Postgres, local stack)', () => {
         .eq('id', orderId)
         .single();
       expect(after?.delivery_fee).toBe(25000);
-      expect(after?.total).toBe((before?.total ?? 0) - 10000 + 25000);
+      expect(after?.total).toBe(before?.total);
     });
 
     it('negative: rejects a negative delivery fee, order unchanged (reuses the O-6 guard)', async () => {

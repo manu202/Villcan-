@@ -6,7 +6,7 @@ import type { OrderWithItems } from '@/types';
 vi.mock('@/lib/utils', () => ({
   formatRelativeTime: () => 'Hace 45 min',
   isOlderThan: () => false,
-  formatGuaranies: (n: number) => `₲ ${n.toLocaleString()}`,
+  formatGuaranies: (n: number) => `₲ ${n.toLocaleString('es-PY')}`,
 }));
 
 vi.mock('@/lib/storefront', () => ({

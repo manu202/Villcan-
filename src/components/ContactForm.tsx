@@ -235,7 +235,7 @@ export function ContactForm({ initialData, contactId, hideHeader, onCancel, onSu
         }
 
         .error {
-          color: var(--text-secondary);
+          color: var(--danger, #dc2626);
           font-size: 14px;
           margin-bottom: 16px;
         }
