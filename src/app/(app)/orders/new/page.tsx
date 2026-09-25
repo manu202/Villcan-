@@ -160,6 +160,11 @@ export default function NewManualOrderPage() {
         .page {
           max-width: 480px;
           margin: 0 auto;
+          background: var(--refresh-bg, transparent);
+        }
+        .page-title {
+          font-family: var(--refresh-font-display, inherit);
+          color: var(--refresh-ink, var(--text-primary));
         }
         .flex-header {
           display: flex;
@@ -173,9 +178,11 @@ export default function NewManualOrderPage() {
           align-items: center;
           justify-content: center;
           font-size: 24px;
-          background: var(--surface-elevated);
-          border-radius: 8px;
-          color: var(--text-primary);
+          background: var(--refresh-surface-glass, var(--surface-elevated));
+          border: var(--refresh-border-hard, none);
+          box-shadow: var(--refresh-shadow-hard-sm, none);
+          border-radius: var(--refresh-radius-control, 8px);
+          color: var(--refresh-ink, var(--text-primary));
           text-decoration: none;
         }
         .manual-order-service-list {

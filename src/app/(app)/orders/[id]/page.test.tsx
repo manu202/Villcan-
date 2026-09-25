@@ -315,4 +315,129 @@ describe('OrderDetailPage (REQ: order detail + full edit)', () => {
       )
     );
   });
+
+  // SW-O4: edit_confirmed_order_delivery_fee — real RPC wiring (T14).
+  describe('Editar fee de delivery (SW-O4)', () => {
+    it('shows the edit button only for a confirmed delivery order with a fee already set', async () => {
+      orderOverride = { ...order, status: 'confirmed', delivery_type: 'delivery', delivery_fee: 15000 };
+      render(<OrderDetailPage />);
+      await waitFor(() => expect(screen.getByText('Juan Pérez')).toBeTruthy());
+      expect(screen.getByRole('button', { name: /editar fee de delivery/i })).toBeTruthy();
+    });
+
+    it('does NOT show the edit button for a pending delivery order', async () => {
+      orderOverride = { ...order, status: 'pending', delivery_type: 'delivery', delivery_fee: 15000 };
+      render(<OrderDetailPage />);
+      await waitFor(() => expect(screen.getByText('Juan Pérez')).toBeTruthy());
+      expect(screen.queryByRole('button', { name: /editar fee de delivery/i })).toBeNull();
+    });
+
+    it('opens the form, submits the new fee, and calls edit_confirmed_order_delivery_fee', async () => {
+      orderOverride = { ...order, status: 'confirmed', delivery_type: 'delivery', delivery_fee: 15000 };
+      mockRpc.mockResolvedValue({ data: { order_id: 'order-1', delivery_fee: 20000, total: 60000 }, error: null });
+
+      render(<OrderDetailPage />);
+      await waitFor(() => expect(screen.getByText('Juan Pérez')).toBeTruthy());
+
+      fireEvent.click(screen.getByRole('button', { name: /editar fee de delivery/i }));
+      const input = await screen.findByLabelText(/nuevo costo de delivery/i);
+      fireEvent.change(input, { target: { value: '20000' } });
+      fireEvent.click(screen.getByRole('button', { name: /^guardar$/i }));
+
+      await waitFor(() =>
+        expect(mockRpc).toHaveBeenCalledWith('edit_confirmed_order_delivery_fee', {
+          p_order_id: 'order-1',
+          p_delivery_fee: 20000,
+        })
+      );
+    });
+
+    it('shows the RPC error copy on failure (VC409) instead of a raw message', async () => {
+      orderOverride = { ...order, status: 'confirmed', delivery_type: 'delivery', delivery_fee: 15000 };
+      mockRpc.mockResolvedValue({ data: null, error: { code: 'VC409', message: 'raw pg error' } });
+
+      render(<OrderDetailPage />);
+      await waitFor(() => expect(screen.getByText('Juan Pérez')).toBeTruthy());
+
+      fireEvent.click(screen.getByRole('button', { name: /editar fee de delivery/i }));
+      const input = await screen.findByLabelText(/nuevo costo de delivery/i);
+      fireEvent.change(input, { target: { value: '20000' } });
+      fireEvent.click(screen.getByRole('button', { name: /^guardar$/i }));
+
+      await waitFor(() =>
+        expect(mockShowToast).toHaveBeenCalledWith(
+          'El pedido debe estar confirmado para editar el costo de delivery.',
+          'error'
+        )
+      );
+    });
+  });
+
+  // O-8: cancel_order — real RPC wiring (T14).
+  describe('Cancelar con motivo (O-8)', () => {
+    it('shows the "Cancelar con motivo" button for a pending order', async () => {
+      orderOverride = { ...order, status: 'pending' };
+      render(<OrderDetailPage />);
+      await waitFor(() => expect(screen.getByText('Juan Pérez')).toBeTruthy());
+      expect(screen.getByRole('button', { name: /cancelar con motivo/i })).toBeTruthy();
+    });
+
+    it('does NOT show it for a completed order', async () => {
+      orderOverride = { ...order, status: 'completed' };
+      render(<OrderDetailPage />);
+      await waitFor(() => expect(screen.getByText('Juan Pérez')).toBeTruthy());
+      expect(screen.queryByRole('button', { name: /cancelar con motivo/i })).toBeNull();
+    });
+
+    it('disables the confirm button until a reason is typed', async () => {
+      orderOverride = { ...order, status: 'pending' };
+      render(<OrderDetailPage />);
+      await waitFor(() => expect(screen.getByText('Juan Pérez')).toBeTruthy());
+
+      fireEvent.click(screen.getByRole('button', { name: /cancelar con motivo/i }));
+      const confirmBtn = await screen.findByRole('button', { name: /confirmar cancelación/i });
+      expect(confirmBtn).toHaveProperty('disabled', true);
+
+      fireEvent.change(screen.getByLabelText(/motivo de la cancelación/i), { target: { value: 'el cliente llamó' } });
+      expect(confirmBtn).toHaveProperty('disabled', false);
+    });
+
+    it('submits the reason and calls cancel_order', async () => {
+      orderOverride = { ...order, status: 'pending' };
+      mockRpc.mockResolvedValue({ data: { order_id: 'order-1', status: 'cancelled' }, error: null });
+
+      render(<OrderDetailPage />);
+      await waitFor(() => expect(screen.getByText('Juan Pérez')).toBeTruthy());
+
+      fireEvent.click(screen.getByRole('button', { name: /cancelar con motivo/i }));
+      fireEvent.change(await screen.findByLabelText(/motivo de la cancelación/i), { target: { value: 'el cliente llamó' } });
+      fireEvent.click(screen.getByRole('button', { name: /confirmar cancelación/i }));
+
+      await waitFor(() =>
+        expect(mockRpc).toHaveBeenCalledWith('cancel_order', {
+          p_order_id: 'order-1',
+          p_reason: 'el cliente llamó',
+        })
+      );
+    });
+
+    it('shows the RPC error copy on failure (VC409) instead of a raw message', async () => {
+      orderOverride = { ...order, status: 'pending' };
+      mockRpc.mockResolvedValue({ data: null, error: { code: 'VC409', message: 'raw pg error' } });
+
+      render(<OrderDetailPage />);
+      await waitFor(() => expect(screen.getByText('Juan Pérez')).toBeTruthy());
+
+      fireEvent.click(screen.getByRole('button', { name: /cancelar con motivo/i }));
+      fireEvent.change(await screen.findByLabelText(/motivo de la cancelación/i), { target: { value: 'el cliente llamó' } });
+      fireEvent.click(screen.getByRole('button', { name: /confirmar cancelación/i }));
+
+      await waitFor(() =>
+        expect(mockShowToast).toHaveBeenCalledWith(
+          'No se puede cancelar un pedido completado o ya cancelado.',
+          'error'
+        )
+      );
+    });
+  });
 });

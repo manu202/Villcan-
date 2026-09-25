@@ -109,4 +109,21 @@ describe('ServiceCard — navegación', () => {
     fireEvent.click(screen.getByRole('switch'));
     expect(onClick).not.toHaveBeenCalled();
   });
+
+  it('tap en el botón editar llama onClick una sola vez, sin duplicar el click de la card', () => {
+    const onClick = vi.fn();
+    render(<ServiceCard service={BASE_SERVICE} onToggle={vi.fn()} onClick={onClick} />);
+    fireEvent.click(screen.getByRole('button', { name: /editar/i }));
+    expect(onClick).toHaveBeenCalledTimes(1);
+    expect(onClick).toHaveBeenCalledWith('s1');
+  });
+
+  it('tap en el toggle llama onToggle y nunca onClick', () => {
+    const onClick = vi.fn();
+    const onToggle = vi.fn();
+    render(<ServiceCard service={BASE_SERVICE} onToggle={onToggle} onClick={onClick} />);
+    fireEvent.click(screen.getByRole('switch'));
+    expect(onToggle).toHaveBeenCalledTimes(1);
+    expect(onClick).not.toHaveBeenCalled();
+  });
 });

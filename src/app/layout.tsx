@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from 'next';
-import { Inter } from 'next/font/google';
+import { Inter, Archivo_Black, Space_Grotesk } from 'next/font/google';
 import Script from 'next/script';
 import { ToastProvider } from '@/contexts/ToastContext';
 import { ThemeProvider } from '@/contexts/ThemeContext';
@@ -28,6 +28,24 @@ const THEME_INIT_SCRIPT = `
 const inter = Inter({
   subsets: ['latin'],
   display: 'swap',
+});
+
+// Backoffice visual-refresh typefaces (--font-display / --font-refresh-sans
+// below, consumed by globals.css). Loaded here so they're self-hosted at
+// build time; exposed only as CSS variables, so the storefront (which sets
+// its own fonts per template) is unaffected.
+const archivoBlack = Archivo_Black({
+  subsets: ['latin'],
+  weight: '400',
+  display: 'swap',
+  variable: '--font-display',
+});
+
+const spaceGrotesk = Space_Grotesk({
+  subsets: ['latin'],
+  weight: ['500', '600', '700'],
+  display: 'swap',
+  variable: '--font-refresh-sans',
 });
 
 export const metadata: Metadata = {
@@ -70,7 +88,11 @@ export default function RootLayout({
   // public storefront ((public)/tienda/[slug]), which has no session and must
   // not mount them. See design "AuthGuard — el fix".
   return (
-    <html lang="es" className={inter.className} suppressHydrationWarning>
+    <html
+      lang="es"
+      className={`${inter.className} ${archivoBlack.variable} ${spaceGrotesk.variable}`}
+      suppressHydrationWarning
+    >
       <body>
         <Script
           id="theme-init"

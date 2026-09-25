@@ -203,6 +203,7 @@ export default function ContactsPage() {
         .page {
           max-width: 480px;
           margin: 0 auto;
+          background: var(--refresh-bg, transparent);
         }
 
         .cp-header {
@@ -212,10 +213,16 @@ export default function ContactsPage() {
           padding: 16px 16px 8px;
           position: sticky;
           top: 0;
-          background: var(--surface);
+          background: var(--refresh-bg, var(--surface));
           backdrop-filter: blur(12px);
+          -webkit-backdrop-filter: blur(12px);
           z-index: 10;
-          border-bottom: 1px solid var(--border);
+          border-bottom: var(--refresh-border-hard, 1px solid var(--border));
+        }
+
+        .page-title {
+          font-family: var(--refresh-font-display, inherit);
+          color: var(--refresh-ink, var(--text-primary));
         }
 
         .cp-subtitle-row {
@@ -228,7 +235,7 @@ export default function ContactsPage() {
 
         .page-subtitle {
           font-size: 14px;
-          color: var(--text-secondary);
+          color: var(--refresh-ink-secondary, var(--text-secondary));
           margin: 0;
         }
 
@@ -240,11 +247,12 @@ export default function ContactsPage() {
           display: inline-flex;
           align-items: center;
           justify-content: center;
-          border-radius: 6px;
-          border: 1px solid var(--border);
-          background: var(--surface);
-          color: var(--text-secondary);
+          border-radius: var(--refresh-radius-control, 6px);
+          border: var(--refresh-border-hard, 1px solid var(--border));
+          background: var(--refresh-surface-glass, var(--surface));
+          color: var(--refresh-ink-secondary, var(--text-secondary));
           cursor: pointer;
+          font-family: var(--refresh-font-sans, inherit);
         }
 
         .cp-btn-new {
@@ -252,25 +260,27 @@ export default function ContactsPage() {
           align-items: center;
           justify-content: center;
           padding: 10px 16px;
-          background: var(--accent);
-          color: var(--accent-foreground);
-          border: none;
-          border-radius: 8px;
+          background: var(--refresh-accent, var(--accent));
+          color: #fff;
+          border: var(--refresh-border-hard, none);
+          box-shadow: var(--refresh-shadow-hard-sm, none);
+          border-radius: var(--refresh-radius-control, 8px);
           font-size: 14px;
           font-weight: 600;
           cursor: pointer;
           min-height: 44px;
           min-width: 44px;
+          font-family: var(--refresh-font-sans, inherit);
         }
 
         .cp-search {
           width: 100%;
           padding: 12px 16px;
-          border: 1px solid var(--border);
-          border-radius: 8px;
+          border: var(--refresh-border-hard, 1px solid var(--border));
+          border-radius: var(--refresh-radius-control, 8px);
           font-size: 16px;
-          background: var(--surface);
-          color: var(--text-primary);
+          background: var(--refresh-surface-glass, var(--surface));
+          color: var(--refresh-ink, var(--text-primary));
           box-sizing: border-box;
         }
 
@@ -280,14 +290,15 @@ export default function ContactsPage() {
           padding: 48px;
         }
 
+        /* Cards already carry their own border/radius/shadow (T3) — a
+           gap between items replaces the old shared-background hairline
+           divider, which would otherwise double up against each card's
+           own border. */
         .cp-list {
           list-style: none;
           display: flex;
           flex-direction: column;
-          gap: 1px;
-          background: var(--border);
-          border-radius: 12px;
-          overflow: hidden;
+          gap: 8px;
         }
 
         .cp-btn-more {
@@ -295,13 +306,14 @@ export default function ContactsPage() {
           width: 100%;
           margin-top: 16px;
           padding: 12px 16px;
-          border: 1px solid var(--border);
-          border-radius: 8px;
-          background: var(--surface);
+          border: var(--refresh-border-hard, 1px solid var(--border));
+          border-radius: var(--refresh-radius-control, 8px);
+          background: var(--refresh-surface-glass, var(--surface));
           font-size: 14px;
           font-weight: 500;
-          color: var(--text-secondary);
+          color: var(--refresh-ink-secondary, var(--text-secondary));
           cursor: pointer;
+          font-family: var(--refresh-font-sans, inherit);
         }
 
         .cp-btn-more:disabled {

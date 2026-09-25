@@ -7,6 +7,7 @@ import { useBranch } from '@/contexts/BranchContext';
 import { useSettings } from '@/contexts/SettingsContext';
 import { getDateRange, type ViewType } from '@/lib/dateRange';
 import { computeCashBalance, type CashBalanceMovement } from '@/lib/cashBalance';
+import type { PaymentMethod } from '@/types';
 import {
   listServicioMovementsForReports,
   listOrderItemsForOrders,
@@ -15,6 +16,37 @@ import {
   listCierreMovementsForReports,
   listServicioIncomeForPrevPeriod,
 } from '@/lib/data/reports';
+
+// M-8: drill-down into Movements/Orders, pre-filtered by date range (and
+// method, for "Por Método"), reusing those pages' own existing filter
+// state via query params rather than inventing new filter UI there (see
+// their own ?range=/?method= handling). Only offered for the 3 named,
+// single-tap views Movements/Orders already understand -- 'custom' has no
+// equivalent there (would need a full date-picker on 2 more pages to
+// support one drill-down link) and 'all' has no boundary to speak of, so
+// both breakdowns render as plain, non-clickable rows in those cases.
+const DRILLDOWN_RANGE: Partial<Record<ViewType, 'today' | 'week' | 'month'>> = {
+  today: 'today',
+  week: 'week',
+  month: 'month',
+};
+const KNOWN_PAYMENT_METHODS: PaymentMethod[] = ['efectivo', 'transferencia', 'pos'];
+
+/** Builds a CSV file (comma-separated, quoted) and triggers a download. */
+function downloadCsv(filename: string, rows: (string | number)[][]) {
+  const csv = rows
+    .map((row) => row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(','))
+    .join('\r\n');
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+}
 
 interface ServiceSummary {
   name: string;
@@ -30,6 +62,30 @@ interface MethodSummary {
 interface DailySummary {
   day: string;
   total: number;
+}
+
+// Hand-rolled bar+line chart geometry for the dark "Total ingresos" card —
+// mirrors the canvas's raw inline SVG (no charting library). Bars are
+// scaled to the max value in `data`; the polyline connects each bar's
+// center-top point. Layout constants match the canvas's 310x90 viewBox
+// with 7 slots of width 40 (30 bar + 10 gap).
+const CHART_VIEWBOX_H = 90;
+const CHART_BAR_W = 30;
+const CHART_SLOT_W = 40;
+
+function computeChartGeometry(data: DailySummary[]) {
+  const max = Math.max(1, ...data.map((d) => d.total));
+  const bars = data.map((d, i) => {
+    const h = Math.max(2, (d.total / max) * CHART_VIEWBOX_H);
+    const x = i * CHART_SLOT_W;
+    const y = CHART_VIEWBOX_H - h;
+    return { x, y, width: CHART_BAR_W, height: h };
+  });
+  const points = bars
+    .map((b) => `${b.x + b.width / 2},${b.y}`)
+    .join(' ');
+  const viewBoxWidth = data.length > 0 ? data.length * CHART_SLOT_W - (CHART_SLOT_W - CHART_BAR_W) : 0;
+  return { bars, points, viewBoxWidth };
 }
 
 function getPrevDateRange(view: ViewType): { start: string; end: string } | null {
@@ -320,11 +376,29 @@ export default function ReportsPage() {
   const servicesLabel = settings.services_label || 'Servicios';
   const staffLabelLower = (settings.staff_label || 'Barbero').toLowerCase();
 
+  const handleExportCsv = () => {
+    const periodLabel = view === 'today' ? 'hoy' : view === 'week' ? 'semana' : view === 'month' ? 'mes' : view === 'all' ? 'todo' : 'personalizado';
+    const rows: (string | number)[][] = [
+      ['Sección', 'Concepto', 'Cantidad', 'Monto (Gs)'],
+      ...byService.map((s) => ['Servicios', s.name, s.count, s.total]),
+      ...byMethod.map((m) => ['Por Método', m.method, '', m.total]),
+      ...expenses.map((e) => ['Gastos', e.comment, '', e.total]),
+    ];
+    downloadCsv(`reporte-${periodLabel}-${new Date().toISOString().slice(0, 10)}.csv`, rows);
+  };
+
   return (
     <div className="page">
-      <header className="page-header">
-        <h1 className="page-title">Reportes</h1>
-        <p className="page-subtitle">Análisis de ventas</p>
+      <header className="page-header flex-header">
+        <div>
+          <h1 className="page-title">Reportes</h1>
+          <p className="page-subtitle">Análisis de ventas</p>
+        </div>
+        {!loading && (
+          <button type="button" className="export-btn" onClick={handleExportCsv}>
+            Exportar CSV
+          </button>
+        )}
       </header>
 
       <section className="section">
@@ -400,43 +474,91 @@ export default function ReportsPage() {
         </div>
       ) : (
         <>
-          <section className="section">
-            {(() => {
-              const ticketPromedio = totalServicios > 0 ? Math.round(totalServiciosAmount / totalServicios) : 0;
-              const canCompare = view !== 'custom' && view !== 'all';
-              const ingresosPct = canCompare && prevServiciosAmount > 0
-                ? Math.round(((totalServiciosAmount - prevServiciosAmount) / prevServiciosAmount) * 100)
-                : null;
-              return (
-                <div className="kpi-grid">
-                  <div className="kpi-card">
-                    <span className="kpi-label">{`Total ${servicesLabel}`}</span>
-                    <span className="kpi-value">{totalServicios}</span>
-                    <span className="kpi-amount">{formatGuaranies(totalServiciosAmount)}</span>
-                    {ingresosPct !== null && (
-                      <span className={`kpi-badge ${ingresosPct >= 0 ? 'up' : 'down'}`}>
-                        {ingresosPct >= 0 ? '↑' : '↓'}{Math.abs(ingresosPct)}%
-                      </span>
+          {(() => {
+            const ticketPromedio = totalServicios > 0 ? Math.round(totalServiciosAmount / totalServicios) : 0;
+            const canCompare = view !== 'custom' && view !== 'all';
+            const ingresosPct = canCompare && prevServiciosAmount > 0
+              ? Math.round(((totalServiciosAmount - prevServiciosAmount) / prevServiciosAmount) * 100)
+              : null;
+            const chart = computeChartGeometry(dailySummary);
+            const periodLabel = view === 'today' ? 'Hoy' : view === 'week' ? 'Semana' : view === 'month' ? 'Mes' : view === 'all' ? 'Todo' : 'Personalizado';
+
+            return (
+              <>
+                <section className="section">
+                  <div className="chart-card">
+                    <span className="chart-eyebrow">{`Total ingresos — ${periodLabel}`}</span>
+                    <div className="chart-total">{formatGuaranies(totalServiciosAmount)}</div>
+
+                    {dailySummary.length > 0 && (
+                      <>
+                        <svg
+                          className="chart-svg"
+                          width="100%"
+                          height="90"
+                          viewBox={`0 0 ${chart.viewBoxWidth} ${CHART_VIEWBOX_H}`}
+                          preserveAspectRatio="none"
+                        >
+                          {chart.bars.map((bar, i) => (
+                            <rect
+                              key={dailySummary[i].day + i}
+                              x={bar.x}
+                              y={bar.y}
+                              width={bar.width}
+                              height={bar.height}
+                              fill="var(--refresh-accent, #E85D2C)"
+                            />
+                          ))}
+                          <polyline
+                            points={chart.points}
+                            fill="none"
+                            stroke="var(--refresh-bg, #FBF3EC)"
+                            strokeWidth="2.5"
+                            strokeLinecap="square"
+                            strokeLinejoin="miter"
+                          />
+                        </svg>
+                        <div className="chart-days">
+                          {dailySummary.map((d) => (
+                            <span key={d.day}>{d.day}</span>
+                          ))}
+                        </div>
+                      </>
                     )}
                   </div>
-                  <div className="kpi-card">
-                    <span className="kpi-label">Ticket Prom</span>
-                    <span className="kpi-value">{totalServicios > 0 ? '₲' : '—'}</span>
-                    <span className="kpi-amount">{totalServicios > 0 ? formatGuaranies(ticketPromedio) : 'Sin datos'}</span>
+                </section>
+
+                <section className="section">
+                  <div className="kpi-grid">
+                    <div className="kpi-tile accent">
+                      <span className="kpi-tile-label">{`Total ${servicesLabel}`}</span>
+                      <span className="kpi-tile-value">{totalServicios}</span>
+                      {ingresosPct !== null && (
+                        <span className={`kpi-badge ${ingresosPct >= 0 ? 'up' : 'down'}`}>
+                          {ingresosPct >= 0 ? '↑' : '↓'}{Math.abs(ingresosPct)}%
+                        </span>
+                      )}
+                    </div>
+                    <div className="kpi-tile accent">
+                      <span className="kpi-tile-label">Ticket Prom.</span>
+                      <span className="kpi-tile-value">
+                        {totalServicios > 0 ? formatGuaranies(ticketPromedio) : 'Sin datos'}
+                      </span>
+                    </div>
+                    <div className="kpi-tile glass">
+                      <span className="kpi-tile-label muted">Balance Neto</span>
+                      <span className={`kpi-tile-sign ${balanceNeto >= 0 ? 'income' : 'expense'}`}>
+                        {balanceNeto >= 0 ? '+' : '−'}
+                      </span>
+                      <span className={`kpi-tile-value ${balanceNeto >= 0 ? 'income' : 'expense'}`}>
+                        {formatGuaranies(Math.abs(balanceNeto))}
+                      </span>
+                    </div>
                   </div>
-                  <div className="kpi-card">
-                    <span className="kpi-label">Balance Neto</span>
-                    <span className={`kpi-value ${balanceNeto >= 0 ? 'income' : 'expense'}`}>
-                      {balanceNeto >= 0 ? '+' : '−'}
-                    </span>
-                    <span className={`kpi-amount ${balanceNeto >= 0 ? 'income' : 'expense'}`}>
-                      {formatGuaranies(Math.abs(balanceNeto))}
-                    </span>
-                  </div>
-                </div>
-              );
-            })()}
-          </section>
+                </section>
+              </>
+            );
+          })()}
 
           <section className="section">
             <Link href="/reports/liquidacion" className="nav-link-card">
@@ -451,33 +573,67 @@ export default function ReportsPage() {
                 {byService.length === 0 ? (
                   <li className="breakdown-empty">Sin servicios en este período</li>
                 ) : (
-                  byService.map((item) => (
-                    <li key={item.name} className="breakdown-row">
-                      <span className="breakdown-label">{item.name}</span>
-                      <span className="breakdown-count">{item.count} ×</span>
-                      <span className="breakdown-amount">{formatGuaranies(item.total)}</span>
-                    </li>
-                  ))
+                  byService.map((item) => {
+                    // M-8: "Servicios" drills down to /orders for the same
+                    // date range -- not filtered to this specific service,
+                    // since orders don't have a single service to filter by
+                    // (an order can contain several); see DRILLDOWN_RANGE's
+                    // own comment for why 'custom'/'all' aren't offered.
+                    const range = DRILLDOWN_RANGE[view];
+                    const rowContent = (
+                      <>
+                        <span className="breakdown-label">{item.name}</span>
+                        <span className="breakdown-count">{item.count} ×</span>
+                        <span className="breakdown-amount">{formatGuaranies(item.total)}</span>
+                      </>
+                    );
+                    return (
+                      <li key={item.name} className="breakdown-row">
+                        {range ? (
+                          <Link href={`/orders?range=${range}`} className="breakdown-row-link">
+                            {rowContent}
+                          </Link>
+                        ) : (
+                          rowContent
+                        )}
+                      </li>
+                    );
+                  })
                 )}
               </ul>
             </div>
           </section>
 
           <section className="section">
-            <div className="card">
-              <h2 className="card-title">Por Método</h2>
-              <ul className="breakdown-list">
-                {byMethod.length === 0 ? (
-                  <li className="breakdown-empty">Sin métodos registrados</li>
-                ) : (
-                  byMethod.map((item) => (
-                    <li key={item.method} className="breakdown-row">
-                      <span className="breakdown-label method">{item.method}</span>
-                      <span className="breakdown-amount">{formatGuaranies(item.total)}</span>
-                    </li>
-                  ))
-                )}
-              </ul>
+            <div className="grouped-card">
+              <h2 className="grouped-card-title">Por Método</h2>
+              {byMethod.length === 0 ? (
+                <p className="grouped-card-empty">Sin métodos registrados</p>
+              ) : (
+                byMethod.map((item) => {
+                  const range = DRILLDOWN_RANGE[view];
+                  const isKnownMethod = (KNOWN_PAYMENT_METHODS as string[]).includes(item.method);
+                  const rowContent = (
+                    <>
+                      <span className="grouped-card-label method">{item.method}</span>
+                      <span className="grouped-card-amount">{formatGuaranies(item.total)}</span>
+                    </>
+                  );
+                  return range && isKnownMethod ? (
+                    <Link
+                      key={item.method}
+                      href={`/movements?range=${range}&method=${item.method}`}
+                      className="grouped-card-row grouped-card-row-link"
+                    >
+                      {rowContent}
+                    </Link>
+                  ) : (
+                    <div key={item.method} className="grouped-card-row">
+                      {rowContent}
+                    </div>
+                  );
+                })
+              )}
             </div>
           </section>
 
@@ -498,26 +654,6 @@ export default function ReportsPage() {
               </ul>
             </div>
           </section>
-
-          {view === 'week' && dailySummary.length > 0 && (
-            <section className="section">
-              <div className="card">
-                <h2 className="card-title">Por día (últimos 7 días)</h2>
-                <ul className="breakdown-list">
-                  {dailySummary.map((item) => (
-                    <li key={item.day} className="breakdown-row daily">
-                      <span className="breakdown-label day">{item.day}</span>
-                      <span className="breakdown-amount">{formatGuaranies(item.total)}</span>
-                    </li>
-                  ))}
-                  <li className="breakdown-row total">
-                    <span className="breakdown-label">Total</span>
-                    <span className="breakdown-amount">{formatGuaranies(totalServiciosAmount)}</span>
-                  </li>
-                </ul>
-              </div>
-            </section>
-          )}
         </>
       )}
 
@@ -533,6 +669,49 @@ export default function ReportsPage() {
           margin-top: 4px;
         }
 
+        .flex-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: flex-start;
+          gap: 12px;
+        }
+
+        .export-btn {
+          flex-shrink: 0;
+          padding: 9px 14px;
+          min-height: 44px;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          background: var(--refresh-surface-glass, var(--surface));
+          border: var(--refresh-border-hard, 1px solid var(--border));
+          border-radius: var(--refresh-radius-control, 8px);
+          font-size: 13px;
+          font-weight: 600;
+          color: var(--refresh-ink, var(--text-primary));
+          cursor: pointer;
+          font-family: var(--refresh-font-sans, inherit);
+        }
+
+        /* M-8: drill-down rows -- same visual position as the plain (non-
+           clickable) rows they replace, just made tappable. */
+        .breakdown-row-link {
+          display: flex;
+          align-items: center;
+          width: 100%;
+          text-decoration: none;
+          color: inherit;
+        }
+
+        .grouped-card-row-link {
+          text-decoration: none;
+          cursor: pointer;
+        }
+
+        .grouped-card-row-link:hover {
+          background: var(--accent-subtle);
+        }
+
         .filter-row {
           display: flex;
           gap: 8px;
@@ -545,24 +724,25 @@ export default function ReportsPage() {
           display: flex;
           align-items: center;
           justify-content: center;
-          background: var(--surface);
-          border: 1px solid var(--border);
-          border-radius: 8px;
+          background: var(--refresh-surface-glass, var(--surface));
+          border: var(--refresh-border-hard, 1px solid var(--border));
+          border-radius: var(--refresh-radius-control, 8px);
           font-size: 13px;
-          font-weight: 500;
-          color: var(--text-secondary);
+          font-weight: 600;
+          color: var(--refresh-ink-secondary, var(--text-secondary));
           cursor: pointer;
           transition: all 0.15s ease;
+          font-family: var(--refresh-font-sans, inherit);
         }
 
         .filter-btn:hover {
-          border-color: var(--accent-hover);
+          border-color: var(--refresh-accent-hover, var(--accent-hover));
         }
 
         .filter-btn.active {
-          background: var(--accent);
-          color: var(--accent-foreground);
-          border-color: var(--accent);
+          background: var(--refresh-accent, var(--accent));
+          color: #fff;
+          border-color: var(--refresh-accent, var(--accent));
         }
 
         .custom-range {
@@ -579,13 +759,14 @@ export default function ReportsPage() {
         .select {
           width: 100%;
           padding: 10px 12px;
-          background: var(--surface);
-          border: 1px solid var(--border);
-          border-radius: 8px;
+          background: var(--refresh-surface-glass, var(--surface));
+          border: var(--refresh-border-hard, 1px solid var(--border));
+          border-radius: var(--refresh-radius-control, 8px);
           font-size: 14px;
-          color: var(--text-primary);
+          color: var(--refresh-ink, var(--text-primary));
           cursor: pointer;
           min-height: 44px;
+          font-family: var(--refresh-font-sans, inherit);
         }
 
         .custom-range input {
@@ -608,58 +789,115 @@ export default function ReportsPage() {
           border-left: 3px solid var(--accent);
         }
 
+        /* Dark "Total ingresos" chart card — the canvas's one intentionally
+           dark surface, present in every theme (not a dark-mode thing). */
+        .chart-card {
+          background: var(--refresh-ink, #241b16);
+          border: var(--refresh-border-hard, none);
+          border-radius: var(--refresh-radius-card, 16px);
+          padding: 22px 20px;
+          box-shadow: 6px 6px 0 rgba(232, 93, 44, 0.35);
+        }
+
+        .chart-eyebrow {
+          display: block;
+          font-size: 12px;
+          color: rgba(251, 243, 236, 0.6);
+          font-family: var(--refresh-font-sans, inherit);
+        }
+
+        .chart-total {
+          font-family: var(--refresh-font-display, inherit);
+          font-size: 32px;
+          color: var(--refresh-bg, #fbf3ec);
+          margin-top: 2px;
+        }
+
+        .chart-svg {
+          display: block;
+          margin-top: 16px;
+        }
+
+        .chart-days {
+          display: flex;
+          justify-content: space-between;
+          font-size: 10px;
+          color: rgba(251, 243, 236, 0.5);
+          margin-top: 6px;
+          font-family: var(--refresh-font-sans, inherit);
+        }
+
         .kpi-grid {
           display: grid;
           grid-template-columns: repeat(3, 1fr);
           gap: 12px;
         }
 
-        .kpi-card {
-          background: var(--surface-elevated);
-          border-radius: 12px;
+        .kpi-tile {
+          border-radius: var(--refresh-radius-control, 14px);
           padding: 16px 12px;
           display: flex;
           flex-direction: column;
           align-items: center;
           text-align: center;
+          border: var(--refresh-border-hard, 1px solid var(--border));
         }
 
-        .kpi-label {
-          font-size: 10px;
+        .kpi-tile.accent {
+          background: var(--refresh-accent, var(--surface-elevated));
+          box-shadow: var(--refresh-shadow-hard-sm, none);
+        }
+
+        .kpi-tile.glass {
+          background: var(--refresh-surface-glass, var(--surface-elevated));
+          backdrop-filter: blur(20px) saturate(160%);
+          -webkit-backdrop-filter: blur(20px) saturate(160%);
+        }
+
+        .kpi-tile-label {
+          font-size: 11px;
           font-weight: 600;
           text-transform: uppercase;
           letter-spacing: 0.05em;
-          color: var(--text-secondary);
+          color: rgba(255, 248, 243, 0.85);
           margin-bottom: 8px;
+          font-family: var(--refresh-font-sans, inherit);
         }
 
-        .kpi-value {
+        .kpi-tile-label.muted {
+          color: var(--refresh-ink-secondary, var(--text-secondary));
+        }
+
+        .kpi-tile-value {
+          font-family: var(--refresh-font-display, inherit);
+          font-size: 18px;
+          color: var(--refresh-bg, #fff8f3);
+        }
+
+        .kpi-tile-sign {
+          font-family: var(--refresh-font-display, inherit);
           font-size: 20px;
-          font-weight: 700;
-          color: var(--text-primary);
         }
 
-        .kpi-value.income {
-          color: var(--text-primary);
+        /* K3: Balance Neto used ink-tone-only differences (primary vs
+           muted) here, not a real alarm signal -- switched to the same
+           green/red hue pair movement rows already use
+           (.movement-amount--positive/--negative, #10b981/#f43f5e), so a
+           negative Balance Neto actually reads as a warning. */
+        .kpi-tile-value.income {
+          color: #10b981;
         }
 
-        .kpi-value.expense {
-          color: var(--text-secondary);
+        .kpi-tile-value.expense {
+          color: #f43f5e;
         }
 
-        .kpi-amount {
-          font-size: 12px;
-          font-weight: 600;
-          color: var(--text-secondary);
-          margin-top: 4px;
+        .kpi-tile-sign.income {
+          color: #10b981;
         }
 
-        .kpi-amount.income {
-          color: var(--text-primary);
-        }
-
-        .kpi-amount.expense {
-          color: var(--text-secondary);
+        .kpi-tile-sign.expense {
+          color: #f43f5e;
         }
 
         .kpi-badge {
@@ -668,16 +906,86 @@ export default function ReportsPage() {
           padding: 2px 6px;
           border-radius: 100px;
           margin-top: 6px;
+          background: rgba(255, 248, 243, 0.2);
+          color: #fff8f3;
         }
 
         .kpi-badge.up {
-          background: #dcfce7;
-          color: #16a34a;
+          background: rgba(16, 185, 129, 0.2);
+          color: #10b981;
         }
 
         .kpi-badge.down {
-          background: #fee2e2;
-          color: #dc2626;
+          background: rgba(244, 63, 94, 0.2);
+          color: #f43f5e;
+        }
+
+        .nav-link-card {
+          display: block;
+          background: var(--refresh-surface-glass, var(--surface-elevated));
+          backdrop-filter: blur(20px) saturate(160%);
+          -webkit-backdrop-filter: blur(20px) saturate(160%);
+          border: var(--refresh-border-hard, 1px solid var(--border));
+          border-radius: var(--refresh-radius-card, 12px);
+          padding: 16px 20px;
+          min-height: 44px;
+          font-size: 14px;
+          font-weight: 600;
+          color: var(--refresh-ink, var(--text-primary));
+          text-decoration: none;
+          font-family: var(--refresh-font-sans, inherit);
+        }
+
+        .grouped-card {
+          background: var(--refresh-surface-glass, var(--surface-elevated));
+          backdrop-filter: blur(20px) saturate(160%);
+          -webkit-backdrop-filter: blur(20px) saturate(160%);
+          border: var(--refresh-border-hard, none);
+          border-radius: var(--refresh-radius-card, 16px);
+          overflow: hidden;
+        }
+
+        .grouped-card-title {
+          font-size: 12px;
+          font-weight: 700;
+          text-transform: uppercase;
+          letter-spacing: 0.08em;
+          color: var(--refresh-ink-secondary, var(--text-secondary));
+          padding: 16px 16px 0;
+        }
+
+        .grouped-card-empty {
+          font-size: 14px;
+          color: var(--refresh-ink-muted, var(--text-muted));
+          text-align: center;
+          padding: 24px 16px;
+        }
+
+        .grouped-card-row {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          padding: 14px 16px;
+          border-bottom: 2px solid rgba(36, 27, 22, 0.12);
+        }
+
+        .grouped-card-row:last-child {
+          border-bottom: none;
+        }
+
+        .grouped-card-label {
+          font-weight: 600;
+          color: var(--refresh-ink, var(--text-primary));
+        }
+
+        .grouped-card-label.method {
+          text-transform: capitalize;
+        }
+
+        .grouped-card-amount {
+          font-weight: 700;
+          color: var(--refresh-ink, var(--text-primary));
+          font-variant-numeric: tabular-nums;
         }
 
         .card {

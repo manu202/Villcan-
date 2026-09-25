@@ -126,6 +126,27 @@ export async function listCashClosingsForBranch(branchId: string) {
 }
 
 /**
+ * Single cash_closings row by id, same select shape (columns + joins) as
+ * listCashClosingsForBranch. Used by the closing detail page
+ * (src/app/(app)/closings/[id]/page.tsx).
+ */
+export async function getCashClosingById(id: string) {
+  const supabase = createClient();
+  return supabase
+    .from('cash_closings')
+    .select(`
+      id, closed_at, arqueo_enabled,
+      calculated_efectivo, calculated_transferencia, calculated_pos, calculated_total,
+      counted_efectivo, counted_transferencia, counted_pos,
+      discrepancy_efectivo, discrepancy_transferencia, discrepancy_pos,
+      branch:branches(name),
+      closed_by_profile:profiles!cash_closings_closed_by_fkey(full_name)
+    `)
+    .eq('id', id)
+    .single();
+}
+
+/**
  * Count of orders still `pending`/`confirmed` (not yet completed/cancelled)
  * for a branch, used by ClosingWizard (S-5) to warn before closing a period
  * with unresolved orders still in flight — their eventual movements would

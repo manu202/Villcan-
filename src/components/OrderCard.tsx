@@ -167,16 +167,20 @@ export function OrderCard({ order, onStatusChange, onNotify, onClick, submitting
 
       <style>{`
         .kds-card {
-          background: var(--surface);
-          border-radius: 12px;
+          background: var(--refresh-surface-glass, var(--surface));
+          backdrop-filter: blur(12px);
+          -webkit-backdrop-filter: blur(12px);
+          border-radius: var(--refresh-radius-card, 12px);
           padding: 14px;
           display: flex;
           flex-direction: column;
           gap: 10px;
           cursor: pointer;
-          border: 1px solid var(--border);
+          border: var(--refresh-border-hard, 1px solid var(--border));
+          box-shadow: var(--refresh-shadow-hard-sm, none);
           transition: background 0.1s;
           list-style: none;
+          font-family: var(--refresh-font-sans, inherit);
         }
         .kds-card:active { background: var(--surface-elevated); }
         [data-urgent="true"] { border-left: 3px solid #ef4444; }
@@ -192,13 +196,14 @@ export function OrderCard({ order, onStatusChange, onNotify, onClick, submitting
           font-weight: 800;
           font-family: monospace;
           letter-spacing: 0.04em;
-          color: var(--text-primary);
+          color: var(--refresh-ink, var(--text-primary));
           flex: 1;
         }
         .kds-amount {
           font-size: 16px;
           font-weight: 700;
-          color: var(--text-primary);
+          font-family: var(--refresh-font-display, inherit);
+          color: var(--refresh-ink, var(--text-primary));
           font-variant-numeric: tabular-nums;
           white-space: nowrap;
         }
@@ -212,9 +217,13 @@ export function OrderCard({ order, onStatusChange, onNotify, onClick, submitting
           white-space: nowrap;
           flex-shrink: 0;
         }
-        .badge-pending  { background: rgba(217,119,6,.14); color: #92400e; border: 1px solid rgba(217,119,6,.28); }
-        .badge-confirmed { background: rgba(37,99,235,.12); color: #1e40af; border: 1px solid rgba(37,99,235,.24); }
-        .badge-completed { background: rgba(22,163,74,.12); color: #166534; border: 1px solid rgba(22,163,74,.24); }
+        /* Colors tuned to the design canvas's exact pending/confirmed/completed
+           hues (Pedidos.dc.html status meta) — same values used by
+           OrderDetailSheet.tsx's status pill. Cancelled has no canvas
+           reference, kept as the existing neutral gray. */
+        .badge-pending  { background: rgba(232,93,44,.16); color: #B5431C; border: 1px solid #B5431C; }
+        .badge-confirmed { background: rgba(58,110,165,.14); color: #2E5F8A; border: 1px solid #2E5F8A; }
+        .badge-completed { background: rgba(74,124,89,.14); color: #3F6B4C; border: 1px solid #3F6B4C; }
         .badge-cancelled { background: rgba(107,114,128,.1); color: #6b7280; border: 1px solid rgba(107,114,128,.2); }
 
         [data-theme='dark'] .badge-pending  { background: rgba(251,191,36,.15); color: #fbbf24; border-color: rgba(251,191,36,.3); }
@@ -225,7 +234,7 @@ export function OrderCard({ order, onStatusChange, onNotify, onClick, submitting
         /* Items summary */
         .kds-items {
           font-size: 13px;
-          color: var(--text-secondary);
+          color: var(--refresh-ink-secondary, var(--text-secondary));
           margin: 0;
           white-space: nowrap;
           overflow: hidden;
@@ -248,11 +257,11 @@ export function OrderCard({ order, onStatusChange, onNotify, onClick, submitting
         .kds-customer {
           font-size: 13px;
           font-weight: 600;
-          color: var(--text-primary);
+          color: var(--refresh-ink, var(--text-primary));
         }
         .kds-timestamp {
           font-size: 11px;
-          color: var(--text-muted);
+          color: var(--refresh-ink-muted, var(--text-muted));
         }
         .kds-notify {
           display: flex;
@@ -264,19 +273,19 @@ export function OrderCard({ order, onStatusChange, onNotify, onClick, submitting
           min-width: unset;
           padding: 0;
           border: 1px solid var(--border);
-          border-radius: 8px;
+          border-radius: var(--refresh-radius-control, 8px);
           background: var(--surface-elevated);
-          color: var(--text-secondary);
+          color: var(--refresh-ink-secondary, var(--text-secondary));
           cursor: pointer;
           flex-shrink: 0;
         }
-        .kds-notify:active { color: var(--text-primary); }
+        .kds-notify:active { color: var(--refresh-ink, var(--text-primary)); }
 
         /* Action button */
         .kds-action {
           width: 100%;
           min-height: 44px;
-          border-radius: 10px;
+          border-radius: var(--refresh-radius-control, 10px);
           font-size: 14px;
           font-weight: 700;
           cursor: pointer;
@@ -304,16 +313,16 @@ export function OrderCard({ order, onStatusChange, onNotify, onClick, submitting
         .kds-fee-label {
           font-size: 12px;
           font-weight: 600;
-          color: var(--text-secondary);
+          color: var(--refresh-ink-secondary, var(--text-secondary));
         }
         .kds-fee-input {
           padding: 12px 14px;
           font-size: 16px;
           font-weight: 600;
           border: 1px solid var(--border);
-          border-radius: 10px;
+          border-radius: var(--refresh-radius-control, 10px);
           background: var(--surface-elevated);
-          color: var(--text-primary);
+          color: var(--refresh-ink, var(--text-primary));
           font-variant-numeric: tabular-nums;
           width: 100%;
           box-sizing: border-box;
@@ -326,13 +335,13 @@ export function OrderCard({ order, onStatusChange, onNotify, onClick, submitting
         .kds-fee-cancel {
           flex: 1;
           min-height: 44px;
-          border-radius: 10px;
+          border-radius: var(--refresh-radius-control, 10px);
           font-size: 14px;
           font-weight: 600;
           cursor: pointer;
           border: 1px solid var(--border);
           background: var(--surface-elevated);
-          color: var(--text-secondary);
+          color: var(--refresh-ink-secondary, var(--text-secondary));
         }
         .kds-fee-cancel:disabled { opacity: 0.5; cursor: not-allowed; }
       `}</style>

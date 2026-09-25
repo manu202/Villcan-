@@ -2,26 +2,56 @@
 
 import { useEffect, useState, useRef } from 'react';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import { formatGuaranies, formatDate, formatTime, getMovementTypeLabel } from '@/lib/utils';
 import { listMovementsForBranch } from '@/lib/data/movements';
 import { useBranch } from '@/contexts/BranchContext';
-import type { MovementWithDetails } from '@/types';
+import type { MovementWithDetails, PaymentMethod } from '@/types';
 import { Spinner } from '@/components/Spinner';
-import { Wallet } from 'lucide-react';
+import { Wallet, X } from 'lucide-react';
 import { EmptyState } from '@/components/EmptyState';
 import { ErrorState } from '@/components/ErrorState';
 import { getDateRange } from '@/lib/dateRange';
 
 type FilterType = 'today' | 'week' | 'month' | 'all';
+const FILTER_VALUES: FilterType[] = ['today', 'week', 'month', 'all'];
+const PAYMENT_METHODS: PaymentMethod[] = ['efectivo', 'transferencia', 'pos'];
+
+// M-8: drill-down from Reports' "Por Método" breakdown links here with
+// ?range=<...>&method=<...>, seeding this page's existing filter state
+// instead of inventing a new one. Direct navigation (the normal case) has
+// neither param -> unchanged default behavior ('today', no method scope).
+function readFilterFromParams(params: URLSearchParams): FilterType {
+  const range = params.get('range');
+  return (FILTER_VALUES as string[]).includes(range ?? '') ? (range as FilterType) : 'today';
+}
+
+function readMethodFromParams(params: URLSearchParams): PaymentMethod | null {
+  const method = params.get('method');
+  return (PAYMENT_METHODS as string[]).includes(method ?? '') ? (method as PaymentMethod) : null;
+}
 
 const TOTAL_MOVEMENTS = 100; // Maximum requested
 
 export default function MovementsPage() {
   const { currentBranch, initialized } = useBranch();
+  const searchParams = useSearchParams();
   const [movements, setMovements] = useState<MovementWithDetails[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
-  const [filter, setFilter] = useState<FilterType>('today');
+  const [filter, setFilter] = useState<FilterType>(() => readFilterFromParams(searchParams));
+  const [methodFilter, setMethodFilter] = useState<PaymentMethod | null>(() =>
+    readMethodFromParams(searchParams)
+  );
+
+  // Re-derive from the URL on every searchParams change, not just at first
+  // mount: a Reports drill-down Link to this same route while it's already
+  // mounted updates searchParams in place (no remount), which the lazy
+  // useState initializers above never see again on their own.
+  useEffect(() => {
+    setFilter(readFilterFromParams(searchParams));
+    setMethodFilter(readMethodFromParams(searchParams));
+  }, [searchParams]);
 
   // Use ref to always have current branch value inside async functions
   const currentBranchRef = useRef(currentBranch);
@@ -45,7 +75,12 @@ export default function MovementsPage() {
       setError(false);
       const { start, end } = getDateRange(filter);
 
-      const { data, error: fetchError } = await listMovementsForBranch(branch.id, start, end);
+      const { data, error: fetchError } = await listMovementsForBranch(
+        branch.id,
+        start,
+        end,
+        methodFilter ?? undefined
+      );
 
       if (cancelled) return;
 
@@ -61,7 +96,7 @@ export default function MovementsPage() {
     return () => {
       cancelled = true;
     };
-  }, [filter, initialized]);
+  }, [filter, methodFilter, initialized]);
 
   return (
     <div className="page">
@@ -100,6 +135,19 @@ export default function MovementsPage() {
             onClick={() => setFilter('all')}
           >Todo</button>
         </div>
+
+        {methodFilter && (
+          <div className="method-filter-chip">
+            <span>Filtrado por método: {methodFilter}</span>
+            <button
+              type="button"
+              aria-label="Quitar filtro de método"
+              onClick={() => setMethodFilter(null)}
+            >
+              <X size={14} strokeWidth={2.5} />
+            </button>
+          </div>
+        )}
       </section>
 
       <section className="section">
@@ -172,6 +220,7 @@ export default function MovementsPage() {
         .page {
           max-width: 480px;
           margin: 0 auto;
+          background: var(--refresh-bg, transparent);
         }
 
         .flex-header {
@@ -180,9 +229,14 @@ export default function MovementsPage() {
           align-items: flex-start;
         }
 
+        .page-title {
+          font-family: var(--refresh-font-display, inherit);
+          color: var(--refresh-ink, var(--text-primary));
+        }
+
         .page-subtitle {
           font-size: 14px;
-          color: var(--text-secondary);
+          color: var(--refresh-ink-secondary, var(--text-secondary));
           margin-top: 4px;
         }
 
@@ -191,14 +245,17 @@ export default function MovementsPage() {
           align-items: center;
           justify-content: center;
           padding: 10px 16px;
-          background: var(--accent);
-          color: var(--accent-foreground);
-          border-radius: 8px;
+          background: var(--refresh-accent, var(--accent));
+          color: #fff;
+          border: var(--refresh-border-hard, none);
+          box-shadow: var(--refresh-shadow-hard-sm, none);
+          border-radius: var(--refresh-radius-control, 8px);
           font-size: 14px;
           font-weight: 600;
           text-decoration: none;
           min-height: 44px;
           min-width: 44px;
+          font-family: var(--refresh-font-sans, inherit);
         }
 
         .filter-row {
@@ -213,44 +270,79 @@ export default function MovementsPage() {
           display: flex;
           align-items: center;
           justify-content: center;
-          background: var(--surface);
-          border: 1px solid var(--border);
-          border-radius: 8px;
+          background: var(--refresh-surface-glass, var(--surface));
+          border: var(--refresh-border-hard, 1px solid var(--border));
+          border-radius: var(--refresh-radius-control, 8px);
           font-size: 13px;
-          font-weight: 500;
-          color: var(--text-secondary);
+          font-weight: 600;
+          color: var(--refresh-ink-secondary, var(--text-secondary));
           cursor: pointer;
           transition: all 0.15s ease;
+          font-family: var(--refresh-font-sans, inherit);
         }
 
         .filter-btn:hover {
-          border-color: var(--accent-hover);
+          border-color: var(--refresh-accent-hover, var(--accent-hover));
         }
 
         .filter-btn.active {
-          background: var(--accent);
-          color: var(--accent-foreground);
-          border-color: var(--accent);
+          background: var(--refresh-accent, var(--accent));
+          color: #fff;
+          border-color: var(--refresh-accent, var(--accent));
+        }
+
+        /* M-8: shows when a drill-down link from Reports narrowed this
+           list by payment method -- lets the user see why and undo it
+           without a full page reload. */
+        .method-filter-chip {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 8px;
+          margin-top: 8px;
+          padding: 8px 12px;
+          background: var(--refresh-surface-glass, var(--accent-subtle));
+          border: var(--refresh-border-hard, 1px solid var(--border));
+          border-radius: var(--refresh-radius-control, 8px);
+          font-size: 13px;
+          font-weight: 600;
+          color: var(--refresh-ink-secondary, var(--text-secondary));
+          text-transform: capitalize;
+        }
+
+        .method-filter-chip button {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          width: 24px;
+          height: 24px;
+          background: none;
+          border: none;
+          color: inherit;
+          cursor: pointer;
+          flex-shrink: 0;
         }
 
         .empty-state {
           text-align: center;
           padding: 48px 24px;
-          color: var(--text-secondary);
+          color: var(--refresh-ink-secondary, var(--text-secondary));
         }
 
         .empty-state p {
           margin-bottom: 16px;
         }
 
+        /* Each row now renders as its own glass card (matching the
+           reskinned MovementCard/OrderCard family) with a gap between
+           items instead of the old shared-background hairline divider,
+           since a bordered/radius'd row no longer reads correctly bled
+           against its neighbors. */
         .movement-list {
           list-style: none;
           display: flex;
           flex-direction: column;
-          gap: 1px;
-          background: var(--border);
-          border-radius: 12px;
-          overflow: hidden;
+          gap: 8px;
         }
 
         .movement-item {
@@ -258,10 +350,16 @@ export default function MovementsPage() {
           justify-content: space-between;
           align-items: center;
           gap: 12px;
-          padding: 16px;
-          background: var(--surface);
+          padding: 14px 16px;
+          background: var(--refresh-surface-glass, var(--surface));
+          backdrop-filter: blur(12px);
+          -webkit-backdrop-filter: blur(12px);
+          border: var(--refresh-border-hard, 1px solid var(--border));
+          border-radius: var(--refresh-radius-card, 12px);
+          box-shadow: var(--refresh-shadow-hard-sm, none);
           text-decoration: none;
           color: inherit;
+          font-family: var(--refresh-font-sans, inherit);
         }
 
         .movement-item:active {
@@ -289,13 +387,13 @@ export default function MovementsPage() {
           font-weight: 600;
           text-transform: uppercase;
           letter-spacing: 0.05em;
-          color: var(--text-secondary);
+          color: var(--refresh-ink-secondary, var(--text-secondary));
         }
 
         .movement-contact {
           font-size: 14px;
           font-weight: 500;
-          color: var(--text-primary);
+          color: var(--refresh-ink, var(--text-primary));
           white-space: nowrap;
           overflow: hidden;
           text-overflow: ellipsis;
@@ -321,7 +419,7 @@ export default function MovementsPage() {
 
         .movement-time {
           font-size: 11px;
-          color: var(--text-muted);
+          color: var(--refresh-ink-muted, var(--text-muted));
         }
 
         .payment-badge {
@@ -329,7 +427,7 @@ export default function MovementsPage() {
           font-weight: 600;
           text-transform: uppercase;
           letter-spacing: 0.05em;
-          color: var(--text-secondary);
+          color: var(--refresh-ink-secondary, var(--text-secondary));
           background: var(--surface-elevated);
           padding: 4px 8px;
           border-radius: 4px;

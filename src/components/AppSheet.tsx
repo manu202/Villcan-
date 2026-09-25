@@ -27,7 +27,7 @@ export function AppSheet({ open, onOpenChange, title, children, footer }: AppShe
                 aria-label="Cerrar"
                 onClick={() => onOpenChange(false)}
               >
-                <X size={20} aria-hidden="true" />
+                <X size={16} strokeWidth={2.8} aria-hidden="true" />
               </button>
             </div>
           </div>
@@ -38,7 +38,7 @@ export function AppSheet({ open, onOpenChange, title, children, footer }: AppShe
             .app-sheet-overlay {
               position: fixed;
               inset: 0;
-              background: rgba(0, 0, 0, 0.4);
+              background: rgba(36, 27, 22, 0.55);
               z-index: 50;
             }
 
@@ -48,12 +48,16 @@ export function AppSheet({ open, onOpenChange, title, children, footer }: AppShe
               left: 0;
               right: 0;
               z-index: 51;
-              background: var(--surface);
-              border-radius: 16px 16px 0 0;
+              background: var(--refresh-bg, var(--surface));
+              border-top: 3px solid rgba(36, 27, 22, 0.9);
+              border-radius: var(--refresh-radius-card, 16px) var(--refresh-radius-card, 16px) 0 0;
+              box-shadow: 0 -8px 0 rgba(36, 27, 22, 0.85);
               max-height: 92dvh;
               display: flex;
               flex-direction: column;
               outline: none;
+              font-family: var(--refresh-font-sans, inherit);
+              color: var(--refresh-ink, var(--text-primary));
             }
 
             /* QA-8 (2026-09-22): AppSheet had zero responsive treatment —
@@ -74,7 +78,9 @@ export function AppSheet({ open, onOpenChange, title, children, footer }: AppShe
                 transform: translate(-50%, -50%);
                 width: min(560px, 90vw);
                 max-height: 85vh;
-                border-radius: 16px;
+                border: var(--refresh-border-hard, 1px solid var(--border));
+                border-radius: var(--refresh-radius-card, 16px);
+                box-shadow: var(--refresh-shadow-hard, none);
               }
             }
 
@@ -84,11 +90,11 @@ export function AppSheet({ open, onOpenChange, title, children, footer }: AppShe
             }
 
             .app-sheet-handle {
-              width: 36px;
-              height: 4px;
-              background: var(--border);
-              border-radius: 2px;
-              margin: 0 auto 12px;
+              width: 44px;
+              height: 5px;
+              background: rgba(36, 27, 22, 0.3);
+              border-radius: 3px;
+              margin: 6px auto 12px;
             }
 
             .app-sheet-title-row {
@@ -96,13 +102,13 @@ export function AppSheet({ open, onOpenChange, title, children, footer }: AppShe
               align-items: center;
               justify-content: space-between;
               padding-bottom: 12px;
-              border-bottom: 1px solid var(--border);
+              border-bottom: 2px solid rgba(36, 27, 22, 0.15);
             }
 
             .app-sheet-title {
-              font-size: 17px;
-              font-weight: 600;
-              color: var(--text-primary);
+              font-size: 18px;
+              font-weight: 700;
+              color: var(--refresh-ink, var(--text-primary));
             }
 
             .app-sheet-close {
@@ -111,10 +117,12 @@ export function AppSheet({ open, onOpenChange, title, children, footer }: AppShe
               justify-content: center;
               width: 44px;
               height: 44px;
-              border-radius: 50%;
-              background: var(--surface);
-              border: 1px solid var(--border);
-              color: var(--text-secondary);
+              min-width: 44px;
+              min-height: 44px;
+              border-radius: 8px;
+              background: rgba(255, 255, 255, 0.7);
+              border: 2px solid rgba(36, 27, 22, 0.85);
+              color: var(--refresh-ink, var(--text-secondary));
               cursor: pointer;
             }
 
@@ -128,7 +136,7 @@ export function AppSheet({ open, onOpenChange, title, children, footer }: AppShe
             .app-sheet-footer {
               padding: 12px 16px;
               padding-bottom: calc(12px + env(safe-area-inset-bottom));
-              border-top: 1px solid var(--border);
+              border-top: 2px solid rgba(36, 27, 22, 0.15);
               flex-shrink: 0;
             }
           `}</style>

@@ -112,12 +112,16 @@ export function MovementCard({ movement, onClick }: MovementCardProps) {
           gap: 12px;
           padding: 14px 16px;
           min-height: 64px;
-          background: var(--surface);
+          background: var(--refresh-surface-glass, var(--surface));
+          backdrop-filter: blur(12px);
+          -webkit-backdrop-filter: blur(12px);
           cursor: pointer;
           list-style: none;
-          border-radius: 12px;
-          border: 1px solid var(--border);
+          border-radius: var(--refresh-radius-card, 12px);
+          border: var(--refresh-border-hard, 1px solid var(--border));
+          box-shadow: var(--refresh-shadow-hard-sm, none);
           transition: background 0.1s;
+          font-family: var(--refresh-font-sans, inherit);
         }
         .mc-card:active { background: var(--surface-elevated); }
 
@@ -142,7 +146,7 @@ export function MovementCard({ movement, onClick }: MovementCardProps) {
         .mc-title {
           font-size: 15px;
           font-weight: 600;
-          color: var(--text-primary);
+          color: var(--refresh-ink, var(--text-primary));
           white-space: nowrap;
           overflow: hidden;
           text-overflow: ellipsis;
@@ -150,7 +154,7 @@ export function MovementCard({ movement, onClick }: MovementCardProps) {
 
         .mc-sub {
           font-size: 12px;
-          color: var(--text-secondary);
+          color: var(--refresh-ink-secondary, var(--text-secondary));
           white-space: nowrap;
           overflow: hidden;
           text-overflow: ellipsis;
@@ -160,6 +164,7 @@ export function MovementCard({ movement, onClick }: MovementCardProps) {
           flex-shrink: 0;
           font-size: 15px;
           font-weight: 700;
+          font-family: var(--refresh-font-display, inherit);
           font-variant-numeric: tabular-nums;
           text-align: right;
         }

@@ -62,10 +62,16 @@ export function ContactCard({ contact, onClick }: ContactCardProps) {
           align-items: center;
           gap: 12px;
           padding: 14px 16px;
-          background: var(--surface);
+          background: var(--refresh-surface-glass, var(--surface));
+          backdrop-filter: blur(12px);
+          -webkit-backdrop-filter: blur(12px);
+          border-radius: var(--refresh-radius-card, 0px);
+          border: var(--refresh-border-hard, none);
+          box-shadow: var(--refresh-shadow-hard-sm, none);
           cursor: pointer;
           list-style: none;
           transition: background 0.1s;
+          font-family: var(--refresh-font-sans, inherit);
         }
         .contact-card:active {
           background: var(--accent-subtle);
@@ -75,13 +81,14 @@ export function ContactCard({ contact, onClick }: ContactCardProps) {
           height: 44px;
           flex-shrink: 0;
           border-radius: 50%;
-          background: var(--accent);
+          background: var(--refresh-accent, var(--accent));
           color: var(--accent-foreground);
           display: flex;
           align-items: center;
           justify-content: center;
           font-size: 18px;
           font-weight: 700;
+          font-family: var(--refresh-font-display, inherit);
         }
         .contact-card-body {
           flex: 1;
@@ -98,7 +105,7 @@ export function ContactCard({ contact, onClick }: ContactCardProps) {
         .contact-card-name {
           font-size: 15px;
           font-weight: 600;
-          color: var(--text-primary);
+          color: var(--refresh-ink, var(--text-primary));
           white-space: nowrap;
           overflow: hidden;
           text-overflow: ellipsis;
@@ -107,16 +114,16 @@ export function ContactCard({ contact, onClick }: ContactCardProps) {
           width: 7px;
           height: 7px;
           border-radius: 50%;
-          background: var(--accent);
+          background: var(--refresh-accent, var(--accent));
           flex-shrink: 0;
         }
         .contact-card-ci {
           font-size: 12px;
-          color: var(--text-secondary);
+          color: var(--refresh-ink-secondary, var(--text-secondary));
         }
         .contact-card-visit {
           font-size: 11px;
-          color: var(--text-secondary);
+          color: var(--refresh-ink-secondary, var(--text-secondary));
         }
         .contact-card-wa-btn {
           display: flex;

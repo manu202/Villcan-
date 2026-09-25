@@ -51,6 +51,7 @@ supabase/.temp
 playwright/.auth
 playwright-report/
 test-results/
+.playwright-mcp/
 
 # typescript
 *.tsbuildinfo

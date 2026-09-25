@@ -48,6 +48,27 @@
   --accent-hover: var(--black);
   --accent-foreground: var(--white);
   --accent-subtle: var(--gray-100);
+
+  /* --- Backoffice visual refresh (2026-09) ---
+     Staged rollout: new "brutalist glass" direction for the backoffice,
+     approved via design canvas. Kept in its own --refresh-* namespace while
+     screens migrate one at a time (see odd/tasks/backoffice-visual-refresh.md)
+     so unmigrated screens keep rendering off the tokens above untouched.
+     Light mode only for now; dark-mode values are a follow-up task. */
+  --refresh-bg: #fbf3ec;
+  --refresh-accent: #e85d2c;
+  --refresh-accent-hover: #c9481b;
+  --refresh-ink: #241b16;
+  --refresh-ink-secondary: #6b5d52;
+  --refresh-ink-muted: #8a6b58;
+  --refresh-surface-glass: rgba(255, 255, 255, 0.6);
+  --refresh-border-hard: 2px solid rgba(36, 27, 22, 0.85);
+  --refresh-shadow-hard: 6px 6px 0 rgba(36, 27, 22, 0.85);
+  --refresh-shadow-hard-sm: 4px 4px 0 rgba(36, 27, 22, 0.85);
+  --refresh-radius-card: 16px;
+  --refresh-radius-control: 10px;
+  --refresh-font-display: var(--font-display, 'Archivo Black', sans-serif);
+  --refresh-font-sans: var(--font-refresh-sans, 'Space Grotesk', sans-serif);
 }
 
 /* --- Dark theme values --- REQ-THEME-2

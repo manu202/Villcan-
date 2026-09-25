@@ -5,14 +5,23 @@ import type { OrderStatus, CreateManualOrderInput, UpdateOrderInput } from '@/ty
  * Orders + their items for a branch, newest first. Full order_items columns
  * (not just id/qty/name_snapshot) so the same in-memory order object can be
  * handed straight to OrderPaymentSheet (SW-O1) without a second fetch.
+ *
+ * `start`/`end` are optional (M-8 drill-down from Reports' "Servicios"
+ * breakdown) — omitted entirely, the query is unscoped by date, matching
+ * the page's original all-orders-for-branch behavior exactly.
  */
-export async function listOrdersForBranch(branchId: string) {
+export async function listOrdersForBranch(branchId: string, start?: string, end?: string) {
   const supabase = createClient();
-  return supabase
+  let query = supabase
     .from('orders')
     .select('*, order_items(*)')
     .eq('branch_id', branchId)
     .order('created_at', { ascending: false });
+
+  if (start) query = query.gte('created_at', start);
+  if (end) query = query.lt('created_at', end);
+
+  return query;
 }
 
 /**
@@ -103,5 +112,32 @@ export async function completeOrderPayment(orderId: string, amountReceived: numb
   return supabase.rpc('complete_order_payment', {
     p_order_id: orderId,
     p_amount_received: amountReceived,
+  });
+}
+
+/**
+ * SW-O4: edits the delivery fee of an already-confirmed delivery order.
+ * Distinct from confirmOrderDeliveryFee, which only sets the fee once while
+ * confirming a pending order. Server-side guards: delivery orders only,
+ * status must be 'confirmed', fee must be >= 0.
+ */
+export async function editConfirmedOrderDeliveryFee(orderId: string, deliveryFee: number) {
+  const supabase = createClient();
+  return supabase.rpc('edit_confirmed_order_delivery_fee', {
+    p_order_id: orderId,
+    p_delivery_fee: deliveryFee,
+  });
+}
+
+/**
+ * O-8: dedicated cancellation RPC requiring a non-blank reason, recorded on
+ * the order (cancellation_reason/cancelled_at/cancelled_by). Server-side
+ * guard: cannot cancel an order already completed/cancelled.
+ */
+export async function cancelOrder(orderId: string, reason: string) {
+  const supabase = createClient();
+  return supabase.rpc('cancel_order', {
+    p_order_id: orderId,
+    p_reason: reason,
   });
 }
