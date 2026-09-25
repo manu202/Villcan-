@@ -33,7 +33,11 @@ export async function getCalculatedBalanceSince(
 
   const services = (serviceMovements || []) as { income: number; payment_method: PaymentMethod | null }[];
   const aperturas = (aperturaMovements || []) as { income: number }[];
-  const gastos = (expenseMovements || []) as { expense: number; comment: string | null }[];
+  const gastos = (expenseMovements || []) as {
+    expense: number;
+    comment: string | null;
+    expense_source: 'caja' | 'cta_bancaria' | null;
+  }[];
   const cierres = (cierreMovements || []) as { expense: number }[];
 
   const movements: CashBalanceMovement[] = [
@@ -57,6 +61,7 @@ export async function getCalculatedBalanceSince(
       expense: m.expense || 0,
       payment_method: null,
       comment: m.comment,
+      expense_source: m.expense_source,
     })),
     ...cierres.map((m) => ({
       type: 'cierre' as const,

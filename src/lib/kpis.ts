@@ -11,6 +11,8 @@ export interface KpiMovement {
   expense: number;
   payment_method: PaymentMethod | null;
   comment: string | null;
+  /** M-4: see CashBalanceMovement's own doc comment in cashBalance.ts. */
+  expense_source?: 'caja' | 'cta_bancaria' | null;
 }
 
 export interface PeriodActivity {

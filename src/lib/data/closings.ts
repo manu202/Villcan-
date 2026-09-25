@@ -38,7 +38,7 @@ export async function listExpenseMovementsSince(branchId: string, periodStart: s
   const supabase = createClient();
   return supabase
     .from('movements')
-    .select('expense, comment')
+    .select('expense, comment, expense_source')
     .eq('type', 'gasto')
     .eq('branch_id', branchId)
     .gte('created_at', periodStart);
@@ -86,7 +86,7 @@ export async function listMovementsByTypeSince(
   const supabase = createClient();
   let query = supabase
     .from('movements')
-    .select('type, income, expense, payment_method, comment')
+    .select('type, income, expense, payment_method, comment, expense_source')
     .eq('type', type)
     .eq('branch_id', branchId);
 

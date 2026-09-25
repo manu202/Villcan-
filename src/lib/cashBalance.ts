@@ -13,6 +13,15 @@ export interface CashBalanceMovement {
   expense: number;
   payment_method: PaymentMethod | null;
   comment: string | null;
+  /**
+   * M-4: real column for the gasto cash/bank split (movements.expense_source,
+   * scoped to type='gasto' by a DB CHECK). Optional so existing callers that
+   * don't select/pass it (e.g. reports/page.tsx, out of scope for this
+   * backend-only change) keep compiling unchanged -- isBankTagged treats a
+   * missing/null value exactly like an unset column, falling back to the
+   * comment tag. Meaningless for any non-gasto type.
+   */
+  expense_source?: 'caja' | 'cta_bancaria' | null;
 }
 
 export interface CashBalanceResult {
@@ -79,7 +88,15 @@ export function computeCashBalance(movements: CashBalanceMovement[]): CashBalanc
   const gastos = movements.filter((m) => m.type === 'gasto');
   const cierres = movements.filter((m) => m.type === 'cierre');
 
-  const isBankTagged = (m: CashBalanceMovement) => !!m.comment?.includes('Cta Bancaria');
+  // M-4: expense_source is the source of truth once set (the real column,
+  // backfilled from the same tag for pre-existing rows -- see migration
+  // 20260925000000). Only falls back to parsing the comment tag for a row
+  // where the column is still null -- i.e. a gasto inserted by the UI
+  // before it's wired to write the new column.
+  const isBankTagged = (m: CashBalanceMovement) =>
+    m.expense_source != null
+      ? m.expense_source === 'cta_bancaria'
+      : !!m.comment?.includes('Cta Bancaria');
 
   const aperturaTotal = sumIncome(aperturas);
   const efectivoIncome = sumIncome(servicios.filter((m) => m.payment_method === 'efectivo'));
