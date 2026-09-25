@@ -36,7 +36,7 @@ export async function searchContacts(query: string) {
   const escaped = escapeSearchQuery(query);
   return supabase
     .from('contacts')
-    .select('id, full_name')
+    .select('id, full_name, phone')
     .or(`full_name.ilike.%${escaped}%,phone.ilike.%${escaped}%${phoneNoLeadingZeroOrTerm(query)}`)
     .order('full_name')
     .limit(10);

@@ -20,7 +20,7 @@ interface ContactFormProps {
   contactId?: string;
   hideHeader?: boolean;
   onCancel?: () => void;
-  onSuccess?: (contact: { id: string; full_name: string }) => void;
+  onSuccess?: (contact: { id: string; full_name: string; phone: string | null }) => void;
 }
 
 export function ContactForm({ initialData, contactId, hideHeader, onCancel, onSuccess }: ContactFormProps) {
@@ -73,7 +73,7 @@ export function ContactForm({ initialData, contactId, hideHeader, onCancel, onSu
         if (error) throw error;
         setIsSubmitting(false);
         if (onSuccess) {
-          onSuccess({ id: contactId, full_name: payload.full_name });
+          onSuccess({ id: contactId, full_name: payload.full_name, phone: payload.phone });
         } else {
           showToast('Contacto actualizado', 'success');
           router.push('/contacts');
@@ -89,7 +89,7 @@ export function ContactForm({ initialData, contactId, hideHeader, onCancel, onSu
         if (error) throw error;
         setIsSubmitting(false);
         if (onSuccess && data) {
-          onSuccess({ id: data.id, full_name: data.full_name });
+          onSuccess({ id: data.id, full_name: data.full_name, phone: payload.phone });
         } else {
           showToast('Contacto creado', 'success');
           router.push('/contacts');
