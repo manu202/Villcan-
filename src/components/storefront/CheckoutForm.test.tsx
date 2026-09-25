@@ -76,4 +76,68 @@ describe('CheckoutForm (REQ: country selector + payment + delivery)', () => {
     const values = Array.from(select.options).map((o) => o.value);
     expect(values).toContain('pos');
   });
+
+  // UX-1 (2026-09-25): /orders/new now resolves the customer via a contact
+  // search + quick-create step (owned by the page, matching MovementForm's
+  // Venta flow pattern) *before* reaching this checkout step, instead of
+  // asking staff to retype a name/phone this form already used to demand.
+  // CheckoutForm stays the single owner of payment/delivery/note either way
+  // -- these two new optional props just let the page hand it an
+  // already-resolved identity so it skips its own raw inputs, without
+  // touching its public prop contract in a way that would affect the other
+  // (dead-code) consumer, StorefrontClient.
+  describe('with a pre-resolved customer (orders/new\'s contact picker)', () => {
+    it('does not render the raw nombre/teléfono inputs when customerName/customerPhone are given', () => {
+      render(
+        <CheckoutForm
+          submitting={false}
+          errorMessage={null}
+          onSubmit={vi.fn()}
+          onBack={vi.fn()}
+          customerName="Ana Gómez"
+          customerPhone="595981234567"
+        />
+      );
+      expect(screen.queryByLabelText(/^nombre/i)).toBeNull();
+      expect(screen.queryByLabelText(/teléfono/i)).toBeNull();
+      expect(screen.getByText(/ana gómez/i)).toBeTruthy();
+    });
+
+    it('submits customerName/customerPhone verbatim, bypassing the country-code/leading-zero logic', () => {
+      const onSubmit = vi.fn();
+      render(
+        <CheckoutForm
+          submitting={false}
+          errorMessage={null}
+          onSubmit={onSubmit}
+          onBack={vi.fn()}
+          customerName="Ana Gómez"
+          customerPhone="595981234567"
+        />
+      );
+      fireEvent.click(screen.getByRole('button', { name: /confirmar pedido/i }));
+      expect(onSubmit).toHaveBeenCalledWith(
+        expect.objectContaining({ name: 'Ana Gómez', phone: '595981234567' })
+      );
+    });
+
+    it('still renders and submits payment/delivery/note fields as usual', () => {
+      const onSubmit = vi.fn();
+      render(
+        <CheckoutForm
+          submitting={false}
+          errorMessage={null}
+          onSubmit={onSubmit}
+          onBack={vi.fn()}
+          customerName="Ana Gómez"
+          customerPhone="595981234567"
+        />
+      );
+      fireEvent.change(screen.getByLabelText(/método de pago/i), { target: { value: 'pos' } });
+      fireEvent.click(screen.getByRole('button', { name: /confirmar pedido/i }));
+      expect(onSubmit).toHaveBeenCalledWith(
+        expect.objectContaining({ paymentMethod: 'pos', deliveryType: 'pickup' })
+      );
+    });
+  });
 });
