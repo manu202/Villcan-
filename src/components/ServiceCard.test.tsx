@@ -4,7 +4,7 @@ import { ServiceCard } from './ServiceCard';
 import type { Service } from '@/types';
 
 vi.mock('@/lib/utils', () => ({
-  formatGuaranies: (n: number) => `₲ ${n.toLocaleString()}`,
+  formatGuaranies: (n: number) => `₲ ${n.toLocaleString('es-PY')}`,
 }));
 
 vi.mock('./Toggle', () => ({
