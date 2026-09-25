@@ -15,6 +15,11 @@ type MovementsByType = Record<string, unknown[]>;
 
 let movementsByType: MovementsByType = {};
 let closingsRows: unknown[] = [];
+// listMovementsForBranch (the "Movimientos recientes" card's query) filters
+// only by branch_id/date range, never by type — distinct from the
+// activity queries above, which always .eq('type', ...). The mock tells
+// them apart the same way: presence of a 'type' filter.
+let recentMovementsRows: unknown[] = [];
 
 function createMovementsBuilder() {
   const filters: Record<string, unknown> = {};
@@ -27,12 +32,14 @@ function createMovementsBuilder() {
   };
   builder.gte = chain;
   builder.lt = chain;
+  builder.order = chain;
+  builder.limit = chain;
   builder.then = (
     onFulfilled: (v: unknown) => unknown,
     onRejected?: (e: unknown) => unknown
   ) => {
-    const type = filters['type'] as string;
-    const data = movementsByType[type] || [];
+    const type = filters['type'] as string | undefined;
+    const data = type !== undefined ? (movementsByType[type] || []) : recentMovementsRows;
     return Promise.resolve({ data, error: null }).then(onFulfilled, onRejected);
   };
   return builder;
@@ -62,6 +69,7 @@ describe('HomePage running balance + period activity (REQ-DASHBOARD-1..6)', () =
   beforeEach(() => {
     movementsByType = {};
     closingsRows = [];
+    recentMovementsRows = [];
     mockUseBranch.mockReturnValue({
       currentBranch: { id: 'branch-1', name: 'Centro' },
       isLoading: false,
@@ -103,5 +111,61 @@ describe('HomePage running balance + period activity (REQ-DASHBOARD-1..6)', () =
     // balanceGlobal = balanceEfectivo = 1000000 (no other movements)
     await waitFor(() => screen.getAllByText('₲ 1.000.000').length > 0);
     expect(screen.getAllByText('₲ 1.000.000').length).toBeGreaterThan(0);
+  });
+});
+
+describe('HomePage "Movimientos recientes" card', () => {
+  beforeEach(() => {
+    movementsByType = { servicio: [], gasto: [], apertura: [], cierre: [] };
+    closingsRows = [];
+    recentMovementsRows = [];
+    mockUseBranch.mockReturnValue({
+      currentBranch: { id: 'branch-1', name: 'Centro' },
+      isLoading: false,
+      initialized: true,
+    });
+  });
+
+  it('renders real rows from listMovementsForBranch with label, source, relative time and signed amount', async () => {
+    recentMovementsRows = [
+      {
+        id: 'm1',
+        type: 'servicio',
+        income: 40000,
+        expense: 0,
+        payment_method: 'efectivo',
+        comment: null,
+        created_at: new Date(Date.now() - 60 * 60 * 1000).toISOString(),
+        contact: { id: 'c1', full_name: 'Juan Pérez' },
+        service: { id: 's1', name: 'Corte clásico' },
+      },
+      {
+        id: 'm2',
+        type: 'gasto',
+        income: 0,
+        expense: 15000,
+        payment_method: null,
+        comment: 'Compra insumos',
+        created_at: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
+        contact: null,
+        service: null,
+      },
+    ];
+
+    render(<HomePage />);
+
+    await waitFor(() => screen.getByText('Corte clásico'));
+    expect(screen.getByText('Corte clásico')).toBeTruthy();
+    expect(screen.getByText('+₲ 40.000')).toBeTruthy();
+    expect(screen.getByText('Compra insumos')).toBeTruthy();
+    expect(screen.getByText('−₲ 15.000')).toBeTruthy();
+    expect(screen.queryByText('Sin movimientos recientes')).toBeNull();
+  });
+
+  it('shows the empty state when there are no recent movements', async () => {
+    recentMovementsRows = [];
+    render(<HomePage />);
+    await waitFor(() => screen.getByText('Sin movimientos recientes'));
+    expect(screen.getByText('Sin movimientos recientes')).toBeTruthy();
   });
 });

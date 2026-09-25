@@ -431,7 +431,7 @@ export default function ReportsPage() {
               ? Math.round(((totalServiciosAmount - prevServiciosAmount) / prevServiciosAmount) * 100)
               : null;
             const chart = computeChartGeometry(dailySummary);
-            const periodLabel = view === 'today' ? 'Hoy' : view === 'week' ? 'Semana' : view === 'month' ? 'Mes' : 'Personalizado';
+            const periodLabel = view === 'today' ? 'Hoy' : view === 'week' ? 'Semana' : view === 'month' ? 'Mes' : view === 'all' ? 'Todo' : 'Personalizado';
 
             return (
               <>

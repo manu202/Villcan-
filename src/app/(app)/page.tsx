@@ -251,8 +251,12 @@ export default function HomePage() {
                         <span>{formatGuaranies(activity.incomeByMethod.pos)}</span>
                       </div>
                       <div className="breakdown-row breakdown-row--total">
-                        <span>Total período</span>
+                        <span>Total ingresos</span>
                         <span>{formatGuaranies(activity.totalIncome)}</span>
+                      </div>
+                      <div className="breakdown-row breakdown-row--expense">
+                        <span>Egresos</span>
+                        <span>{formatGuaranies(activity.totalExpenses)}</span>
                       </div>
                     </div>
                   )}
@@ -481,6 +485,11 @@ export default function HomePage() {
           color: var(--refresh-ink, var(--text-primary));
           padding-top: 8px;
           border-top: 2px solid rgba(36, 27, 22, 0.15);
+        }
+
+        .breakdown-row--expense span:last-child {
+          color: #f43f5e;
+          font-weight: 600;
         }
 
         .quick-actions {
