@@ -357,6 +357,37 @@ export default function OrderDetailPage() {
           min-height: unset;
         }
 
+        /* "Cancelar con motivo" placeholder — see comment in
+           OrderViewPanel.tsx. Deliberately dashed/muted so it never reads
+           as the real, working cancel-via-select control above it. */
+        .cancel-reason-row {
+          display: flex; align-items: center; gap: 10px;
+          margin-bottom: 20px; margin-top: -8px;
+        }
+        .cancel-reason-btn {
+          min-height: 44px;
+          padding: 8px 14px;
+          border-radius: 20px;
+          border: 1.5px dashed var(--refresh-ink-secondary, var(--text-secondary));
+          background: transparent;
+          color: var(--refresh-ink-secondary, var(--text-secondary));
+          font-size: 13px;
+          font-weight: 600;
+          cursor: not-allowed;
+          opacity: 0.75;
+        }
+        .soon-badge {
+          font-size: 10px;
+          font-weight: 700;
+          text-transform: uppercase;
+          letter-spacing: 0.04em;
+          padding: 3px 8px;
+          border-radius: 999px;
+          background: rgba(107,114,128,.14);
+          color: var(--refresh-ink-secondary, var(--text-secondary));
+          white-space: nowrap;
+        }
+
         /* Detail cards */
         .detail-card {
           background: var(--surface); border: 1px solid var(--border);
@@ -422,10 +453,30 @@ export default function OrderDetailPage() {
         .maps-link:hover { text-decoration: underline; }
         [data-theme='dark'] .maps-link { color: #8ab4f8; }
 
+        .fee-row { position: relative; }
         .delivery-fee-badge {
           font-size: 14px;
           font-weight: 600;
           color: var(--text-primary);
+        }
+        /* Fee-edit placeholder — see comment in OrderViewPanel.tsx. Same
+           "small visual chip, full touch target" split as ServiceCard's
+           .sc-edit/.sc-edit-visual. */
+        .fee-edit-btn {
+          margin-left: auto;
+          flex-shrink: 0;
+          width: 44px; height: 44px; min-width: 44px; min-height: 44px;
+          display: flex; align-items: center; justify-content: center;
+          background: transparent; border: none; padding: 0;
+          cursor: not-allowed;
+          color: var(--refresh-ink-secondary, var(--text-secondary));
+          opacity: 0.7;
+        }
+        .fee-edit-visual {
+          width: 28px; height: 28px;
+          border-radius: 8px;
+          border: 1.5px dashed var(--refresh-ink-secondary, var(--text-secondary));
+          display: flex; align-items: center; justify-content: center;
         }
 
         /* Note */

@@ -4,11 +4,12 @@ import { useEffect, useState, useRef } from 'react';
 import Link from 'next/link';
 import { listCashClosingsForBranch } from '@/lib/data/closings';
 import { useBranch } from '@/contexts/BranchContext';
-import { formatGuaranies, formatDate, formatTime } from '@/lib/utils';
+import { formatDate, formatTime } from '@/lib/utils';
 import { Spinner } from '@/components/Spinner';
 import { Archive } from 'lucide-react';
 import { EmptyState } from '@/components/EmptyState';
 import { ErrorState } from '@/components/ErrorState';
+import { ClosingMethodBreakdown } from './ClosingMethodBreakdown';
 
 interface ClosingRow {
   id: string;
@@ -26,11 +27,6 @@ interface ClosingRow {
   discrepancy_pos: number | null;
   branch: { name: string } | null;
   closed_by_profile: { full_name: string } | null;
-}
-
-function formatSigned(value: number): string {
-  const sign = value > 0 ? '+' : value < 0 ? '-' : '';
-  return `${sign}${formatGuaranies(Math.abs(value))}`;
 }
 
 export default function ClosingsHistoryPage() {
@@ -104,41 +100,17 @@ export default function ClosingsHistoryPage() {
           <ul className="closing-list">
             {closings.map((c) => (
               <li key={c.id} className="closing-item">
-                <div className="closing-header">
-                  <span className="closing-date">
-                    {formatDate(c.closed_at)} {formatTime(c.closed_at)}
-                  </span>
-                  <span className="closing-branch">{c.branch?.name}</span>
-                </div>
-                <div className="closing-closed-by">{c.closed_by_profile?.full_name}</div>
+                <Link href={`/closings/${c.id}`} className="closing-item-link">
+                  <div className="closing-header">
+                    <span className="closing-date">
+                      {formatDate(c.closed_at)} {formatTime(c.closed_at)}
+                    </span>
+                    <span className="closing-branch">{c.branch?.name}</span>
+                  </div>
+                  <div className="closing-closed-by">{c.closed_by_profile?.full_name}</div>
 
-                <div className="closing-methods">
-                  {(['efectivo', 'transferencia', 'pos'] as const).map((method) => {
-                    const calculatedKey = `calculated_${method}` as keyof ClosingRow;
-                    const countedKey = `counted_${method}` as keyof ClosingRow;
-                    const discrepancyKey = `discrepancy_${method}` as keyof ClosingRow;
-                    const calculated = c[calculatedKey] as number;
-                    const counted = c[countedKey] as number | null;
-                    const discrepancy = c[discrepancyKey] as number | null;
-
-                    return (
-                      <div key={method} className="method-row">
-                        <span className="method-name">{method}</span>
-                        <span className="method-calculated">{formatGuaranies(calculated)}</span>
-                        {c.arqueo_enabled && counted !== null && discrepancy !== null ? (
-                          <>
-                            <span className="method-counted">{formatGuaranies(counted)}</span>
-                            <span className={`method-discrepancy ${discrepancy > 0 ? 'surplus' : discrepancy < 0 ? 'shortage' : ''}`}>
-                              {formatSigned(discrepancy)}
-                            </span>
-                          </>
-                        ) : null}
-                      </div>
-                    );
-                  })}
-                </div>
-
-                {!c.arqueo_enabled && <p className="no-arqueo">Sin arqueo (conteo no requerido)</p>}
+                  <ClosingMethodBreakdown closing={c} />
+                </Link>
               </li>
             ))}
           </ul>
@@ -184,11 +156,22 @@ export default function ClosingsHistoryPage() {
         }
 
         .closing-item {
-          padding: 16px;
           background: var(--surface);
           border: 1px solid var(--border);
           border-radius: 12px;
+          overflow: hidden;
         }
+
+        .closing-item-link {
+          display: block;
+          padding: 16px;
+          min-height: 44px;
+          color: inherit;
+          text-decoration: none;
+          transition: background 0.1s;
+        }
+        .closing-item-link:hover { background: var(--surface-elevated); }
+        .closing-item-link:active { background: var(--surface-elevated); }
 
         .closing-header {
           display: flex;
@@ -205,33 +188,6 @@ export default function ClosingsHistoryPage() {
           margin-bottom: 12px;
         }
 
-        .closing-methods {
-          display: flex;
-          flex-direction: column;
-          gap: 6px;
-        }
-
-        .method-row {
-          display: grid;
-          grid-template-columns: 1fr 1fr 1fr 1fr;
-          gap: 8px;
-          font-size: 13px;
-          color: var(--text-secondary);
-        }
-
-        .method-name {
-          text-transform: capitalize;
-          font-weight: 600;
-        }
-
-        .no-arqueo {
-          margin-top: 8px;
-          font-size: 12px;
-          color: var(--text-muted);
-        }
-
-        .method-discrepancy.surplus { color: #16a34a; }
-        .method-discrepancy.shortage { color: #dc2626; }
       `}</style>
     </div>
   );

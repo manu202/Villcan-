@@ -11,6 +11,7 @@ import {
   CreditCard,
   ChevronDown,
   StickyNote,
+  Pencil,
 } from 'lucide-react';
 import { formatGuaranies } from '@/lib/utils';
 import { ContactDetailSheet } from '@/components/ContactDetailSheet';
@@ -64,6 +65,27 @@ export function OrderViewPanel({
           <MessageCircle size={15} />
           Notificar cliente
         </button>
+      </div>
+
+      {/* Cancelar con motivo — placeholder entry point for a future richer
+          cancel flow (collects a short reason). The RPC that would back this
+          is being built on a separate branch and does not exist on main yet,
+          so this is intentionally disabled with no handler: cancelling an
+          order today still only happens via the status <select> above
+          (onStatusChange('cancelled')), which is untouched and fully
+          functional. Kept visually distinct (dashed border + "Próximamente"
+          badge) so it's never confused with that real, working path. */}
+      <div className="cancel-reason-row">
+        <button
+          type="button"
+          className="cancel-reason-btn"
+          disabled
+          aria-disabled="true"
+          title="Disponible próximamente"
+        >
+          Cancelar con motivo
+        </button>
+        <span className="soon-badge">Próximamente</span>
       </div>
 
       {/* Cliente */}
@@ -153,9 +175,24 @@ export function OrderViewPanel({
             </a>
           )}
           {order.delivery_type === 'delivery' && order.delivery_fee != null && (
-            <div className="detail-info-row">
+            <div className="detail-info-row fee-row">
               <Truck size={15} className="info-icon" style={{ opacity: 0 }} aria-hidden="true" />
               <span className="delivery-fee-badge">Delivery: {formatGuaranies(order.delivery_fee)}</span>
+              {/* Edit-fee placeholder — same reasoning as "Cancelar con
+                  motivo" above: no RPC exists yet on main to back this, so
+                  it's a disabled, non-wired entry point only. */}
+              <button
+                type="button"
+                className="fee-edit-btn"
+                disabled
+                aria-disabled="true"
+                title="Disponible próximamente"
+                aria-label="Editar fee de delivery (disponible próximamente)"
+              >
+                <span className="fee-edit-visual">
+                  <Pencil size={13} aria-hidden="true" />
+                </span>
+              </button>
             </div>
           )}
           <div className="detail-info-row">
