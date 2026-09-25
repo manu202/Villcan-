@@ -141,6 +141,25 @@ describe('OrdersPage (REQ: incoming orders panel)', () => {
       await waitFor(() => expect(gteCalls.length).toBeGreaterThan(0));
       expect(screen.getByRole('button', { name: 'Hoy' }).className).toContain('active');
     });
+
+    it('re-syncs the date filter from a new ?range= when the page is already mounted (pre-merge review finding)', async () => {
+      // Same scenario as movements/page.tsx's equivalent test: a Reports
+      // drill-down Link to /orders while it's already mounted updates
+      // searchParams without unmounting, so dateFilter must re-derive from
+      // it on every change, not just at first mount.
+      queryResult = Promise.resolve({ data: [ORDER_BASE], error: null });
+      const { rerender } = render(<OrdersPage />);
+      await waitFor(() => expect(screen.getByText('#A1B2C3')).toBeTruthy());
+      expect(screen.getByRole('button', { name: 'Todo' }).className).toContain('active');
+
+      gteCalls.length = 0;
+      ltCalls.length = 0;
+      mockSearchParams = new URLSearchParams('range=today');
+      rerender(<OrdersPage />);
+
+      await waitFor(() => expect(screen.getByRole('button', { name: 'Hoy' }).className).toContain('active'));
+      await waitFor(() => expect(gteCalls).toContainEqual(['created_at', expect.any(String)]));
+    });
   });
 
   it('scopes the orders query to the current branch (branch-scoped visibility)', async () => {

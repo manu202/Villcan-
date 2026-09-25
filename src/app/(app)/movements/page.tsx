@@ -44,6 +44,15 @@ export default function MovementsPage() {
     readMethodFromParams(searchParams)
   );
 
+  // Re-derive from the URL on every searchParams change, not just at first
+  // mount: a Reports drill-down Link to this same route while it's already
+  // mounted updates searchParams in place (no remount), which the lazy
+  // useState initializers above never see again on their own.
+  useEffect(() => {
+    setFilter(readFilterFromParams(searchParams));
+    setMethodFilter(readMethodFromParams(searchParams));
+  }, [searchParams]);
+
   // Use ref to always have current branch value inside async functions
   const currentBranchRef = useRef(currentBranch);
   useEffect(() => {

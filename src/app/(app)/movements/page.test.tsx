@@ -177,4 +177,25 @@ describe('MovementsPage M-8: drill-down from Reports via query params', () => {
 
     await waitFor(() => expect(screen.queryByText(/filtrado por método/i)).toBeNull());
   });
+
+  it('re-syncs the filter and method from a new ?range=&method= when the page is already mounted (pre-merge review finding)', async () => {
+    // Simulates clicking a fresh Reports drill-down link while /movements is
+    // already mounted in the router cache -- Next.js updates useSearchParams()
+    // without unmounting the component, so state seeded only via a lazy
+    // useState initializer would go stale. filter/methodFilter must re-derive
+    // from searchParams on every change, not just at first mount.
+    const { rerender } = render(<MovementsPage />);
+    await waitFor(() => expect(fromCalls).toBe(1));
+    deferreds[0].resolve({ data: [], error: null });
+    await waitFor(() => expect(screen.getByText('Hoy').className).toContain('active'));
+
+    mockSearchParams = new URLSearchParams('range=week&method=transferencia');
+    rerender(<MovementsPage />);
+
+    await waitFor(() => expect(screen.getByText('Semana').className).toContain('active'));
+    await waitFor(() => expect(fromCalls).toBe(2));
+    deferreds[1].resolve({ data: [], error: null });
+    await waitFor(() => expect(eqCalls).toContainEqual(['payment_method', 'transferencia']));
+    expect(screen.getByText(/filtrado por método: transferencia/i)).toBeTruthy();
+  });
 });

@@ -59,6 +59,14 @@ export default function OrdersPage() {
   const [error, setError] = useState(false);
   const [statusFilter, setStatusFilter] = useState<OrderStatus | 'all'>('all');
   const [dateFilter, setDateFilter] = useState<DateFilter>(() => readDateFilterFromParams(searchParams));
+
+  // Re-derive from the URL on every searchParams change, not just at first
+  // mount: a Reports drill-down Link to this same route while it's already
+  // mounted updates searchParams in place (no remount), which the lazy
+  // useState initializer above never sees again on its own.
+  useEffect(() => {
+    setDateFilter(readDateFilterFromParams(searchParams));
+  }, [searchParams]);
   const [reloadToken, setReloadToken] = useState(0);
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
   const [submittingOrderId, setSubmittingOrderId] = useState<string | null>(null);
