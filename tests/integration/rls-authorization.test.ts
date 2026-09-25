@@ -1104,6 +1104,270 @@ describe('RLS/RPC authorization (real Postgres, local stack)', () => {
     });
   });
 
+  // ===========================================================================
+  // SW-O4 — edit_confirmed_order_delivery_fee: a dedicated RPC to edit the
+  // delivery fee of an already-confirmed order (no UI wiring yet, backend
+  // scaffolding only per Package 2's backend-only track). Reuses the O-6
+  // non-negative-fee guard and respects the O-1/M-2 status-freeze trigger.
+  // Fixed in 20260924030000_edit_confirmed_order_delivery_fee.sql.
+  // ===========================================================================
+  describe('SW-O4: edit_confirmed_order_delivery_fee edits the fee of a confirmed order', () => {
+    async function createConfirmedDeliveryOrder(label: string, phone: string, fee = 10000) {
+      const service = await seedService(branchX, `Servicio ${label}`);
+      const { data: created } = await userC.client.rpc('create_manual_order', {
+        p_branch_id: branchX,
+        p_customer_name: `Cliente ${label}`,
+        p_customer_phone: phone,
+        p_items: [{ service_id: service.id, qty: 1 }],
+        p_delivery_type: 'delivery',
+        p_delivery_address: 'Calle Falsa 123',
+      });
+      const orderId = created?.order_id;
+      const { error } = await userC.client.rpc('confirm_order_delivery_fee', {
+        p_order_id: orderId,
+        p_delivery_fee: fee,
+      });
+      if (error) throw new Error(`fixture: confirm_order_delivery_fee failed: ${error.message}`);
+      return orderId as string;
+    }
+
+    it('positive: a branch member can edit the delivery fee of a confirmed order, total is recomputed', async () => {
+      const orderId = await createConfirmedDeliveryOrder('SWO4a', '+595981000050', 10000);
+      const { data: before } = await admin
+        .from('orders')
+        .select('total, delivery_fee')
+        .eq('id', orderId)
+        .single();
+      expect(before?.delivery_fee).toBe(10000);
+
+      const { data, error } = await userC.client.rpc('edit_confirmed_order_delivery_fee', {
+        p_order_id: orderId,
+        p_delivery_fee: 25000,
+      });
+      expect(error).toBeNull();
+      expect(data?.delivery_fee).toBe(25000);
+
+      const { data: after } = await admin
+        .from('orders')
+        .select('total, delivery_fee')
+        .eq('id', orderId)
+        .single();
+      expect(after?.delivery_fee).toBe(25000);
+      expect(after?.total).toBe((before?.total ?? 0) - 10000 + 25000);
+    });
+
+    it('negative: rejects a negative delivery fee, order unchanged (reuses the O-6 guard)', async () => {
+      const orderId = await createConfirmedDeliveryOrder('SWO4b', '+595981000051', 10000);
+
+      const { error } = await userC.client.rpc('edit_confirmed_order_delivery_fee', {
+        p_order_id: orderId,
+        p_delivery_fee: -1,
+      });
+      expect(error).not.toBeNull();
+      expect(error?.message).toMatch(/VC400|costo de delivery/i);
+
+      const { data: row } = await admin.from('orders').select('delivery_fee').eq('id', orderId).single();
+      expect(row?.delivery_fee).toBe(10000);
+    });
+
+    it('negative: rejects editing the fee of an order that is not yet confirmed (still pending)', async () => {
+      const service = await seedService(branchX, 'Servicio SWO4c');
+      const { data: created } = await userC.client.rpc('create_manual_order', {
+        p_branch_id: branchX,
+        p_customer_name: 'Cliente SWO4c',
+        p_customer_phone: '+595981000052',
+        p_items: [{ service_id: service.id, qty: 1 }],
+        p_delivery_type: 'delivery',
+        p_delivery_address: 'Calle Falsa 123',
+      });
+
+      const { error } = await userC.client.rpc('edit_confirmed_order_delivery_fee', {
+        p_order_id: created?.order_id,
+        p_delivery_fee: 5000,
+      });
+      expect(error).not.toBeNull();
+      expect(error?.message).toMatch(/VC409|pendiente|confirmado/i);
+    });
+
+    it('negative: rejects editing the fee of a completed order (status-freeze guard, O-1/M-2)', async () => {
+      const orderId = await createConfirmedDeliveryOrder('SWO4d', '+595981000053', 10000);
+      const { error: completeErr } = await userC.client.rpc('complete_order_payment', {
+        p_order_id: orderId,
+        p_amount_received: 999999,
+      });
+      expect(completeErr).toBeNull();
+
+      const { error } = await userC.client.rpc('edit_confirmed_order_delivery_fee', {
+        p_order_id: orderId,
+        p_delivery_fee: 5000,
+      });
+      expect(error).not.toBeNull();
+      expect(error?.message).toMatch(/VC409|completado|confirmado/i);
+
+      const { data: row } = await admin.from('orders').select('delivery_fee').eq('id', orderId).single();
+      expect(row?.delivery_fee).toBe(10000);
+    });
+
+    it('negative: a user with no branch access cannot call it', async () => {
+      const orderId = await createConfirmedDeliveryOrder('SWO4e', '+595981000054', 10000);
+
+      const { error } = await userB.client.rpc('edit_confirmed_order_delivery_fee', {
+        p_order_id: orderId,
+        p_delivery_fee: 5000,
+      });
+      expect(error).not.toBeNull();
+      expect(error?.message).toMatch(/VC403|autorizado/i);
+
+      const { data: row } = await admin.from('orders').select('delivery_fee').eq('id', orderId).single();
+      expect(row?.delivery_fee).toBe(10000);
+    });
+  });
+
+  // ===========================================================================
+  // O-8 — cancel_order: dedicated cancellation RPC requiring a reason string,
+  // recorded in orders.cancellation_reason/cancelled_at/cancelled_by (no UI
+  // wiring yet, backend scaffolding only). Respects the existing O-1/M-2
+  // status-freeze trigger (a completed/already-cancelled order cannot be
+  // re-cancelled or reopened through this or any other path).
+  // Fixed in 20260924030000_cancel_order_with_reason.sql.
+  // ===========================================================================
+  describe('O-8: cancel_order records a mandatory reason and freezes the order', () => {
+    it('positive: a branch member can cancel a pending order with a reason', async () => {
+      const service = await seedService(branchX, 'Servicio O8a');
+      const { data: created } = await userC.client.rpc('create_manual_order', {
+        p_branch_id: branchX,
+        p_customer_name: 'Cliente O8a',
+        p_customer_phone: '+595981000060',
+        p_items: [{ service_id: service.id, qty: 1 }],
+      });
+      const orderId = created?.order_id;
+
+      const { data, error } = await userC.client.rpc('cancel_order', {
+        p_order_id: orderId,
+        p_reason: 'Cliente no contesta el telefono',
+      });
+      expect(error).toBeNull();
+      expect(data?.status).toBe('cancelled');
+
+      const { data: row } = await admin
+        .from('orders')
+        .select('status, cancellation_reason, cancelled_at, cancelled_by')
+        .eq('id', orderId)
+        .single();
+      expect(row?.status).toBe('cancelled');
+      expect(row?.cancellation_reason).toBe('Cliente no contesta el telefono');
+      expect(row?.cancelled_at).toBeTruthy();
+      expect(row?.cancelled_by).toBe(userC.id);
+    });
+
+    it('negative: rejects a missing/blank reason, order unchanged', async () => {
+      const service = await seedService(branchX, 'Servicio O8b');
+      const { data: created } = await userC.client.rpc('create_manual_order', {
+        p_branch_id: branchX,
+        p_customer_name: 'Cliente O8b',
+        p_customer_phone: '+595981000061',
+        p_items: [{ service_id: service.id, qty: 1 }],
+      });
+      const orderId = created?.order_id;
+
+      const missing = await userC.client.rpc('cancel_order', {
+        p_order_id: orderId,
+        p_reason: null,
+      });
+      expect(missing.error).not.toBeNull();
+      expect(missing.error?.message).toMatch(/VC400|motivo/i);
+
+      const blank = await userC.client.rpc('cancel_order', {
+        p_order_id: orderId,
+        p_reason: '   ',
+      });
+      expect(blank.error).not.toBeNull();
+      expect(blank.error?.message).toMatch(/VC400|motivo/i);
+
+      const { data: row } = await admin.from('orders').select('status').eq('id', orderId).single();
+      expect(row?.status).toBe('pending');
+    });
+
+    it('negative: cannot cancel an already-completed order (status-freeze guard)', async () => {
+      const service = await seedService(branchX, 'Servicio O8c');
+      const { data: created } = await userC.client.rpc('create_manual_order', {
+        p_branch_id: branchX,
+        p_customer_name: 'Cliente O8c',
+        p_customer_phone: '+595981000062',
+        p_items: [{ service_id: service.id, qty: 1 }],
+      });
+      const orderId = created?.order_id;
+      const { error: completeErr } = await userC.client.rpc('complete_order_payment', {
+        p_order_id: orderId,
+        p_amount_received: created?.total,
+      });
+      expect(completeErr).toBeNull();
+
+      const { error } = await userC.client.rpc('cancel_order', {
+        p_order_id: orderId,
+        p_reason: 'Intento tardio',
+      });
+      expect(error).not.toBeNull();
+      expect(error?.message).toMatch(/VC409|completado|cancelado/i);
+
+      const { data: row } = await admin.from('orders').select('status').eq('id', orderId).single();
+      expect(row?.status).toBe('completed');
+    });
+
+    it('negative: cannot cancel an already-cancelled order (cannot silently un-cancel)', async () => {
+      const service = await seedService(branchX, 'Servicio O8d');
+      const { data: created } = await userC.client.rpc('create_manual_order', {
+        p_branch_id: branchX,
+        p_customer_name: 'Cliente O8d',
+        p_customer_phone: '+595981000063',
+        p_items: [{ service_id: service.id, qty: 1 }],
+      });
+      const orderId = created?.order_id;
+
+      const first = await userC.client.rpc('cancel_order', {
+        p_order_id: orderId,
+        p_reason: 'Primer motivo',
+      });
+      expect(first.error).toBeNull();
+
+      const second = await userC.client.rpc('cancel_order', {
+        p_order_id: orderId,
+        p_reason: 'Segundo motivo, intento de reabrir',
+      });
+      expect(second.error).not.toBeNull();
+      expect(second.error?.message).toMatch(/VC409|completado|cancelado/i);
+
+      const { data: row } = await admin
+        .from('orders')
+        .select('status, cancellation_reason')
+        .eq('id', orderId)
+        .single();
+      expect(row?.status).toBe('cancelled');
+      expect(row?.cancellation_reason).toBe('Primer motivo');
+    });
+
+    it('negative: a user with no branch access cannot call it', async () => {
+      const service = await seedService(branchX, 'Servicio O8e');
+      const { data: created } = await userC.client.rpc('create_manual_order', {
+        p_branch_id: branchX,
+        p_customer_name: 'Cliente O8e',
+        p_customer_phone: '+595981000064',
+        p_items: [{ service_id: service.id, qty: 1 }],
+      });
+      const orderId = created?.order_id;
+
+      const { error } = await userB.client.rpc('cancel_order', {
+        p_order_id: orderId,
+        p_reason: 'No deberia poder',
+      });
+      expect(error).not.toBeNull();
+      expect(error?.message).toMatch(/VC403|autorizado/i);
+
+      const { data: row } = await admin.from('orders').select('status').eq('id', orderId).single();
+      expect(row?.status).toBe('pending');
+    });
+  });
+
   async function seedService(branchId: string, name: string) {
     const { data, error } = await admin
       .from('services')
